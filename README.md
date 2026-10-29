@@ -30,7 +30,7 @@ Turn any MLLM into an evidence-based visual reasoner that thinks and codes in vi
 
 <a id="highlights"></a>
 ## ✨ Highlights
-
+#new
 - **Training-free.** Works with the backbone's existing weights through native
   tool calling; nothing is fine-tuned.
 - **Nine capabilities.** Visual grounding, OCR, depth, camera trajectory, zoom,
