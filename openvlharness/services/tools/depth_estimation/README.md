@@ -13,7 +13,9 @@ CUDA_VISIBLE_DEVICES=0 bash openvlharness/services/tools/depth_estimation/run_de
 
 The installer pins the tested DA3 source commit and Torch 2.10.0/Torchvision
 0.25.0 CUDA 12.8 wheels. It installs upstream DA3 dependencies, NumPy below 2
-and the HTTP/plotting dependencies. Gaussian-splat rendering (`gsplat`) and the
+and the HTTP/plotting dependencies. It also installs `addict`, which the pinned
+upstream model imports without declaring it in its package dependencies.
+Gaussian-splat rendering (`gsplat`) and the
 Gradio application extra are not needed by these depth/pose endpoints.
 The install script has not yet been verified from a clean environment.
 

@@ -4,6 +4,7 @@ Webpage_Visit_Tool resolves stored page references, scrapes up to five URLs
 through Serper, and returns per-page evidence, summaries and fetch errors.
 """
 
+import copy
 from typing import TypedDict
 
 from ._base import BaseCapability
@@ -94,11 +95,18 @@ class Capability(BaseCapability):
     """Resolve webpage references and expose goal-directed page extraction."""
 
     name = "Webpage_Visit_Tool"
-    backends = {"serper_webpage_visit": "Webpage_Visit_Tool"}
+    backends = {"serper_webpage_visit": "Webpage_Visit_Tool", "youcom_webpage_visit": "Webpage_Visit_Tool"}
     schema = PUBLIC_SCHEMA
     process_output = staticmethod(process_tool_output)
 
     resolve_urls = True
+
+    def __init__(self, **kwargs):
+        if kwargs.get("backend") == "youcom_webpage_visit":
+            self.schema = copy.deepcopy(PUBLIC_SCHEMA)
+            description = self.schema["function"]["description"]
+            self.schema["function"]["description"] = description.replace("Serper's web scraping API", "You.com's Contents API")
+        super().__init__(**kwargs)
 
     def validate_result(self, payload):
         """Validate structured page fields from result data or service metadata when present."""

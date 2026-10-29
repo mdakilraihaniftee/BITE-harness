@@ -117,6 +117,9 @@ with other harnesses, and recorded trajectories are on the
 
 Use Python **3.10 or newer**. From a source checkout:
 
+For this checkout's local environments, launch commands, and validation results,
+see [local setup](docs/local_setup.md).
+
 ```bash
 git clone https://github.com/uclanlp/OpenVLHarness.git
 cd OpenVLHarness
@@ -459,6 +462,13 @@ image-search mode, and webpage visits do not. Configure `SERPER_API_KEY` or
 when enabling `image_search`.
 
 ### Disable capabilities you do not need
+
+For an optional web-search provider, see the
+[You.com backend guide](openvlharness/services/tools/youcom_text_search/README.md).
+`youcom_text_search` supports keyless general web search;
+`youcom_webpage_visit` uses an authenticated Contents API. They reuse the
+auxiliary summarizer and page extractor. Serper remains the paper default,
+including the only reverse-image-search backend.
 
 1. Remove the corresponding keys from `capabilities.tools`. For example, remove
    `image_search` to avoid the image-hosting requirement; remove `text_search`,

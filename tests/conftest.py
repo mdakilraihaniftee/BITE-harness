@@ -13,7 +13,8 @@ except ImportError:
     collect_ignore_glob = ["evaluation/*"]
 
 CREDENTIALS = ("OPENAI_API_KEY", "OPENAI_API_BASE", "AZURE_OPENAI_API_KEY", "SERPER_API_KEY",
-               "MOONSHOT_API_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY")
+               "MOONSHOT_API_KEY", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY",
+               "YDC_API_KEY", "YDC_API_KEY_FILE")
 PROXIES = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
 
 

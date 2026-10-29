@@ -13,6 +13,8 @@ import torch
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from PIL import Image
 
+from .visualization import apply_colormap as _apply_colormap
+
 """
 Monocular Metric Depth: To obtain metric depth in meters from DA3METRIC-LARGE,
 use metric_depth = focal * net_output / 300., where focal is the focal length in pixels
@@ -58,28 +60,6 @@ def _normalize_depth(depth):
     if depth_max - depth_min < 1e-6:
         return np.zeros_like(depth, dtype=np.float32)
     return (depth - depth_min) / (depth_max - depth_min)
-
-
-def _apply_colormap(depth_norm, colormap_name):
-    """Return uint8 RGB depth colors and their name; use grayscale if matplotlib is unavailable."""
-    colormap_name = (colormap_name or "inferno").lower()
-    if colormap_name == "inferno":
-        try:
-            import matplotlib
-
-            matplotlib.use("Agg")
-            import matplotlib.cm as cm
-        except Exception:
-            colormap_name = "grayscale"
-        else:
-            colors = cm.get_cmap("inferno")(depth_norm)[:, :, :3]
-            return (colors * 255).astype(np.uint8), "inferno"
-
-    if colormap_name == "grayscale":
-        gray = (depth_norm * 255.0).astype(np.uint8)
-        return np.repeat(gray[:, :, None], 3, axis=2), "grayscale"
-
-    raise ValueError("colormap must be inferno or grayscale")
 
 
 def _encode_png(image):

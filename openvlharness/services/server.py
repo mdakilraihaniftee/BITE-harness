@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
-from ..bootstrap import load_agent_config, build_capabilities, RAW_BACKENDS
+from ..bootstrap import load_agent_config, build_capabilities, RAW_BACKENDS, AUXILIARY_BACKENDS
 from ..contracts import ServiceResult
 from . import degradation
 from .models import ModelAdapter, AuxiliaryModel
@@ -24,6 +24,7 @@ BACKEND_GROUPS = {
     "depth_estimation": "depth", "camera_trajectory": "depth",
     "serper_text_search": "search", "serper_image_search": "search",
     "serper_webpage_visit": "webpage", "python_coding_agent": "coding",
+    "youcom_text_search": "search", "youcom_webpage_visit": "webpage",
 }
 DEFAULT_LIMITS = {"depth": 1, "sam3": 1, "dino": 2, "ocr": 10,
                   "webpage": 8, "search": 4, "coding": 10}
@@ -106,7 +107,7 @@ def create_app(config, *, implementations=None):
         else:
             module = importlib.import_module(f"openvlharness.services.tools.{cap.backend}.tool")
             cls = getattr(module, cap.concrete_name)
-            if cap.backend.startswith("serper_"):
+            if cap.backend in AUXILIARY_BACKENDS:
                 model_name = service.get("model_service", "auxiliary")
                 tool = cls(llm_engine=AuxiliaryModel(settings["models"][model_name]))
             elif cap.backend == "python_coding_agent":
@@ -121,6 +122,13 @@ def create_app(config, *, implementations=None):
                 tool = cls()
         registry[cap.concrete_name] = (tool, cap.backend, service)
     _warn_if_serper_key_missing([cap.backend for cap in capabilities.values()])
+    if any(cap.backend == "youcom_webpage_visit" for cap in capabilities.values()):
+        from .tools.youcom_common import get_ydc_api_key
+        try:
+            get_ydc_api_key(required=True)
+        except (OSError, ValueError):
+            logger.warning("You.com Contents requires YDC_API_KEY or YDC_API_KEY_FILE; "
+                           "youcom_webpage_visit will fail until a readable nonempty key is configured.")
     semaphores = {name: asyncio.Semaphore(limit) for name, limit in limits.items()}
     active = dict.fromkeys(limits, 0)
     app = FastAPI(title="OpenVLHarness tool router")

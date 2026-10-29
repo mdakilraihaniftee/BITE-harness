@@ -4,6 +4,7 @@ Text_Search_Tool queries the selected Serper endpoint and presents summarized
 evidence. Image searches can include fetched pixels; result links become memory IDs.
 """
 
+import copy
 import json
 from typing import TypedDict
 
@@ -184,11 +185,24 @@ class Capability(BaseCapability):
     """Expose Serper search and rewrite result URLs into question-memory references."""
 
     name = "Text_Search_Tool"
-    backends = {"serper_text_search": "Text_Search_Tool"}
+    backends = {"serper_text_search": "Text_Search_Tool", "youcom_text_search": "Text_Search_Tool"}
     schema = PUBLIC_SCHEMA
     process_output = staticmethod(process_tool_output)
 
     rewrite_urls = True
+
+    def __init__(self, **kwargs):
+        if kwargs.get("backend") == "youcom_text_search":
+            self.schema = copy.deepcopy(PUBLIC_SCHEMA)
+            function = self.schema["function"]
+            function["description"] = ("Search the web using You.com and summarize retrieved evidence with "
+                                       "source titles, snippets and links. Use Webpage_Visit_Tool to read "
+                                       "a source page in detail. Only search_type=search is supported.")
+            properties = function["parameters"]["properties"]
+            properties["search_type"]["enum"] = ["search"]
+            properties["search_type"]["description"] = "General web search; the only supported mode is search."
+            properties["query"]["description"] = "The web search query, expressed as a question or keywords."
+        super().__init__(**kwargs)
 
     def translate_args(self, args, memory):
         """Validate that the selected backend supports the requested search type."""

@@ -20,6 +20,9 @@ PAPER_BACKENDS = dict(zip(PAPER_CAPABILITIES, (
     "sam3_segment", "ocr", "depth_estimation", "camera_trajectory", "zoom_in_image_by_bbox",
     "serper_text_search", "serper_image_search", "serper_webpage_visit", "python_coding_agent")))
 RAW_BACKENDS = {"sam3_segment", "ocr", "depth_estimation", "camera_trajectory", "grounding_dino"}
+ALTERNATE_BACKENDS = {"text_search": {"youcom_text_search"}, "web_visit": {"youcom_webpage_visit"}}
+AUXILIARY_BACKENDS = {"serper_text_search", "serper_image_search", "serper_webpage_visit",
+                      "youcom_text_search", "youcom_webpage_visit"}
 
 
 def _expand(value, missing, path=""):
@@ -139,14 +142,15 @@ def load_agent_config(config, *, save_raw_trace=False):
             if set(settings) != {"backend"}:
                 raise ValueError(f"{name} accepts only backend selection; task/tuning values do not belong here")
             backend = settings["backend"]
-            if backend != PAPER_BACKENDS[name] and not (name == "grounding" and backend == "grounding_dino" and "extensions" in groups):
+            if (backend != PAPER_BACKENDS[name] and backend not in ALTERNATE_BACKENDS.get(name, set())
+                    and not (name == "grounding" and backend == "grounding_dino" and "extensions" in groups)):
                 raise ValueError(f"Unsupported {name} backend {backend!r}; no automatic fallback")
         service = services["tools"].get(backend)
         if not isinstance(service, dict):
             raise ValueError(f"Missing services.tools.{backend} configuration")
         allowed_settings = {"server_url"} if backend in RAW_BACKENDS else (
             {"model_service", "context", "generation"} if backend == "python_coding_agent" else
-            {"model_service"} if backend.startswith("serper_") else set())
+            {"model_service"} if backend in AUXILIARY_BACKENDS else set())
         if set(service) - allowed_settings:
             raise ValueError(f"Unsupported settings for {backend}; algorithmic controls are service constants")
         if backend in RAW_BACKENDS and not service.get("server_url"):
@@ -158,7 +162,7 @@ def load_agent_config(config, *, save_raw_trace=False):
                         "/v1/grounding_dino", "/chat/completions", "/responses", "/execute"))):
                 raise ValueError(f"services.tools.{backend}.server_url must be an HTTP(S) service base, without an endpoint suffix")
         if "model_service" in allowed_settings:
-            model_service = service.get("model_service", "auxiliary" if backend.startswith("serper_") else agent["model_service"])
+            model_service = service.get("model_service", "auxiliary" if backend in AUXILIARY_BACKENDS else agent["model_service"])
             if model_service not in services["models"]:
                 raise ValueError(f"Missing model service {model_service!r} for {backend}")
         if backend == "python_coding_agent" and service.get("context", "fresh") != "fresh":

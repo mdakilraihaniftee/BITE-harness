@@ -59,6 +59,10 @@ one router process, so multiple router processes do not share that limit.
 
 ## Service environments
 
+The optional [You.com backends](youcom_text_search/README.md) provide general
+web search and authenticated Contents-based page visits through the same router.
+Select them with `backend:`; the paper presets continue to use Serper.
+
 | Service | Guide | Default port | Router-to-raw timeout |
 | --- | --- | --- | --- |
 | SAM3 | [SAM3 setup](sam3_segment/README.md) | 8086 | 300 seconds |
