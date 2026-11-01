@@ -127,6 +127,20 @@ def test_infer_then_score_then_eval_only(tmp_path, fake_model, tiny_split, run_l
     assert '"acc": 66.67' in run_log.text
 
 
+def test_passive_observer_retains_canonical_evidence_without_keep_flag(tmp_path, fake_model, tiny_split, monkeypatch):
+    monkeypatch.setenv("BITE_OBSERVER_ENABLED", "true")
+    run_dir = run(tmp_path, tiny_split)
+    work = run_dir / "FSC147_val"
+    assert fake_model["requests"] == 3
+    assert metrics(run_dir) == METRICS
+    assert len(list((work / "results").rglob("record.json"))) == 3
+    observers = [json.loads(p.read_text()) for p in (work / "bite_observations").glob("*.json")]
+    assert len(observers) == 3
+    assert len({data["question_id"] for data in observers}) == 3
+    assert all(data["budget"]["logical_tool_calls"] == 0 for data in observers)
+    assert all("ground_truth" not in data for data in observers)
+
+
 def test_failed_rows_are_retried_alone_and_db_is_kept(tmp_path, fake_model, tiny_split, run_log):
     fake_model["fail"] = {"one"}
     run_dir = run(tmp_path, tiny_split)

@@ -139,6 +139,18 @@ def _make_committed_gen(
             if not got:
                 return None
             result = original_gen(message=message, dataset=dataset, task_id=task_id, **kwargs)
+            observer_data = (result.get("extra_records") or {}).get("bite_observer") if isinstance(result, dict) else None
+            if observer_data is not None:
+                try:
+                    file_db.atomic_write(
+                        osp.join(work_dir, "bite_observations", f"{idx}.json"), observer_data,
+                        json_encoder=NumpyEncoder,
+                    )
+                except OSError as exc:
+                    observer_data["capture_complete"] = False
+                    observer_data.setdefault("capture_errors", []).append(
+                        {"hook": "sidecar_write", "exception_type": type(exc).__name__})
+                    get_logger("RUN").warning("BITE sidecar write failed: %s", type(exc).__name__)
 
             records = build_trajectory_records(
                 [idx], {idx: result},

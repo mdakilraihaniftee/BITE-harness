@@ -1,0 +1,82 @@
+{
+  "schema_version": "bite.action_space.v1",
+  "backend": "sam3_segment",
+  "actions": [
+    {
+      "name": "root_grounding",
+      "capability": "Visual_Grounding_Tool",
+      "available": true,
+      "requires": [
+        "registered_root_image",
+        "runtime_query"
+      ],
+      "cost": 1
+    },
+    {
+      "name": "repeated_grounding",
+      "capability": "Visual_Grounding_Tool",
+      "available": true,
+      "requires": [
+        "registered_root_image",
+        "same_prior_query_and_backend"
+      ],
+      "cost": 1
+    },
+    {
+      "name": "crop_generation",
+      "capability": "Zoom_In_Tool",
+      "available": true,
+      "requires": [
+        "registered_image",
+        "region_from_runtime_evidence"
+      ],
+      "cost": 1
+    },
+    {
+      "name": "focused_grounding",
+      "capability": "Visual_Grounding_Tool",
+      "available": true,
+      "requires": [
+        "registered_crop_image",
+        "runtime_query"
+      ],
+      "cost": 1
+    },
+    {
+      "name": "alternative_backend_verification",
+      "capability": "Visual_Grounding_Tool",
+      "available": false,
+      "backend": "grounding_dino",
+      "requires": [
+        "independently_configured_and_tested_backend_dispatch"
+      ],
+      "reason": "Standard paper configuration exposes one grounding backend, not per-action backend selection",
+      "cost": null
+    }
+  ],
+  "discovery_hypothesis_schema": {
+    "version": "bite.discovery_hypothesis.v1",
+    "implemented": false,
+    "origin_required": "runtime_visible_region_or_image_evidence",
+    "gt_coordinates_allowed": false
+  },
+  "collection_designs": [
+    {
+      "name": "deterministic_coverage",
+      "execute_in_phase04a": false,
+      "selection_probability": 1.0,
+      "scope": "Every prespecified eligible state/action in the coverage design"
+    },
+    {
+      "name": "randomized_eligible_uniform",
+      "execute_in_phase04a": false,
+      "selection_probability_formula": "1 / number_of_eligible_actions",
+      "seed_required": true,
+      "requires": [
+        "frozen_prior_snapshot",
+        "complete_eligible_action_list",
+        "independent_branch_clone"
+      ]
+    }
+  ]
+}

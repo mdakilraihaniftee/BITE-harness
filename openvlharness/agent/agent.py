@@ -5,7 +5,8 @@ import os
 import re
 
 from ..contracts import VirtualCall
-from ..capabilities._base import failure
+from ..capabilities._base import BaseCapability, failure
+from ..bite import create_observer
 from ..input import normalize_input, input_messages
 from ..services.raw_trace import RawTraceExportError
 
@@ -89,11 +90,14 @@ class MainAgent:
         if initial:
             history.append(self.adapter.encode_message(initial))
         turns, detections, usage = [], [], {}
+        observer = create_observer(memory, task_id, self.model)
+        if observer is not None:
+            memory._bite_observer = observer
         final = self.fail_msg
         error = None
         capture = {} if self.adapter.raw_trace_enabled else None
         try:
-            final = self._run(history, memory, turns, detections, usage, task_id, capture=capture)
+            final = self._run(history, memory, turns, detections, usage, task_id, capture=capture, observer=observer)
         except (RuntimeError, OSError) as exc:
             error = str(exc)
         trajectory = {"input_messages": original, "chat_history": turns,
@@ -113,9 +117,11 @@ class MainAgent:
         extra = {"trajectory": trajectory, "tool_detections": detections}
         if usage:
             extra["usage"] = {"total": usage}
+        if observer is not None:
+            extra["bite_observer"] = observer.finalize(final, usage, trajectory.get("error"))
         return {"prediction": final, "extra_records": extra}
 
-    def _run(self, history, memory, turns, detections, usage, task_id, *, capture=None):
+    def _run(self, history, memory, turns, detections, usage, task_id, *, capture=None, observer=None):
         """Run model/tool iterations, updating history, memory and reporting lists.
 
         Returns the extracted final answer or the failure message. The adapter may
@@ -134,28 +140,39 @@ class MainAgent:
                 salt = 0
             seed_base = (base + salt * 1_000_003) % 2_000_000_000
         for index in range(self.max_iterations):
+            if observer is not None:
+                observer.model_start(index)
             if index == self.max_iterations - 1:
                 history.append(adapter.encode_message({"role": "user",
                     "content": "Please provide your best final answer now if enough information is available."}))
             if policy.get("context_policy") == "qwen_tokenizer":
+                before = observer.serializer.fingerprint(history) if observer is not None else None
                 tools, choice = adapter._ensure_context_fits(history, tools, choice)
+                if observer is not None:
+                    observer.context_change(before, observer.serializer.fingerprint(history), tools)
             seed = seed_base + index if seed_base is not None else None
             try:
                 response = adapter.request(history, tools, choice, seed=seed, capture=capture)
             except RuntimeError as exc:
                 context_error = any(text in str(exc).lower() for text in ("context length", "maximum input length"))
                 if policy.get("context_error_fallback") and context_error:
+                    if observer is not None:
+                        observer.context_change("context_error", "vanilla_fallback", False, "provider_context_error_fallback")
                     response = adapter.request(adapter._build_vanilla_fallback_msgs(history), None, "none", seed=seed, capture=capture)
                 else:
                     raise
             if isinstance(response, dict) and isinstance(response.get("usage"), dict):
                 _accumulate(usage, response["usage"])
             text, calls, original = adapter.parse(response, index)
+            if observer is not None:
+                observer.model_response(calls, not calls and adapter.final_answer(text))
             turn = self._turn(index, text, calls)
             if calls:
                 adapter.append_assistant_calls(history, text, calls, original)
                 deferred = []
                 for call in calls:
+                    if observer is not None:
+                        observer.proposal(call, self.capabilities.get(call["name"]))
                     virtual = VirtualCall(call["id"], call["name"], call["args"])
                     if call.get("parse_error"):
                         result = failure(virtual, call["parse_error"]["code"], call["parse_error"]["message"],
@@ -163,7 +180,13 @@ class MainAgent:
                     elif call["name"] not in self.capabilities:
                         result = failure(virtual, "tool_not_found", f"Tool not found: {call['name']}")
                     else:
-                        result = self.capabilities[call["name"]].invoke(virtual, memory)
+                        if observer is not None and not isinstance(self.capabilities[call["name"]], BaseCapability):
+                            observer.dispatch(virtual, self.capabilities[call["name"]], memory)
+                        capability = self.capabilities[call["name"]]
+                        result = (observer.invoke(capability, virtual, memory) if observer is not None
+                                  else capability.invoke(virtual, memory))
+                    if observer is not None:
+                        observer.result(virtual, result, memory, len(turn["tool_responses"]))
                     if result.detection:
                         detection = copy.deepcopy(result.detection)
                         detection["tool_call_idx"] = len(detections)
@@ -191,9 +214,18 @@ class MainAgent:
                     history.append(adapter.encode_message(update))
                 turns.append(turn)
                 if index == self.max_iterations - 1 and policy.get("extra_final_request"):
+                    if observer is not None:
+                        observer.model_start(index + 1, "final_text_only")
+                    before = observer.serializer.fingerprint(history) if observer is not None else None
                     final_tools, final_choice = adapter._ensure_context_fits(history, tools, "none")
+                    if observer is not None:
+                        observer.context_change(before, observer.serializer.fingerprint(history), final_tools)
                     response = adapter.request(history, final_tools, final_choice, seed=seed, capture=capture)
                     text, calls, original = adapter.parse(response, index + 1, phase="final_text_only")
+                    if observer is not None:
+                        observer.model_response(calls, not calls and adapter.final_answer(text))
+                        for call in calls:
+                            observer.proposal(call, self.capabilities.get(call["name"]), rejected_reason="final_text_only")
                     if isinstance(response.get("usage"), dict):
                         _accumulate(usage, response["usage"])
                     if calls:

@@ -1,0 +1,720 @@
+{
+  "schema_version": "bite.observation.v1",
+  "run_id": "1b7088436c3b4a9ab7a34fc0fef17c22",
+  "sample_id": "PascalVOC_val_262_replay",
+  "question_id": "319a857de71e42daa00948ab5b998bf9",
+  "budget": {
+    "reference_limit": 15,
+    "model_iterations": 3,
+    "logical_tool_calls": 2,
+    "successful_tool_calls": 2,
+    "failed_tool_calls": 0,
+    "rejected_proposals": 0,
+    "remaining_budget": 13,
+    "enforced": false,
+    "physical_backend_attempts": null,
+    "physical_attempts_reason": "Transport/provider subattempts are not instrumented"
+  },
+  "events": [
+    {
+      "event_id": "event_0001",
+      "type": "model_turn",
+      "iteration": 1,
+      "model": "Qwen/Qwen3-VL-8B-Instruct",
+      "phase": "regular",
+      "status": "responded",
+      "tools_proposed": true,
+      "final_response": false,
+      "parsing_failed": false
+    },
+    {
+      "event_id": "event_0002",
+      "type": "tool_proposal",
+      "iteration": 1,
+      "provider_tool_call_id": "chatcmpl-tool-8b54482ffc57154f",
+      "capability": "Visual_Grounding_Tool",
+      "raw_arguments": "{\"query\": \"person\", \"image_id\": \"input_image_1\"}",
+      "parsed_arguments": {
+        "query": "person",
+        "image_id": "input_image_1"
+      },
+      "validation_status": "dispatchable",
+      "eligible_for_dispatch": true,
+      "rejection_reasons": [],
+      "logical_action_id": "action_0001"
+    },
+    {
+      "event_id": "event_0003",
+      "type": "tool_dispatch",
+      "iteration": 1,
+      "logical_action_id": "action_0001",
+      "provider_tool_call_id": "chatcmpl-tool-8b54482ffc57154f",
+      "capability": "Visual_Grounding_Tool",
+      "backend": "sam3_segment",
+      "image_inputs": [
+        {
+          "requested_image_id": "input_image_1",
+          "resolved_image_id": "input_image_1",
+          "resolution_mode": "matched",
+          "width": 500,
+          "height": 333,
+          "sha256": "4e67b3dd87f279ac595bd8c0e8d5f86b075cfa5f392206831e8697d02674f62e",
+          "frame": {
+            "root_image_id": "input_image_1",
+            "child_to_root_transform": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ]
+          },
+          "frame_reason": null
+        }
+      ],
+      "source_image_reason": null,
+      "started_at": "2026-10-29T21:43:20.947656+00:00",
+      "logical_tool_cost": 1,
+      "selection_dependency": "unknown",
+      "physical_attempts": null,
+      "backend_node_id": "backend:sam3_segment"
+    },
+    {
+      "event_id": "event_0004",
+      "type": "tool_observation",
+      "iteration": 1,
+      "logical_action_id": "action_0001",
+      "observation_id": "observation_0001",
+      "provider_tool_call_id": "chatcmpl-tool-8b54482ffc57154f",
+      "capability": "Visual_Grounding_Tool",
+      "backend": "sam3_segment",
+      "success": true,
+      "error_category": null,
+      "error": null,
+      "exception_type": null,
+      "ended_at": "2026-10-29T21:43:20.951377+00:00",
+      "latency_ms": 3.692594007588923,
+      "canonical_result_type": "dict",
+      "canonical_result_ref": "extra_records.trajectory.chat_history[0].memory_outputs[0].canonical_result",
+      "raw_result_ref": "extra_records.trajectory.chat_history[0].tool_responses[0]",
+      "image_inputs": [
+        {
+          "requested_image_id": "input_image_1",
+          "resolved_image_id": "input_image_1",
+          "resolution_mode": "matched",
+          "width": 500,
+          "height": 333,
+          "sha256": "4e67b3dd87f279ac595bd8c0e8d5f86b075cfa5f392206831e8697d02674f62e",
+          "frame": {
+            "root_image_id": "input_image_1",
+            "child_to_root_transform": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ]
+          },
+          "frame_reason": null
+        }
+      ],
+      "artifact_refs": [
+        {
+          "kind": "image",
+          "id": "tool_generated_image_1"
+        },
+        {
+          "kind": "binding",
+          "id": "segment_person"
+        }
+      ],
+      "physical_attempts": null,
+      "grounding": {
+        "query": "person",
+        "model_id": "sam3-image",
+        "size_height_width": [
+          333,
+          500
+        ],
+        "detections": [
+          {
+            "detection_id": "observation_0001:detection_0000",
+            "detection_rank": 0,
+            "label": "person",
+            "bbox_local_xyxy": [
+              201.7683868408203,
+              131.7963409423828,
+              285.5701904296875,
+              332.92047119140625
+            ],
+            "bbox_root_xyxy": [
+              201.7683868408203,
+              131.7963409423828,
+              285.5701904296875,
+              332.92047119140625
+            ],
+            "root_frame_reason": null,
+            "score": 0.984375,
+            "score_reason": null,
+            "mask": {
+              "sha256": "c953a1bfa273792a4b817c7929ec15026b1cc5f37227671a3182cc6f0274e7d6",
+              "encoding": "COCO_RLE_counts",
+              "size_height_width": [
+                333,
+                500
+              ],
+              "canonical_ref": "extra_records.trajectory.chat_history[0].memory_outputs[0].canonical_result.masks[0]"
+            }
+          }
+        ],
+        "boxes_reason": null,
+        "masks_available": true,
+        "masks_reason": null,
+        "score_semantics": "retained_detector_score_not_posterior",
+        "empty_detection": false
+      }
+    },
+    {
+      "event_id": "event_0005",
+      "type": "model_turn",
+      "iteration": 2,
+      "model": "Qwen/Qwen3-VL-8B-Instruct",
+      "phase": "regular",
+      "status": "responded",
+      "tools_proposed": true,
+      "final_response": false,
+      "parsing_failed": false
+    },
+    {
+      "event_id": "event_0006",
+      "type": "tool_proposal",
+      "iteration": 2,
+      "provider_tool_call_id": "chatcmpl-tool-836284f7de74a3c5",
+      "capability": "Visual_Grounding_Tool",
+      "raw_arguments": "{\"query\": \"horse\", \"image_id\": \"input_image_1\"}",
+      "parsed_arguments": {
+        "query": "horse",
+        "image_id": "input_image_1"
+      },
+      "validation_status": "dispatchable",
+      "eligible_for_dispatch": true,
+      "rejection_reasons": [],
+      "logical_action_id": "action_0002"
+    },
+    {
+      "event_id": "event_0007",
+      "type": "tool_dispatch",
+      "iteration": 2,
+      "logical_action_id": "action_0002",
+      "provider_tool_call_id": "chatcmpl-tool-836284f7de74a3c5",
+      "capability": "Visual_Grounding_Tool",
+      "backend": "sam3_segment",
+      "image_inputs": [
+        {
+          "requested_image_id": "input_image_1",
+          "resolved_image_id": "input_image_1",
+          "resolution_mode": "matched",
+          "width": 500,
+          "height": 333,
+          "sha256": "4e67b3dd87f279ac595bd8c0e8d5f86b075cfa5f392206831e8697d02674f62e",
+          "frame": {
+            "root_image_id": "input_image_1",
+            "child_to_root_transform": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ]
+          },
+          "frame_reason": null
+        }
+      ],
+      "source_image_reason": null,
+      "started_at": "2026-10-29T21:43:20.952198+00:00",
+      "logical_tool_cost": 1,
+      "selection_dependency": "unknown",
+      "physical_attempts": null,
+      "backend_node_id": "backend:sam3_segment"
+    },
+    {
+      "event_id": "event_0008",
+      "type": "tool_observation",
+      "iteration": 2,
+      "logical_action_id": "action_0002",
+      "observation_id": "observation_0002",
+      "provider_tool_call_id": "chatcmpl-tool-836284f7de74a3c5",
+      "capability": "Visual_Grounding_Tool",
+      "backend": "sam3_segment",
+      "success": true,
+      "error_category": null,
+      "error": null,
+      "exception_type": null,
+      "ended_at": "2026-10-29T21:43:20.955765+00:00",
+      "latency_ms": 3.564142039977014,
+      "canonical_result_type": "dict",
+      "canonical_result_ref": "extra_records.trajectory.chat_history[1].memory_outputs[0].canonical_result",
+      "raw_result_ref": "extra_records.trajectory.chat_history[1].tool_responses[0]",
+      "image_inputs": [
+        {
+          "requested_image_id": "input_image_1",
+          "resolved_image_id": "input_image_1",
+          "resolution_mode": "matched",
+          "width": 500,
+          "height": 333,
+          "sha256": "4e67b3dd87f279ac595bd8c0e8d5f86b075cfa5f392206831e8697d02674f62e",
+          "frame": {
+            "root_image_id": "input_image_1",
+            "child_to_root_transform": [
+              [
+                1,
+                0,
+                0
+              ],
+              [
+                0,
+                1,
+                0
+              ],
+              [
+                0,
+                0,
+                1
+              ]
+            ]
+          },
+          "frame_reason": null
+        }
+      ],
+      "artifact_refs": [
+        {
+          "kind": "image",
+          "id": "tool_generated_image_2"
+        },
+        {
+          "kind": "binding",
+          "id": "segment_horse"
+        }
+      ],
+      "physical_attempts": null,
+      "grounding": {
+        "query": "horse",
+        "model_id": "sam3-image",
+        "size_height_width": [
+          333,
+          500
+        ],
+        "detections": [
+          {
+            "detection_id": "observation_0002:detection_0000",
+            "detection_rank": 0,
+            "label": "horse",
+            "bbox_local_xyxy": [
+              -0.8233189582824707,
+              29.316007614135742,
+              197.33230590820312,
+              331.78839111328125
+            ],
+            "bbox_root_xyxy": [
+              -0.8233189582824707,
+              29.316007614135742,
+              197.33230590820312,
+              331.78839111328125
+            ],
+            "root_frame_reason": null,
+            "score": 0.9765625,
+            "score_reason": null,
+            "mask": {
+              "sha256": "5ace6f4c6ada07184426063fbdf600ba345f1536666526afe4609a133278f9d8",
+              "encoding": "COCO_RLE_counts",
+              "size_height_width": [
+                333,
+                500
+              ],
+              "canonical_ref": "extra_records.trajectory.chat_history[1].memory_outputs[0].canonical_result.masks[0]"
+            }
+          },
+          {
+            "detection_id": "observation_0002:detection_0001",
+            "detection_rank": 1,
+            "label": "horse",
+            "bbox_local_xyxy": [
+              311.8001708984375,
+              46.78264236450195,
+              500.0979919433594,
+              329.0599060058594
+            ],
+            "bbox_root_xyxy": [
+              311.8001708984375,
+              46.78264236450195,
+              500.0979919433594,
+              329.0599060058594
+            ],
+            "root_frame_reason": null,
+            "score": 0.96484375,
+            "score_reason": null,
+            "mask": {
+              "sha256": "4f216d2e2b42cc020c97f2496a2f1d4fc2678b4d7d354c47a65346f56b584b9e",
+              "encoding": "COCO_RLE_counts",
+              "size_height_width": [
+                333,
+                500
+              ],
+              "canonical_ref": "extra_records.trajectory.chat_history[1].memory_outputs[0].canonical_result.masks[1]"
+            }
+          }
+        ],
+        "boxes_reason": null,
+        "masks_available": true,
+        "masks_reason": null,
+        "score_semantics": "retained_detector_score_not_posterior",
+        "empty_detection": false
+      }
+    },
+    {
+      "event_id": "event_0009",
+      "type": "model_turn",
+      "iteration": 3,
+      "model": "Qwen/Qwen3-VL-8B-Instruct",
+      "phase": "regular",
+      "status": "responded",
+      "tools_proposed": false,
+      "final_response": true,
+      "parsing_failed": false
+    },
+    {
+      "event_id": "event_0010",
+      "type": "finalization",
+      "final_model_iteration": 3,
+      "logical_tool_calls": 2,
+      "original_agent_final_response_valid": true,
+      "validity_semantics": "nonempty_nonfailure_sentinel_not_task_JSON_validation",
+      "final_output_sha256": "f5079af45481ff7ad970a0e3bf77b2a96808c5933a4542f2c4451e7dfed8e712",
+      "remaining_budget": 13,
+      "model_token_usage": {},
+      "agent_error_present": false
+    }
+  ],
+  "artifacts": [
+    {
+      "artifact_id": "image:input_image_1",
+      "kind": "image",
+      "image_id": "input_image_1",
+      "sha256": "4e67b3dd87f279ac595bd8c0e8d5f86b075cfa5f392206831e8697d02674f62e",
+      "width": 500,
+      "height": 333,
+      "metadata_reason": null,
+      "aliases": [
+        "image",
+        "image.jpeg",
+        "image.jpg",
+        "image.png",
+        "image_1",
+        "input_image_1"
+      ],
+      "coordinate_frames": [
+        {
+          "root_image_id": "input_image_1",
+          "child_to_root_transform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "artifact_id": "image:tool_generated_image_1",
+      "kind": "image",
+      "image_id": "tool_generated_image_1",
+      "sha256": "6699c732535bcb3e84a66167e970ef7a2163c339c7e719a61d340bcfa9aa7144",
+      "width": 500,
+      "height": 333,
+      "metadata_reason": null,
+      "aliases": [
+        "tool_generated_image_1"
+      ],
+      "coordinate_frames": [
+        {
+          "root_image_id": "input_image_1",
+          "child_to_root_transform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "artifact_id": "binding:segment_person",
+      "kind": "binding",
+      "id": "segment_person",
+      "canonical_result_ref": "extra_records.trajectory.chat_history[0].memory_outputs[0].canonical_result"
+    },
+    {
+      "artifact_id": "image:tool_generated_image_2",
+      "kind": "image",
+      "image_id": "tool_generated_image_2",
+      "sha256": "ba69f5a8dd5ca4de4ad2677843b75ee1021805b938d67c0d7b9ccbeac90903a5",
+      "width": 500,
+      "height": 333,
+      "metadata_reason": null,
+      "aliases": [
+        "tool_generated_image_2"
+      ],
+      "coordinate_frames": [
+        {
+          "root_image_id": "input_image_1",
+          "child_to_root_transform": [
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              0,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "artifact_id": "binding:segment_horse",
+      "kind": "binding",
+      "id": "segment_horse",
+      "canonical_result_ref": "extra_records.trajectory.chat_history[1].memory_outputs[0].canonical_result"
+    }
+  ],
+  "provenance_nodes": [
+    {
+      "id": "image:input_image_1",
+      "kind": "original_image",
+      "image_id": "input_image_1"
+    },
+    {
+      "id": "action_0001",
+      "kind": "tool_action",
+      "capability": "Visual_Grounding_Tool"
+    },
+    {
+      "id": "backend:sam3_segment",
+      "kind": "backend",
+      "backend": "sam3_segment",
+      "checkpoint_revision": null,
+      "checkpoint_reason": "Worker contract does not publish a verified revision",
+      "reported_model_id": "sam3-image"
+    },
+    {
+      "id": "observation_0001",
+      "kind": "tool_observation",
+      "logical_action_id": "action_0001"
+    },
+    {
+      "id": "observation_0001:detection_0000",
+      "kind": "detection",
+      "observation_id": "observation_0001"
+    },
+    {
+      "id": "image:tool_generated_image_1",
+      "kind": "generated_image",
+      "image_id": "tool_generated_image_1"
+    },
+    {
+      "id": "binding:segment_person",
+      "kind": "binding"
+    },
+    {
+      "id": "action_0002",
+      "kind": "tool_action",
+      "capability": "Visual_Grounding_Tool"
+    },
+    {
+      "id": "observation_0002",
+      "kind": "tool_observation",
+      "logical_action_id": "action_0002"
+    },
+    {
+      "id": "observation_0002:detection_0000",
+      "kind": "detection",
+      "observation_id": "observation_0002"
+    },
+    {
+      "id": "observation_0002:detection_0001",
+      "kind": "detection",
+      "observation_id": "observation_0002"
+    },
+    {
+      "id": "image:tool_generated_image_2",
+      "kind": "generated_image",
+      "image_id": "tool_generated_image_2"
+    },
+    {
+      "id": "binding:segment_horse",
+      "kind": "binding"
+    }
+  ],
+  "provenance_edges": [
+    {
+      "source": "action_0001",
+      "target": "backend:sam3_segment",
+      "relation": "uses_backend"
+    },
+    {
+      "source": "action_0001",
+      "target": "image:input_image_1",
+      "relation": "uses_image"
+    },
+    {
+      "source": "action_0001",
+      "target": "image:input_image_1",
+      "relation": "shares_root_image"
+    },
+    {
+      "source": "action_0001",
+      "target": "observation_0001",
+      "relation": "produces_observation"
+    },
+    {
+      "source": "observation_0001",
+      "target": "backend:sam3_segment",
+      "relation": "uses_backend"
+    },
+    {
+      "source": "observation_0001",
+      "target": "observation_0001:detection_0000",
+      "relation": "produces_detection"
+    },
+    {
+      "source": "action_0001",
+      "target": "image:tool_generated_image_1",
+      "relation": "produces_image"
+    },
+    {
+      "source": "image:tool_generated_image_1",
+      "target": "image:input_image_1",
+      "relation": "derived_from_image"
+    },
+    {
+      "source": "action_0001",
+      "target": "binding:segment_person",
+      "relation": "produces_artifact"
+    },
+    {
+      "source": "action_0002",
+      "target": "backend:sam3_segment",
+      "relation": "uses_backend"
+    },
+    {
+      "source": "action_0002",
+      "target": "image:input_image_1",
+      "relation": "uses_image"
+    },
+    {
+      "source": "action_0002",
+      "target": "image:input_image_1",
+      "relation": "shares_root_image"
+    },
+    {
+      "source": "action_0002",
+      "target": "observation_0002",
+      "relation": "produces_observation"
+    },
+    {
+      "source": "observation_0002",
+      "target": "backend:sam3_segment",
+      "relation": "uses_backend"
+    },
+    {
+      "source": "observation_0002",
+      "target": "observation_0002:detection_0000",
+      "relation": "produces_detection"
+    },
+    {
+      "source": "observation_0002",
+      "target": "observation_0002:detection_0001",
+      "relation": "produces_detection"
+    },
+    {
+      "source": "action_0002",
+      "target": "image:tool_generated_image_2",
+      "relation": "produces_image"
+    },
+    {
+      "source": "image:tool_generated_image_2",
+      "target": "image:input_image_1",
+      "relation": "derived_from_image"
+    },
+    {
+      "source": "action_0002",
+      "target": "binding:segment_horse",
+      "relation": "produces_artifact"
+    }
+  ],
+  "capture_complete": true,
+  "capture_errors": [],
+  "origin": {
+    "kind": "deterministic_replay_fixture",
+    "description": "Phase 3 schema; copied numeric tool outputs with synthetic input pixels; no GT"
+  }
+}

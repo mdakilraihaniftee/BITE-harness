@@ -1,0 +1,71 @@
+{
+  "boundaries": {
+    "certificate_note": "Requires later validated outcome models, uncertainty treatment, solver bounds and mathematical assumptions.",
+    "identifiability_certificate": false,
+    "planner": false,
+    "posterior_computation": false,
+    "probability_fitting": false
+  },
+  "candidate_belief": {
+    "raw_detector_score_is_probability": false,
+    "runtime_belief": "p_t=P(H_V=1|s_t)",
+    "variable": "H_V in {0,1} separately at IoU 0.50 and 0.75"
+  },
+  "conditional_observation_kernel": {
+    "causal_claim": "restricted operational intervention estimate, not automatically a fully identified physical-world kernel",
+    "estimand": "K_a(o|H_V,s_t)=P(O_a=o|H_V,s_t,do(a))",
+    "fitted_in_this_phase": false,
+    "generalization_unit": "source images clustered by source_group_id"
+  },
+  "decision_risk": {
+    "brier_is_official_odinw_ap": false,
+    "calibration_losses": [
+      "Brier score",
+      "negative log likelihood"
+    ],
+    "official_detection_evaluation": "unchanged original evaluator/AP plus prespecified per-image localization/recall diagnostics",
+    "task_v_forced_decision_loss": "1[hat(H_V) != H_V]"
+  },
+  "dependency_classes": [
+    {
+      "independent": false,
+      "kind": "identical_image_backend_query"
+    },
+    {
+      "independent": false,
+      "kind": "modified_query_same_backend"
+    },
+    {
+      "independent": false,
+      "kind": "derived_crop_same_backend",
+      "new_raw_image_information": false
+    },
+    {
+      "available": false,
+      "kind": "different_verified_backend"
+    }
+  ],
+  "operational_state": {
+    "complete_hidden_world": false,
+    "exact_image_hash_predictive_feature": false,
+    "feature_map": "s_t=phi(H_t)",
+    "identities_for_clustering_and_audit_only": true,
+    "runtime_visible_only": true,
+    "schema_version": "bite.operational_state.v1"
+  },
+  "query_schedule_amendment": {
+    "gt_presence_used": false,
+    "requested_classes_per_group": 2,
+    "scheduled_count": "min(requested_classes_per_group, available_verified_classes)",
+    "schema_version": "bite.query_schedule.v2",
+    "seed": 417
+  },
+  "schema_version": "bite.calibration_research_amendment.v1",
+  "target_outcomes": {
+    "discovery_schema": "bite.discovery_outcome.v1",
+    "full_joint_output_retained": true,
+    "gt_used_online": false,
+    "strongest_crop_detection_assumed_target": false,
+    "verification_schema": "bite.target_aligned_outcome.v1"
+  }
+}

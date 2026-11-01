@@ -1,0 +1,146 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "collection_run_id",
+    "source_group_id",
+    "parent_snapshot_id",
+    "parent_state_digest",
+    "branch_id",
+    "selection_design",
+    "eligible_actions",
+    "ineligible_actions",
+    "selection_probability",
+    "path_draw_probability",
+    "selection_steps",
+    "selection_seed",
+    "rng",
+    "selected_path",
+    "prefix_cost",
+    "branch_cost",
+    "hypothetical_path_cost",
+    "experimental_expenditure_contribution",
+    "observations",
+    "candidate_rows",
+    "resulting_artifacts",
+    "terminal_state_digest",
+    "status",
+    "capture_complete",
+    "offline_gt_used",
+    "native_history_extended",
+    "errors"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "bite.collection.v1"
+    },
+    "collection_run_id": {
+      "type": "string"
+    },
+    "source_group_id": {
+      "type": "string"
+    },
+    "parent_snapshot_id": {
+      "type": "string"
+    },
+    "parent_state_digest": {
+      "type": "string"
+    },
+    "branch_id": {
+      "type": "string"
+    },
+    "selection_design": {
+      "type": "string"
+    },
+    "terminal_state_digest": {
+      "type": "string"
+    },
+    "eligible_actions": {
+      "type": "array"
+    },
+    "ineligible_actions": {
+      "type": "array"
+    },
+    "selection_probability": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "path_draw_probability": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "exclusiveMinimum": 0,
+      "maximum": 1
+    },
+    "selection_steps": {
+      "type": "array"
+    },
+    "selection_seed": {
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "rng": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "selected_path": {
+      "type": "array"
+    },
+    "prefix_cost": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "branch_cost": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "hypothetical_path_cost": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "experimental_expenditure_contribution": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "observations": {
+      "type": "array"
+    },
+    "candidate_rows": {
+      "type": "array"
+    },
+    "resulting_artifacts": {
+      "type": "array"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "partial",
+        "failed",
+        "ineligible"
+      ]
+    },
+    "capture_complete": {
+      "type": "boolean"
+    },
+    "offline_gt_used": {
+      "const": false
+    },
+    "native_history_extended": {
+      "const": false
+    },
+    "errors": {
+      "type": "array"
+    }
+  }
+}

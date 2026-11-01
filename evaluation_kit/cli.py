@@ -643,7 +643,10 @@ def main(argv=None):
             # evaluated. Only on --mode all (inference + eval both ran this
             # invocation) so eval-only / infer-only never delete it. Never
             # fatal: the xlsx + full_trajectories are the durable outputs.
-            keep_db = args.keep_file_db or os.getenv("MVTK_KEEP_FILE_DB") in ("1", "true", "True")
+            # Observer hashes/references rely on canonical raw numerical records.
+            # Their presence preserves these records even without --keep-file-db.
+            keep_db = (args.keep_file_db or os.getenv("MVTK_KEEP_FILE_DB") in ("1", "true", "True")
+                       or os.path.isdir(os.path.join(os.path.dirname(result_file), "bite_observations")))
             if args.mode == "all" and not keep_db:
                 try:
                     db_work_dir = os.path.dirname(result_file)

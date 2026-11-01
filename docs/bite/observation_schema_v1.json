@@ -1,0 +1,270 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "run_id",
+    "sample_id",
+    "question_id",
+    "budget",
+    "events",
+    "artifacts",
+    "provenance_nodes",
+    "provenance_edges",
+    "capture_complete"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "bite.observation.v1"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "sample_id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "question_id": {
+      "type": "string"
+    },
+    "budget": {
+      "type": "object",
+      "required": [
+        "reference_limit",
+        "remaining_budget",
+        "model_iterations",
+        "logical_tool_calls",
+        "successful_tool_calls",
+        "failed_tool_calls",
+        "rejected_proposals",
+        "enforced",
+        "physical_backend_attempts"
+      ],
+      "properties": {
+        "model_iterations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "logical_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "successful_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed_tool_calls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejected_proposals": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "enforced": {
+          "const": false
+        },
+        "physical_backend_attempts": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "reference_limit": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "remaining_budget": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        }
+      }
+    },
+    "capture_complete": {
+      "type": "boolean"
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "event_id",
+          "type"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "model_turn",
+              "context_change",
+              "tool_proposal",
+              "tool_dispatch",
+              "tool_observation",
+              "finalization",
+              "observer_error"
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "model_turn"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "iteration",
+                "model",
+                "phase",
+                "status",
+                "tools_proposed",
+                "final_response",
+                "parsing_failed"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "context_change"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "iteration",
+                "reason",
+                "before_digest",
+                "after_digest",
+                "tools_enabled"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "tool_proposal"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "iteration",
+                "provider_tool_call_id",
+                "capability",
+                "raw_arguments",
+                "parsed_arguments",
+                "validation_status",
+                "eligible_for_dispatch",
+                "rejection_reasons",
+                "logical_action_id"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "tool_dispatch"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "iteration",
+                "logical_action_id",
+                "provider_tool_call_id",
+                "capability",
+                "backend",
+                "image_inputs",
+                "started_at",
+                "logical_tool_cost",
+                "physical_attempts"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "tool_observation"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "iteration",
+                "logical_action_id",
+                "observation_id",
+                "provider_tool_call_id",
+                "success",
+                "error_category",
+                "canonical_result_ref",
+                "raw_result_ref",
+                "artifact_refs",
+                "ended_at",
+                "latency_ms"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "finalization"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "final_model_iteration",
+                "logical_tool_calls",
+                "original_agent_final_response_valid",
+                "final_output_sha256",
+                "remaining_budget",
+                "model_token_usage"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "type": {
+                  "const": "observer_error"
+                }
+              }
+            },
+            "then": {
+              "required": [
+                "hook",
+                "exception_type"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "artifacts": {
+      "type": "array"
+    },
+    "provenance_nodes": {
+      "type": "array"
+    },
+    "provenance_edges": {
+      "type": "array"
+    }
+  }
+}

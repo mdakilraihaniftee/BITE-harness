@@ -146,8 +146,14 @@ class BaseCapability:
                 details=resolution["errors"], meta={"image_resolution": resolution})
         try:
             args = self.translate_args(args, memory)
+            observer = getattr(memory, "_bite_observer", None)
+            if observer is not None:
+                observer.dispatch(call, self, memory, resolution, args)
             payload = self.execute(call, args, memory)
         except Exception as exc:
+            observer = getattr(memory, "_bite_observer", None)
+            if observer is not None:
+                observer.transport_error(call, exc)
             return failure(call, "tool_execution_error", str(exc))
         payload = dict(payload)
         payload["tool_name"] = self.name
