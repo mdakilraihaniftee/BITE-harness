@@ -282,9 +282,12 @@ def test_review_progress_preserves_set_separation_and_no_fabrication():
                                second_review_sample=second)
     assert progress["set_a"]["total"] == 120
     assert progress["set_b"]["total"] == 228
-    assert progress["genuine_completed_review_count"] == 0
+    expected_pairs = {(row["case_id"], row["reviewer_id"]) for row in completed}
+    assert progress["genuine_completed_review_count"] == len(expected_pairs)
     assert progress["fake_human_reviews_created"] is False
-    assert progress["visual_label_reliability"] == "UNKNOWN"
+    assert progress["visual_label_reliability"] == (
+        "REQUIRES_ANALYSIS" if expected_pairs else "UNKNOWN"
+    )
 
 
 def test_second_review_sample_is_group_aware_deterministic_and_blind():
