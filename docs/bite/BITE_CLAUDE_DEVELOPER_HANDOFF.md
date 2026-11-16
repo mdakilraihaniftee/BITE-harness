@@ -221,3 +221,47 @@ inventory.
   names.
 - `tests/conftest.py` allows loopback connections, so tests must always inject
   a `requester`.
+
+## 10. Phase 4C-1G update (2026-11-04, code-verified)
+
+Status: ENGINEERING_SUCCESS_WITH_BLOCKERS. 0 real model calls; neither the 4C-1F
+semantic authorization nor the new 4C-1G final-answer authorization exists.
+
+**Protocol.** Protocol A (controlled fixed-decoder counting probe) only. Task V
+states have no agent conversation prefix (controlled capability execution), so
+genuine agent continuation (Protocol B) is not reconstructible without new agent
+and SAM 3 runs.
+
+**New modules** (`evaluation_kit/bite_calibration/`)
+
+| Module | Purpose |
+| --- | --- |
+| `task_level_probe_protocol.py` | Counting task, frozen prompt/parser digests, GT-blind task manifest from the 4C-1E semantic manifest plus stored states, pre-call features, `validate_branch_authorization` |
+| `branch_evidence_renderer.py` | B0–B3 message rendering from stored evidence; original JPEG and stored crop PNG are sent unmodified; semantic lineage check |
+| `task_level_branch_runner.py` | `run_branches` (cumulative cap plus phase-total cap that counts semantic dispatches), `finalize_outcomes` (immutable), `build_count_labels` (only after verified finalization), `join_outcomes` |
+| `oracle_headroom.py` | Hindsight best-fixed/oracle/gaps, `group_bootstrap` (generic, paired, seed 467), LOGO influence, strata |
+| `learnable_headroom.py` | P0–P3 LOGO selectors, recovery fraction |
+| `task_level_decision_analysis.py` | Transitions, combined-evidence counts, costs, predeclared `classify` |
+
+**Scripts:** `prepare_oracle_headroom_pilot.py`, `preflight_oracle_headroom.py`,
+`run_oracle_headroom_branches.py`, `analyze_oracle_headroom.py`,
+`assess_phase04c1g_readiness.py`, `build_phase04c1g_manifest.py`.
+
+**Facts worth knowing**
+
+- `selected_detector_rank` is non-zero for 46 of the 101 tasks. Always name the
+  anchored proposal by rank, never assume P1.
+- Each Zoom branch record holds the crop PNG at
+  `raw_collection/observations/artifacts/<focused.source_image.sha256>.png`;
+  focused boxes are in crop pixels, mapped by `source_frame.child_to_root_transform`.
+- Count labels are the official Aquarium COCO annotations whose category name
+  equals the query (casefold). `matching.load_coco` drops invalid boxes, and the
+  dropped count is recorded.
+- Branch-run unit ids are `<task_id>:<branch>`, and the directory names replace
+  `:` with `_`.
+- The run configuration includes the authorization digest. Canary and resume
+  must therefore use the same authorization file, and a new authorization needs a
+  new run directory.
+- When the semantic pilot runs, the historical test
+  `test_no_semantic_run_or_results_exist_without_authorization` will fail by
+  design and needs a dated replacement (see `PHASE_04C1G_REPORT.md`).
