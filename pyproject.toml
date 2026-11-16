@@ -26,6 +26,7 @@ dependencies = ["requests>=2.31", "PyYAML>=6.0.1", "numpy>=1.26", "Pillow>=10", 
 [project.scripts]
 bite-eval = "evaluation_kit.cli:main"
 openvlharness-eval = "evaluation_kit.cli:main"  # Legacy compatibility alias.
+openvlharness-multi-agent = "openvlharness.multi_agent.run:main"
 
 [project.optional-dependencies]
 server = ["fastapi>=0.100", "pydantic>=2", "uvicorn>=0.23", "openai>=1.66,<4", "boto3>=1.28", "matplotlib>=3.8"]

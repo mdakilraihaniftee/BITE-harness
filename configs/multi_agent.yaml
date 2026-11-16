@@ -1,0 +1,40 @@
+multi_agent:
+  num_agents: 2
+  max_agents: 4
+
+  execution:
+    mode: concurrent
+    max_concurrent_workers: 2
+    task_timeout_seconds: 600
+    peer_review_rounds: 1
+
+  coordinator:
+    agent_config: examples/local_grounding_tools.yaml
+    tool_access: false
+    max_rounds: 2
+    model_requests: 4
+
+  workers:
+    default:
+      agent_config: examples/local_grounding_tools.yaml
+      role: general visual investigator
+      tool_calls: 12
+      model_requests: 20
+    overrides:
+      worker_02:
+        role: independent verification and contradiction checking
+
+  communication:
+    enabled: true
+    peer_to_peer: true
+    max_messages_per_actor: 20
+    max_inbox_per_actor: 40
+
+  budget:
+    global_tool_calls: 40
+    global_model_requests: 80
+    global_messages: 100
+
+  output:
+    directory: outputs/multi_agent
+

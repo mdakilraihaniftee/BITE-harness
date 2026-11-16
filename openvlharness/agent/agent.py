@@ -4,10 +4,10 @@ import hashlib
 import os
 import re
 
-from ..contracts import VirtualCall
-from ..capabilities._base import BaseCapability, failure
 from ..bite import create_observer
-from ..input import normalize_input, input_messages
+from ..capabilities._base import BaseCapability, failure
+from ..contracts import VirtualCall
+from ..input import input_messages, normalize_input
 from ..services.raw_trace import RawTraceExportError
 
 
@@ -35,7 +35,8 @@ class MainAgent:
     limit_msg = "Error: Reached the iteration limit without a final answer."
 
     def __init__(self, model_adapter, capabilities, memory_factory, system_prompt, user_prefix,
-                 max_iterations=15, tool_choice="auto", paired_sampling_seed=False):
+                 max_iterations=15, tool_choice="auto", paired_sampling_seed=False,
+                 budget_guard=None):
         """Configure the agent and publish tool schemas to its model adapter.
 
         Args:
@@ -56,6 +57,9 @@ class MainAgent:
         self.max_iterations = max_iterations
         self.tool_choice = tool_choice
         self.paired_sampling_seed = paired_sampling_seed
+        # Multi-agent execution installs an actor-scoped guard. Legacy agents leave
+        # this unset and retain byte-for-byte action semantics.
+        self.budget_guard = budget_guard
         self.model = model_adapter.model
         self.json_schema = [c.public_schema() for c in self.capabilities.values()]
         self.adapter.json_schema = self.json_schema
@@ -140,6 +144,8 @@ class MainAgent:
                 salt = 0
             seed_base = (base + salt * 1_000_003) % 2_000_000_000
         for index in range(self.max_iterations):
+            if self.budget_guard is not None and not self.budget_guard.reserve("model_requests"):
+                raise RuntimeError("Multi-agent model-request budget exhausted")
             if observer is not None:
                 observer.model_start(index)
             if index == self.max_iterations - 1:
@@ -180,11 +186,18 @@ class MainAgent:
                     elif call["name"] not in self.capabilities:
                         result = failure(virtual, "tool_not_found", f"Tool not found: {call['name']}")
                     else:
-                        if observer is not None and not isinstance(self.capabilities[call["name"]], BaseCapability):
-                            observer.dispatch(virtual, self.capabilities[call["name"]], memory)
-                        capability = self.capabilities[call["name"]]
-                        result = (observer.invoke(capability, virtual, memory) if observer is not None
-                                  else capability.invoke(virtual, memory))
+                        if self.budget_guard is not None and not self.budget_guard.reserve("tool_calls"):
+                            result = failure(
+                                virtual,
+                                "budget_denied",
+                                "The actor or global multi-agent tool-call budget is exhausted.",
+                            )
+                        else:
+                            if observer is not None and not isinstance(self.capabilities[call["name"]], BaseCapability):
+                                observer.dispatch(virtual, self.capabilities[call["name"]], memory)
+                            capability = self.capabilities[call["name"]]
+                            result = (observer.invoke(capability, virtual, memory) if observer is not None
+                                      else capability.invoke(virtual, memory))
                     if observer is not None:
                         observer.result(virtual, result, memory, len(turn["tool_responses"]))
                     if result.detection:
@@ -214,6 +227,8 @@ class MainAgent:
                     history.append(adapter.encode_message(update))
                 turns.append(turn)
                 if index == self.max_iterations - 1 and policy.get("extra_final_request"):
+                    if self.budget_guard is not None and not self.budget_guard.reserve("model_requests"):
+                        raise RuntimeError("Multi-agent model-request budget exhausted")
                     if observer is not None:
                         observer.model_start(index + 1, "final_text_only")
                     before = observer.serializer.fingerprint(history) if observer is not None else None

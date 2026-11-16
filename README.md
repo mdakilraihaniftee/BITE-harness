@@ -136,9 +136,17 @@ cd BITE
 bash scripts/setup.sh
 source scripts/env.sh
 
-# Verify the CPU-side installation before downloading model weights.
-python -m pytest tests/bite tests/bite_collection tests/bite_calibration -q
+# Verify the self-contained CPU-side installation before downloading weights.
+python -m pytest tests/bite -q
+python -m pytest tests/evaluation/test_cli_end_to_end.py -q
 ```
+
+The end-to-end tests and retained offline smoke bind a temporary loopback
+server. If your container or sandbox prohibits local sockets, run them on the
+host. The collection and calibration suites also assert against frozen
+historical files below `outputs/bite/`; run those suites only after installing
+the separate artifact bundle described under
+[Running the research workflows](#running-the-research-workflows).
 
 For local Qwen, OCR, and depth/camera-pose services, install the isolated worker
 environments as well:
@@ -302,6 +310,73 @@ terms, and any required access approval.
 
 ## Run a basic experiment
 
+### CPU-only offline smoke run
+
+Before downloading model weights, verify the complete image-to-metric path with
+three generated examples and a deterministic OpenAI-compatible fixture model:
+
+```bash
+source scripts/env.sh
+python scripts/offline_smoke.py
+```
+
+This exercises the real agent loop, image dataset adapter, inference writer,
+count evaluator, HTML reporting, and passive BITE observer. It retains outputs
+under `outputs/offline-smoke/`. The fixed fixture answers validate integration;
+they are not a model-quality result.
+
+### Inspect a complete agent trajectory
+
+With the local services running, execute one image task and print every model
+turn, tool call, tool response, memory update, and final answer:
+
+```bash
+source scripts/env.sh
+python scripts/trajectory_demo.py
+```
+
+Pass another image and question when needed:
+
+```bash
+python scripts/trajectory_demo.py /path/to/image.jpg \
+  --question 'What evidence in this image answers the question?'
+```
+
+Each run creates a readable Markdown trace, a browsable HTML report, and the
+unmodified trajectory JSON under `outputs/trajectory-demo/<timestamp>/`.
+
+### Run coordinated multi-agent inference
+
+The optional multi-agent mode creates N isolated worker agents plus one independent
+coordinator. Workers retain private model contexts, memory, capability instances,
+budgets, and traces. They investigate concurrently, exchange bounded typed messages,
+and return evidence for coordinator synthesis. The original single-agent paths are
+unchanged.
+
+Run the deterministic server-free integration first:
+
+```bash
+source scripts/env.sh
+python scripts/multi_agent_smoke.py
+```
+
+With the local model and tool services running:
+
+```bash
+python -m openvlharness.multi_agent.run \
+  --config configs/multi_agent.yaml \
+  --agent-config "$AGENT_CONFIG" \
+  --num-agents 2 \
+  --image data/images/FSC147/190.jpg \
+  --task 'How many seagulls are visible? Use visual evidence.'
+```
+
+Use `--no-peer-communication` for an isolated-worker comparison, or
+`--mode cooperative` for stable debugging order. Each run persists coordinator and
+worker trajectories, private-memory records, messages, events, budgets, resolved
+configuration, and the final result below `outputs/multi_agent/`. See
+[the architecture, configuration, execution, and reproducibility guide](docs/MULTI_AGENT.md).
+
 ### Single-image inference with BITE observation
 
 With the base services running and `AGENT_CONFIG=configs/local_qwen.yaml`, run:
@@ -399,15 +474,22 @@ prediction-format, and image-storage options.
 
 ```bash
 source scripts/env.sh
-python -m pytest tests/bite tests/bite_collection tests/bite_calibration -q
+python -m pytest tests/bite -q
+python -m pytest tests/evaluation/test_cli_end_to_end.py -q
 
-# Full repository regression suite
+# Requires the separately distributed frozen outputs/bite artifact bundle.
+python -m pytest tests/bite_collection tests/bite_calibration -q
+
+# Also requires the frozen artifact bundle and permits loopback sockets.
 python -m pytest tests -q
 ```
 
-The current checkout passes 1,005 tests and 451 subtests. Several HTTP tests bind
-temporary loopback servers, so the execution environment must permit localhost
-sockets.
+The release validation checkout, with its frozen artifact bundle installed,
+passes 1,005 tests and 451 subtests. A clean public clone does not include the
+ignored historical files under `outputs/bite/`, so artifact-dependent tests
+will fail with missing-file errors until that bundle is installed. Several HTTP
+tests bind temporary loopback servers, so the execution environment must permit
+localhost sockets.
 
 ### 2. Reproduce the completed Zoom utility analysis
 
