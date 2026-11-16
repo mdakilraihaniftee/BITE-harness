@@ -2,7 +2,7 @@
 
 Audit date: **2026-10-29 (America/New_York)**. Source baseline:
 `c530cdbdc6b7c4f486499eb7e5834ac2bd92692d`, branch `main`, commit subject
-`v0 updated`. Repository: `/home/ai5377/OpenVLHarness`.
+`v0 updated`. Repository: the OpenVLHarness checkout root.
 
 This is an audit, not a BITE implementation. Only this report was created.
 No configurations, runtime code, services, drivers, datasets, checkpoints, or

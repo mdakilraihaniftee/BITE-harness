@@ -1,4 +1,4 @@
-"""Example configurations load offline, expose only their configured tools, and match the README."""
+"""Example configurations load offline, expose configured tools, and are discoverable."""
 import os
 import unittest
 from pathlib import Path
@@ -15,15 +15,10 @@ from openvlharness.services.server import create_app
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = sorted((ROOT / "examples").glob("*.yaml"))
 ENV = {"MODEL_BASE_URL": "http://fixture.invalid/v1", "MODEL_API_KEY": "fixture-key",
-       "TOOL_SERVER_URL": "http://fixture.invalid:8101"}
-
-
-def yaml_body(path):
-    """Return the file without its leading comment header."""
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    while lines and (lines[0].startswith("#") or not lines[0].strip()):
-        lines.pop(0)
-    return "".join(lines)
+       "TOOL_SERVER_URL": "http://fixture.invalid:8101",
+       "SAM3_SERVER_URL": "http://fixture.invalid:8086",
+       "OCR_SERVER_URL": "http://fixture.invalid:8085",
+       "DEPTH_ESTIMATION_SERVER_URL": "http://fixture.invalid:8087"}
 
 
 class ExampleConfigTests(unittest.TestCase):
@@ -37,8 +32,8 @@ class ExampleConfigTests(unittest.TestCase):
                     with TestClient(create_app(str(path))) as client:
                         self.assertEqual(client.get("/health").json(), {"status": "ok", "tools": len(configured)})
 
-    def test_readme_shows_each_example_verbatim(self):
+    def test_readme_links_each_example(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         for path in EXAMPLES:
             with self.subTest(example=path.name):
-                self.assertIn(f"```yaml\n{yaml_body(path)}```\n", readme)
+                self.assertIn(f"(examples/{path.name})", readme)

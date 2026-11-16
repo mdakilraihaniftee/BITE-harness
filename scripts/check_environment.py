@@ -131,7 +131,7 @@ def main():
         else:
             image = Image.new("RGB", (560, 320), "white")
             draw = ImageDraw.Draw(image)
-            draw.text((40, 30), "OpenVLHarness 123", fill="black", font_size=32)
+            draw.text((40, 30), "BITE 123", fill="black", font_size=32)
             for x in (70, 230, 390):
                 draw.rectangle((x, 120, x + 70, 280), fill="#3266a8")
         buffer = io.BytesIO()
@@ -145,7 +145,7 @@ def main():
             "camera_pose": ("Camera_Trajectory_Tool", {"image_base64s": [encoded, encoded]}),
             "zoom": ("Zoom_In_Tool", {"image_base64": encoded, "coords": [100, 100, 600, 800], "padding": 50}),
             "coding": ("Python_Coding_Agent_Tool", {"objective": "Compute 17 * 23 and print only the integer result."}),
-            "text_search": ("Text_Search_Tool", {"query": "OpenVLHarness visual agent"}),
+            "text_search": ("Text_Search_Tool", {"query": "BITE visual agent research"}),
             "image_search": ("Image_Search_Tool", {"image_base64": encoded}),
             "web_visit": ("Webpage_Visit_Tool", {"urls": ["https://example.com"], "goal": "Identify the title of this webpage."}),
         }

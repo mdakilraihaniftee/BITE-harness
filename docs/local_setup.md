@@ -1,9 +1,10 @@
-# Local research environment
+# Maintainer local validation record
 
-All nine capabilities are configured and passed live probes on this checkout.
-The active `.env` selects the unchanged
-`configs/agent/qwen3_8b_paper.yaml`. Qwen, SAM3, OCR, depth/pose, the router,
-the image host, and the approved image tunnel are running.
+This document records one successful maintainer deployment in which all nine
+capabilities passed live probes with `configs/agent/qwen3_8b_paper.yaml`. It is a
+historical validation record, not a claim that those services, credentials, or
+the temporary image tunnel are currently available. Use the public README for
+the supported installation and startup sequence.
 
 ## Start working
 
@@ -30,10 +31,10 @@ and reverse image search, then checks provider/auxiliary degradation counters.
 The repeated-frame camera probe checks the output contract, not motion accuracy.
 The report is `outputs/setup/environment.json`; failed checks exit nonzero.
 
-## Services and restart commands
+## Services used during validation
 
-Services are already running. After a reboot or shutdown, use one terminal per
-foreground command. Stop an existing service before starting another on its port.
+Use one terminal per foreground command. Stop an existing service before starting
+another on its port.
 
 | Service | Command | Port | GPU |
 | --- | --- | --- | --- |
@@ -43,10 +44,10 @@ foreground command. Stop an existing service before starting another on its port
 | DA3 depth + camera poses | `bash scripts/service.sh depth` | 8087 | 2 |
 | Tool router | `bash scripts/service.sh router` | 8101 | CPU |
 | Query-image host | `bash scripts/service.sh image-host` | 8111 | CPU |
-| Approved image tunnel | `bash scripts/service.sh image-tunnel` | public URL | CPU |
+| Temporary image tunnel | `bash scripts/service.sh image-tunnel` | public URL | CPU |
 
 The image host serves content-hash-named images only from `.cache/image-host`.
-Public query-image hosting was explicitly approved and has passed the router's
+During the recorded validation, public query-image hosting passed the router's
 public-fetch and Serper Lens checks. The tunnel's hostname changes when restarted:
 copy its new URL from the log into `IMAGE_UPLOAD_PUBLIC_BASE_URL` in `.env`,
 then restart the router. Images published there are fetchable by URL while the
@@ -70,7 +71,7 @@ is the reverse-image-search provider in both configurations.
 To select it, change `AGENT_CONFIG` in `.env` to that path and restart the router.
 Use the same config for agent inference and evaluation. General You.com web
 search works without a key; Contents requires `YDC_API_KEY` or
-`YDC_API_KEY_FILE`. The supplied key has passed both APIs live. For keyless use,
+`YDC_API_KEY_FILE`. A configured key passed both APIs during validation. For keyless use,
 remove the You.com page-visit capability/service or select Serper page visits.
 You.com advertises only `search_type: search`; other Serper search modes remain
 available when the Serper backend is selected.

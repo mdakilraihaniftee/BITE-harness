@@ -97,12 +97,9 @@ Dispatch and resume key on `case_id`, which is derived from `state_id` and
 
 Images go only as inline base64 in the request body to the authorized endpoint.
 A loopback endpoint is required by default. The action never uses the image
-host or upload utilities. **Observation:** an unrelated process launched from
-another project (`cloudflared tunnel --url http://127.0.0.1:8112`) is running
-on this machine. It exposes an image host serving
-`/home/ai5377/ARGUS/.cache/logo-validation-host`. The semantic pilot does not
-use it. It was left untouched, but the researcher should confirm it is
-intended.
+host or upload utilities. During the original execution audit, an unrelated
+loopback tunnel was observed; the semantic pilot did not use or modify it. This
+is a historical deployment note, not a statement about the current host state.
 
 ## 4. Request estimate (supersedes the 4C-1E estimate)
 

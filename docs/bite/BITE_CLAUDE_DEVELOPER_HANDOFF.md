@@ -140,7 +140,7 @@ Common helpers worth reusing:
 ## 7. Practical commands
 
 ```bash
-cd /home/ai5377/OpenVLHarness
+cd /path/to/OpenVLHarness
 # targeted BITE tests
 .venv/bin/python -m pytest tests/bite tests/bite_calibration tests/bite_collection -q
 # full suite (offline; loopback-only network)

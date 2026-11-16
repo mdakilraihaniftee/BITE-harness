@@ -1,93 +1,19 @@
 cff-version: 1.2.0
-message: "If you use OpenVLHarness in your research, please cite the paper below."
-title: "OpenVLHarness"
+message: "BITE has no archival paper yet; cite this repository and the exact version used."
+title: "BITE: Evidence Provenance and Controlled Tool-Utility Evaluation for Visual Agents"
 type: software
 version: "0.1.0"
 license: MIT
-url: "https://openvlharness.github.io/"
-repository-code: "https://github.com/uclanlp/OpenVLHarness"
 abstract: >-
-  A training-free harness that gives multimodal language models nine tool
-  capabilities and a per-question multimodal memory, together with the
-  evaluation code for the paper's 22 benchmarks.
+  Research infrastructure for passive visual-agent evidence tracing, controlled
+  tool-evidence collection, label-isolated evaluation, calibration, utility,
+  uncertainty, and task-level headroom analysis.
 keywords:
-  - multimodal large language models
+  - visual agents
   - tool use
-  - agents
-  - multimodal memory
+  - evidence provenance
+  - calibration
+  - value of information
+  - multimodal reasoning
 authors:
-  - family-names: Zhou
-    given-names: Yu
-    affiliation: "University of California, Los Angeles"
-  - family-names: Yang
-    given-names: Cheng-Fu
-    affiliation: "University of California, Los Angeles"
-  - family-names: Sun
-    given-names: Rui
-    affiliation: "University of California, Los Angeles"
-  - family-names: Wu
-    given-names: Di
-    affiliation: "University of California, Los Angeles"
-  - family-names: Peng
-    given-names: Sibo
-    affiliation: "University of California, Los Angeles"
-  - family-names: Zhang
-    given-names: Mingyang
-    affiliation: "University of California, Los Angeles"
-  - family-names: Yang
-    given-names: Zhen
-    affiliation: Apple
-  - family-names: Zhang
-    given-names: Ruiyi
-    affiliation: Apple
-  - family-names: Peng
-    given-names: Nanyun
-    affiliation: "University of California, Los Angeles"
-  - family-names: Gan
-    given-names: Zhe
-    affiliation: Apple
-  - family-names: Chang
-    given-names: Kai-Wei
-    affiliation: "University of California, Los Angeles"
-preferred-citation:
-  type: article
-  title: "OpenVLHarness: Real World Visual Agentic Tool-Use with Multimodal Memory"
-  journal: "arXiv preprint arXiv:2610.26860"
-  year: 2026
-  month: 10
-  doi: "10.48550/arXiv.2610.26860"
-  url: "https://arxiv.org/abs/2610.26860"
-  authors:
-    - family-names: Zhou
-      given-names: Yu
-      affiliation: "University of California, Los Angeles"
-    - family-names: Yang
-      given-names: Cheng-Fu
-      affiliation: "University of California, Los Angeles"
-    - family-names: Sun
-      given-names: Rui
-      affiliation: "University of California, Los Angeles"
-    - family-names: Wu
-      given-names: Di
-      affiliation: "University of California, Los Angeles"
-    - family-names: Peng
-      given-names: Sibo
-      affiliation: "University of California, Los Angeles"
-    - family-names: Zhang
-      given-names: Mingyang
-      affiliation: "University of California, Los Angeles"
-    - family-names: Yang
-      given-names: Zhen
-      affiliation: Apple
-    - family-names: Zhang
-      given-names: Ruiyi
-      affiliation: Apple
-    - family-names: Peng
-      given-names: Nanyun
-      affiliation: "University of California, Los Angeles"
-    - family-names: Gan
-      given-names: Zhe
-      affiliation: Apple
-    - family-names: Chang
-      given-names: Kai-Wei
-      affiliation: "University of California, Los Angeles"
+  - name: "BITE contributors"

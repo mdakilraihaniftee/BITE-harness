@@ -1,704 +1,611 @@
-<h1 align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-    <img src="assets/logo.svg" alt="OpenVLHarness logo" height="44" align="top">
-  </picture>
-  OpenVLHarness
-</h1>
+# BITE
 
-<h3 align="center">Real World Visual Agentic Tool&#8209;Use with Multimodal Memory</h3>
+### Evidence provenance and controlled tool-utility evaluation for visual agents
 
-<p align="center">
-  <a href="https://arxiv.org/abs/2610.26860"><img src="https://img.shields.io/badge/arXiv-2610.26860-b31b1b.svg" alt="arXiv:2610.26860"></a>
-  <a href="https://openvlharness.github.io/"><img src="https://img.shields.io/badge/Project-Page-2653c1.svg" alt="Project page"></a>
-  <a href="https://huggingface.co/spaces/uclanlp/OpenVLHarness"><img src="https://img.shields.io/badge/Demo-Interactive-8a2f6f.svg" alt="Interactive demo"></a>
-  <a href="https://huggingface.co/datasets/uclanlp/OpenVLHarness-Evaluation-Datasets"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20Datasets-Evaluation-f1b33c.svg" alt="Evaluation datasets on Hugging Face"></a>
-</p>
+BITE is a research codebase for studying when additional visual-tool evidence
+actually improves an agent's decision, when it is redundant, and whether its
+value justifies its cost. It combines passive execution tracing with controlled
+branch collection, calibration analysis, label-isolated evaluation, and
+authorization-gated experiments.
 
-<p align="center">
-  <a href="https://openvlharness.github.io/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/teaser-dark.png">
-      <img src="assets/teaser.png" alt="Average score over 22 benchmarks for six backbones with and without OpenVLHarness, and GPT-6 Luna performance versus cost across five reasoning efforts" width="100%">
-    </picture>
-  </a>
-</p>
+The current release is research infrastructure, not a finished adaptive
+controller. The passive observer is implemented and validated; controlled Zoom
+experiments are complete; semantic verification and task-level four-branch
+evaluation are prepared but have not received authorization for live execution.
+No task-level oracle-gap or learned-policy result is claimed.
 
-<p align="center"><em>
-Turn any MLLM into an evidence-based visual reasoner that thinks and codes in visual space.
-</em></p>
+## Research questions
 
-<a id="highlights"></a>
-## ✨ Highlights
-#new
-- **Training-free.** Works with the backbone's existing weights through native
-  tool calling; nothing is fine-tuned.
-- **Nine capabilities.** Visual grounding, OCR, depth, camera trajectory, zoom,
-  text search, image search, webpage visits and a Python coding agent, each behind a
-  task-level interface that returns evidence the model can read.
-- **Multimodal memory.** Images, boxes, masks, depth maps and web references stay
-  addressable for the whole question, so later tools and code can build on them.
-- **Consistent gains.** Across 22 benchmarks in four domains, seven backbones gain
-  **9.7 to 12.6 points** on average over the same models without tools.
-- **Any registered model.** Presets for seven of the paper's eight backbones, plus
-  every Qwen3-VL Instruct size and OpenAI's GPT-5 to GPT-6.1 models in the
-  [model registry](docs/models.md#other-registered-models).
+BITE is organized around four questions:
 
-<a id="table-of-contents"></a>
-## 🗂️ Table of Contents
+1. What evidence did a visual agent actually request, receive, retain, and reuse?
+2. Does another tool call change the downstream decision, rather than merely
+   adding correlated observations from the same image or proposal?
+3. Can the useful action be selected from information available before the call?
+4. Does the improvement survive action cost, group-level uncertainty, label
+   uncertainty, and held-out evaluation?
 
-- [How it works](#how-it-works)
-- [Results](#results)
-- [Installation](#installation)
-- [Quick start](#quick-start)
-- [Evaluation](#evaluation)
-- [Configure and extend](#configure-and-extend)
-- [Repository layout](#repository-layout)
-- [Documentation and tests](#documentation-and-tests)
-- [Acknowledgements](#acknowledgements)
-- [License](#license)
-- [Citation](#citation)
+## What is implemented
 
-<a id="how-it-works"></a>
-## 🔍 How it works
+### Passive evidence observer
 
-The model chooses tools, inspects their evidence, and continues until it can answer.
-Three components let it combine evidence across steps:
+The opt-in observer records a versioned `bite.observation.v1` sidecar without
+changing prompts, model requests, tool selection, tool results, or predictions.
+It captures:
 
-- **Capability layer:** nine task-level interfaces turn tool outputs into readable
-  observations, including annotated images, summaries, and compact numerical data.
-- **Multimodal memory:** images, structured data, and web references remain
-  addressable throughout a question. Each new question starts with fresh memory.
-- **Python Coding Agent:** the backbone writes code in a separate context to
-  calculate over stored boxes, masks, depth maps, and other tool results.
+- model turns, tool proposals, validation outcomes, dispatches, and observations;
+- logical action budgets, successes, failures, rejected proposals, and latency;
+- image, crop, grounding, binding, and backend provenance;
+- exact crop-to-root coordinate transforms and ambiguity when lineage is unknown;
+- references to canonical tool results without duplicating image payloads; and
+- capture failures without interrupting the underlying agent.
 
-For example, an agent can locate objects, estimate depth, and compute their spatial
-relationship; or crop an unfamiliar object, search for visual matches, and verify
-the answer on a webpage.
+The reference budget is recording-only. BITE does not currently enforce a tool
+budget or override the agent's chosen action.
 
-| Capability | What it provides | Default backend |
+### Controlled evidence collection
+
+The collection layer builds isolated branches from recorded states and preserves
+raw evidence before opening ground-truth labels. It supports:
+
+- initial grounding, Zoom, focused grounding, and semantic-region observations;
+- immutable manifests, content digests, resume ledgers, and per-stage events;
+- explicit source-group and split-integrity checks;
+- mock, canary, resumable, and capped live execution modes; and
+- strict refusal to join labels before raw outputs are complete and finalized.
+
+### Utility, calibration, and headroom analysis
+
+The analysis layer includes group-aware cross-fitting and bootstrap uncertainty,
+candidate association, Brier and decision-loss comparisons, label-sensitivity
+analysis, fixed-policy and oracle headroom, leave-one-group-out selectors,
+transition analysis, and measured logical-action costs.
+
+For a branch \(b\), the controlled task-level screen uses
+
+$$
+U_b = -L_b - \lambda C_b,
+$$
+
+where \(L_b\) is task loss, \(C_b\) is incremental logical action cost, and
+\(\lambda\) is a prespecified cost penalty. This is an evaluation quantity, not
+an implemented online controller objective.
+
+## Method overview
+
+```text
+visual-agent execution
+        |
+        v
+passive BITE observer -----> versioned events + provenance graph + budget record
+        |
+        v
+GT-blind state/branch collection
+        |
+        +---- B0: initial evidence
+        +---- B1: initial + Zoom/focused grounding
+        +---- B2: initial + semantic inspection
+        +---- B3: combined evidence
+        |
+        v
+finalize and hash raw outcomes
+        |
+        v
+open labels only after finalization
+        |
+        v
+group-aware utility, calibration, headroom, and sensitivity analysis
+```
+
+The current Phase 4C-1G protocol is a controlled fixed-decoder probe. It is not
+genuine autonomous-agent continuation because the stored collection states do
+not contain reconstructible agent conversation prefixes.
+
+## Current evidence
+
+| Study | Evidence | Status | Main finding |
+| --- | --- | --- | --- |
+| Passive observer | Deterministic replays plus one real ODinW execution | Complete | Observer capture preserved requests, evidence, predictions, and official scoring in controlled replay; the live example exercised two successful grounding calls. |
+| Zoom utility screen | 203 candidates from 30 development groups; 406 additional logical calls | Complete, development-only | At IoU 0.50, Zoom avoided 0 errors and introduced 2. At IoU 0.75, it avoided 1 error from one group; the gain disappeared under group influence checks. Zoom-only collection was not justified for this verification task. |
+| Semantic-region inspection | Frozen 101-case manifest and full mock contract run | Prepared | No real semantic observations exist because live execution was not authorized. |
+| Four-branch task probe | 101 tasks, four planned branches, mock B0/B1 contract run | Blocked before live execution | Zero final-answer calls; no oracle gap, selector value, or combined-evidence result exists. |
+
+These findings are feasibility and development evidence. They are not independent
+held-out validation and do not establish a new controller or general tool-use
+improvement.
+
+## Reproduce the runtime from scratch
+
+This section starts from a clean Linux checkout and ends with a scored benchmark
+smoke run. CPU-only analysis and tests need Python 3.10 or newer. Local model and
+perception services require NVIDIA GPUs, compatible CUDA drivers, Git, and enough
+disk for the environments, checkpoints, datasets, and outputs.
+
+The validated deployment used Python 3.11 and four GPUs: Qwen on GPUs 0 and 1,
+depth on GPU 2, and OCR/SAM 3 on GPU 3. Those assignments are defaults, not hard
+requirements; change the `*_GPUS` values in `.env` for your machine. Smaller GPU
+layouts have not been fully validated.
+
+### 1. Clone and create the environments
+
+```bash
+git clone <your-public-bite-repository-url> BITE
+cd BITE
+
+# Core package, evaluation dependencies, tests, and configuration file.
+bash scripts/setup.sh
+source scripts/env.sh
+
+# Verify the CPU-side installation before downloading model weights.
+python -m pytest tests/bite tests/bite_collection tests/bite_calibration -q
+```
+
+For local Qwen, OCR, and depth/camera-pose services, install the isolated worker
+environments as well:
+
+```bash
+bash scripts/setup.sh vllm depth
+```
+
+Add `sam3` when you need grounding experiments:
+
+```bash
+bash scripts/setup.sh vllm depth sam3
+```
+
+The setup creates `.venv` for the main package and `.venvs/` for workers whose
+GPU dependency stacks are intentionally isolated. It also copies `.env.example`
+to the ignored `.env` file if `.env` does not exist. Re-running setup does not
+replace an existing `.env`.
+
+### 2. Configure paths, ports, and GPUs
+
+Open `.env` and check at least these settings:
+
+```dotenv
+LMUData=${PWD}/data
+HF_HOME=${PWD}/.cache/huggingface
+QWEN_GPUS=0,1
+DEPTH_GPUS=2
+OCR_GPUS=3
+SAM3_GPUS=3
+AGENT_CONFIG=configs/local_qwen.yaml
+```
+
+`MODEL_API_KEY=empty` is intentional for the local OpenAI-compatible Qwen
+server. The default endpoints are Qwen `127.0.0.1:8222`, the capability router
+`:8101`, OCR `:8085`, SAM 3 `:8086`, and depth/camera pose `:8087`. Keep the
+router's `AGENT_CONFIG` identical to the `--config` passed to inference or
+evaluation.
+
+Use one of these maintained profiles:
+
+| Profile | Capabilities | External key |
 | --- | --- | --- |
-| Visual Grounding | Locate objects by text; return boxes, masks, and an annotated image | SAM 3 |
-| OCR | Read text in an image | PaddleOCR-VL |
-| Depth Estimation | Estimate per-pixel depth; retain the numerical array and visualization | Depth Anything 3 |
-| Camera Trajectory | Estimate camera poses across ordered images | Depth Anything 3 |
-| Zoom-in | Crop a region for closer inspection | Built-in image processing |
-| Text Search | Retrieve and summarize web, image, news, and other search results | Serper + Qwen |
-| Image Search | Find visual matches with reverse image search | Serper Lens + Qwen |
-| Webpage Visit | Extract evidence relevant to a goal from webpages | Serper scrape + Qwen |
-| Python Coding Agent | Generate and execute computations over stored tool results | Orchestrator backbone + local Python |
+| `configs/local_qwen.yaml` | OCR, depth, camera pose, Zoom, Python | None |
+| [`examples/local_grounding_tools.yaml`](examples/local_grounding_tools.yaml) | The above plus SAM 3 grounding | None; gated checkpoint access is required |
+| `configs/local_qwen_grounding.yaml` | Grounding plus text search and web visit | `SERPER_API_KEY` |
+| `configs/agent/qwen3_8b_paper.yaml` | Full nine-capability compatibility profile | Search key and public query-image hosting |
 
-Every preset uses **Qwen3-VL-8B-Instruct for multimodal search summarization and
-webpage extraction**, independently of the main model. The coding agent uses the
-same backbone as the main model.
+For a hosted model with only Zoom and local Python, use
+[`examples/local_tools.yaml`](examples/local_tools.yaml) and set its model
+endpoint and key through the documented environment placeholders.
 
-<a id="results"></a>
-## 📈 Results
+### 3. Download pinned model checkpoints
 
-Average score over the paper's 22 benchmarks (counting and grounding, multimodal
-search, general VQA and hallucination, and spatial understanding):
-
-| Backbone | Base | + OpenVLHarness | Gain |
-| --- | ---: | ---: | ---: |
-| Qwen3-VL-8B-Instruct | 34.24 | **45.41** | +11.17 |
-| Qwen3-VL-32B-Instruct | 38.30 | **50.92** | +12.62 |
-| Kimi K3 (max effort) | 56.43 | **66.09** | +9.66 |
-| GPT-5 (medium effort) | 44.37 | **55.65** | +11.28 |
-| GPT-6 Luna (medium effort) | 45.76 | **56.52** | +10.76 |
-| GPT-6 Sol (medium effort) | 52.67 | **64.31** | +11.64 |
-| GPT-6 Astra (medium effort) | 60.27 | **70.17** | +9.90 |
-
-Qwen3-VL results are the mean of three runs. Per-benchmark results, comparisons
-with other harnesses, and recorded trajectories are on the
-[project page](https://openvlharness.github.io/#results).
-
-<a id="installation"></a>
-## 🛠️ Installation
-
-Use Python **3.10 or newer**. From a source checkout:
-
-For this checkout's local environments, launch commands, and validation results,
-see [local setup](docs/local_setup.md).
+After `source scripts/env.sh`, cache only the workers you plan to run:
 
 ```bash
-git clone https://github.com/uclanlp/OpenVLHarness.git
-cd OpenVLHarness
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install -e '.[qwen,server]'
+# Base local profile
+python scripts/download_models.py qwen ocr depth
+
+# Grounding profile; requires accepted facebook/sam3 access and HF_TOKEN.
+python scripts/download_models.py qwen ocr depth sam3
 ```
 
-This installs the agent, Qwen tokenizer support, and the tool router. The model
-servers have separate environments and dependencies. For a client connecting to
-an existing router, `pip install -e .` is sufficient; add the `qwen` extra when
-using Qwen for local context counting or raw trace export. Add the `eval` extra to
-run benchmarks (see [Evaluation](#evaluation)).
+The downloader pins exact revisions rather than silently following a changing
+`main` branch:
 
-<a id="quick-start"></a>
-## 🚀 Quick start
-
-### 1. Pick a preset
-
-The release includes agent presets for seven of the paper's eight backbones:
-
-| Main model | Configuration | API |
+| Worker | Model | Revision |
 | --- | --- | --- |
-| Qwen3-VL-8B-Instruct | [qwen3_8b_paper.yaml](configs/agent/qwen3_8b_paper.yaml) | Chat Completions |
-| Qwen3-VL-32B-Instruct | [qwen3_32b_paper.yaml](configs/agent/qwen3_32b_paper.yaml) | Chat Completions |
-| GPT-5 | [gpt5_paper.yaml](configs/agent/gpt5_paper.yaml) | Responses |
-| GPT-6 Luna | [gpt6_luna_paper.yaml](configs/agent/gpt6_luna_paper.yaml) | Responses |
-| GPT-6 Sol | [gpt6_sol_paper.yaml](configs/agent/gpt6_sol_paper.yaml) | Responses |
-| GPT-6 Astra | [gpt6_astra_paper.yaml](configs/agent/gpt6_astra_paper.yaml) | Responses |
-| Kimi K3 | [kimi_k3_paper.yaml](configs/agent/kimi_k3_paper.yaml) | Chat Completions |
+| Qwen | `Qwen/Qwen3-VL-8B-Instruct` | `0c351dd01ed87e9c1b53cbc748cba10e6187ff3b` |
+| OCR | `PaddlePaddle/PaddleOCR-VL-1.5` | `2a4195faa5e7914c12f2fc601d72c81caf8d2da5` |
+| Depth | `depth-anything/DA3NESTED-GIANT-LARGE` | `8615eefb62f2db4f8d6ebaa59160086981672829` |
+| Grounding | `facebook/sam3` | `3c879f39826c281e95690f02c7821c4de09afae7` |
 
-The paper's Qwen2.5-VL-7B-Instruct results, compared with training-based harnesses
-in its appendix, used a separate configuration that this release does not include.
+Check each model card and dataset page for its separate license and access
+conditions before redistribution.
 
-The registry also covers every Qwen3-VL Instruct size (2B to 235B-A22B, with FP8
-builds) and OpenAI's GPT-5 to GPT-6.1 models; to use one, copy its family's
-preset and change one line ([other registered models](docs/models.md#other-registered-models)).
+### 4. Start the local services
 
-### 2. Prepare models and tools
-
-To run all nine capabilities, prepare these services before starting the agent:
-
-- **Models:** serve Qwen locally or connect to a GPT or Kimi endpoint, following
-  the [model setup guide](docs/models.md). Every preset also needs a
-  Qwen3-VL-8B-Instruct endpoint for search tools; the 8B preset can share it with
-  the main model, while the 32B preset needs a second server for it. Sharing one
-  server is the simplest deployment and scores within run-to-run noise of the
-  paper setup; its cost is throughput, since search summarization and webpage
-  extraction queue behind agent turns on the same GPU. To reproduce the paper
-  exactly, or to keep agent throughput at higher concurrency, serve a second
-  Qwen3-VL-8B instance and point `AUXILIARY_MODEL_BASE_URL` at it. The guide
-  includes the tested model revision, serving versions, and GPU configuration.
-- **Perception:** launch SAM 3, PaddleOCR-VL, and Depth Anything 3 using the
-  [tool service guide](openvlharness/services/tools/README.md). These run as
-  separate GPU services behind the router.
-- **Search:** the three search tools call [Serper](https://serper.dev), a paid
-  Google Search API with a free starter quota: web/image/news search, Google
-  Lens reverse image search, and page scraping for webpage visits. Configure
-  its key using `SERPER_API_KEY` or `SERPER_API_KEY_FILE`. Reverse image search
-  additionally needs a URL Serper can fetch for the query image: either the
-  built-in image host behind a tunnel (no cloud account) or an
-  [Amazon S3](https://aws.amazon.com/s3/) or
-  [Google Cloud Storage](https://cloud.google.com/storage) bucket, where the
-  image is uploaded and handed to Serper as a signed URL. Follow the
-  [search and storage setup](openvlharness/services/tools/serper_text_search/README.md).
-
-For the local Qwen setup, set these variables in both the router and agent
-terminals. Adjust the addresses to match your deployment:
+Each service stays in the foreground, so run each command in its own terminal.
+The base profile needs four processes:
 
 ```bash
-export MODEL_BASE_URL=http://127.0.0.1:8222/v1
-export MODEL_API_KEY=empty
-export AUXILIARY_MODEL_BASE_URL=http://127.0.0.1:8222/v1
-export AUXILIARY_MODEL_API_KEY=empty
-export JUDGE_MODEL=Qwen/Qwen3-VL-8B-Instruct
-export JUDGE_API_BASE=http://127.0.0.1:8222/v1/chat/completions
-export JUDGE_API_KEY=empty
-export TOOL_SERVER_URL=http://127.0.0.1:8101
-export SAM3_SERVER_URL=http://127.0.0.1:8086
-export OCR_SERVER_URL=http://127.0.0.1:8085
-export DEPTH_ESTIMATION_SERVER_URL=http://127.0.0.1:8087
+# Terminal 1
+bash scripts/service.sh qwen
+
+# Terminal 2
+bash scripts/service.sh ocr
+
+# Terminal 3
+bash scripts/service.sh depth
+
+# Terminal 4
+bash scripts/service.sh router
 ```
 
-The `empty` keys above are for unauthenticated local endpoints. For GPT or Kimi,
-select its preset in the commands and Python example below, set `MODEL_BASE_URL`
-and `MODEL_API_KEY` for that provider, and keep the auxiliary connection pointing
-to Qwen. See the [connection examples](docs/models.md#connect-the-presets).
-
-### 3. Run a question
-
-Start the router with the same configuration that the agent will use:
+For local grounding, first set
+`AGENT_CONFIG=examples/local_grounding_tools.yaml` in `.env`, then start an
+additional worker before the router:
 
 ```bash
-python -m openvlharness.services.server --config configs/agent/qwen3_8b_paper.yaml
+bash scripts/service.sh sam3
 ```
 
-In another terminal with the environment configured, check the router:
+From another terminal, verify configuration resolution and service health
+without issuing tool calls:
 
 ```bash
+source scripts/env.sh
+python scripts/check_environment.py
+
+# Router-only checks, useful while bringing up workers one at a time.
 curl --fail http://127.0.0.1:8101/health
 curl --fail http://127.0.0.1:8101/backend-status
 ```
 
-These checks only show that the router is up, how many tools it registered, and its
-concurrency limits. Unreachable GPU workers, missing Serper keys and missing image
-hosting settings surface on the first call to the affected tool. `/backend-status`
-also reports `degradations`: counts of search and webpage-visit calls that fell
-back to raw provider content because the auxiliary model timed out or returned
-unusable output, and image searches whose published query image could not be fetched
-at its public URL (`image_host`), and Serper calls rejected because of the account
-(`serper_account`: credits exhausted, key invalid or payment required). A healthy router
-keeps these at zero; the same events are logged with the tokens `SUMMARIZE_DEGRADED`,
-`EXTRACT_DEGRADED`, `IMAGE_HOST_UNREACHABLE` and `SERPER ACCOUNT-LEVEL FAILURE`.
+`/health` reports whether the router is running and how many tools it registered.
+`/backend-status` reports concurrency limits and accumulated backend degradations;
+it does not prove that every GPU worker or provider credential will succeed on a
+real request. Keep degradation counters at zero during a clean experiment.
 
-Then ask a question from Python:
+Only use `python scripts/check_environment.py --probe-tools` when real calls are
+intended. Provider-backed tools can consume credits. The local Python backend
+runs model-generated code with the current user's filesystem and network access;
+it is not a security sandbox.
 
-```python
-from openvlharness.bootstrap import build_agent
+## Download and prepare evaluation data
 
-agent = build_agent("configs/agent/qwen3_8b_paper.yaml")
-result = agent.generate([
-    {"type": "image", "value": "/path/to/image.jpg"},
-    {"type": "text", "value": "How many bottles are visible?"},
-])
-print(result["prediction"])
-trajectory = result["extra_records"]["trajectory"]
-```
+`LMUData` controls all evaluation data storage. The default `.env` keeps it at
+`./data`, which is ignored by Git. Registered datasets are prepared on first use,
+so the basic experiment command below is also the download command. Interrupted
+downloads can be rerun and will reuse the cache.
 
-Replace the image path with your own image. Inputs can include multiple images;
-image values can be local paths, HTTP(S) URLs, or data URLs. The returned trajectory
-records the model's turns, tool calls, and evidence for inspection.
+| Dataset name | Task and score | Source behavior |
+| --- | --- | --- |
+| `FSC147_val` | 1,286 counting rows; exact count | TSV and images download on first use |
+| `CountQA` | 1,528 counting rows; exact count | Built from `Jayant-Sravan/CountQA` |
+| `PixmoCount_val` | up to 534 counting rows; exact count | Built from `allenai/pixmo-count`; unavailable source images are skipped |
+| `FSCD_147_bbox_val` | 1,286 grounding rows; box AP | TSV/images download on first use |
+| `FSCD_LVIS_bbox_val` | 1,181 grounding rows; box AP | TSV/images download on first use |
+| `ODinW13_bbox_val_qwen3` | 4,938 rows across 13 domains; box AP | Data plus GLIP annotations download on first use |
 
-If `result["prediction"]` is `Error: Unable to get response from the server.`, the
-agent produced no answer. When a model request failed, the cause is in
-`result["extra_records"]["trajectory"]["error"]`; without that key, the model ended
-without a final answer. `Error: Reached the iteration limit without a final answer.`
-means the question used all `agent.max_iterations` iterations; the trajectory's `error`
-records the limit.
+The complete dataset registry, preparation rules, metrics, custom-TSV format,
+and judge requirements are in the
+[`evaluation_kit/dataset` guide](evaluation_kit/dataset/README.md). Most release
+TSVs and images come from the evaluation dataset bundle identified there.
+Search, general VQA, and spatial benchmarks may require extra source datasets or
+an LLM judge; do not use `configs/judge_no_judge.yaml` for a benchmark whose
+guide says a judge is required.
 
-> [!WARNING]
-> The coding tool runs generated Python in a subprocess on the agent host, with your
-> user's permissions and with network and filesystem access. Its execution timeout
-> is not a sandbox; run the agent in an isolated environment appropriate for your
-> data. See [SECURITY.md](SECURITY.md) and the
-> [coding tool README](openvlharness/services/tools/python_coding_agent/README.md).
-
-<a id="evaluation"></a>
-## 📊 Evaluation
-
-### Run a small evaluation
-
-Install the evaluation layer (benchmark loaders, judges and the runner) with the
-`eval` extra, keeping the model and tool services running:
+To prefetch a dataset without running inference, instantiate its loader:
 
 ```bash
-python -m pip install -e '.[eval,qwen]'
+source scripts/env.sh
+python -c "from evaluation_kit.dataset import build_dataset; d=build_dataset('FSC147_val'); print(len(d.data))"
 ```
 
-This installs the dependencies of the `openvlharness-eval` command;
-`python run_benchmark.py` at the repository root is the same program. The
-evaluation code lives in [evaluation_kit](evaluation_kit) and needs no GPU packages.
+Data are cached below `$LMUData`; model snapshots stay below `$HF_HOME`. Do not
+commit either directory. You are responsible for the source datasets' licenses,
+terms, and any required access approval.
 
-Use the same connection variables as above. `LMUData` is required: benchmark data
-downloads there, and the evaluator raises an error if it is unset. Put it and the
-work directory on a fast local disk. This example evaluates 12 reproducibly
-sampled questions **per dataset** from the FSC147 and ODinW validation splits,
-using direct counting and box metrics without an LLM judge:
+## Run a basic experiment
+
+### Single-image inference with BITE observation
+
+With the base services running and `AGENT_CONFIG=configs/local_qwen.yaml`, run:
 
 ```bash
-export LMUData=/path/to/local/datasets
-openvlharness-eval \
-  --config configs/agent/qwen3_8b_paper.yaml \
+source scripts/env.sh
+export BITE_OBSERVER_ENABLED=true
+export BITE_OBSERVER_REFERENCE_BUDGET=15
+export BITE_OBSERVER_RUN_ID=my_bite_run
+
+python scripts/infer.py /path/to/image.jpg \
+  --question 'How many objects of interest are visible?' \
+  --output outputs/bite-example.json
+```
+
+The saved result contains the normal trajectory and
+`extra_records.bite_observer`.
+
+### Four-example counting smoke run
+
+This command downloads `FSC147_val` if needed, samples four rows deterministically,
+runs inference, applies the rule-based count metric, and writes an HTML report:
+
+```bash
+source scripts/env.sh
+bite-eval \
+  --config configs/local_qwen.yaml \
   --judge-config configs/judge_no_judge.yaml \
-  --data FSC147_val ODinW13_bbox_val_qwen3 \
-  --num-examples 12 --shuffle --seed 42 \
-  --num-proc 1 --save-html all --work-dir /path/to/local/runs
+  --data FSC147_val \
+  --num-examples 4 \
+  --shuffle --seed 42 \
+  --num-proc 1 \
+  --save-html all \
+  --work-dir outputs/base-smoke
 ```
 
-`--num-proc` controls concurrent examples. Remove `--num-examples` and `--shuffle`
-to evaluate the full selected splits. For paper comparisons, also match the
-benchmark prompts, judge settings, and scoring protocol in Appendix D. The paper
-reports Qwen3-VL results averaged over three runs; a small subset checks the
-installation rather than reproducing those scores.
+`--num-examples` applies separately to every name passed to `--data`, and
+`--num-proc` is the number of concurrently evaluated examples. Remove
+`--num-examples` and `--shuffle` to run a complete selected split. A small smoke
+run checks installation and data flow; it is not a benchmark reproduction.
 
-### Datasets and scoring
+### Four-example grounding smoke run
 
-Dataset names passed to `--data` select loaders in
-[evaluation_kit/dataset](evaluation_kit/dataset). The paper's 22 benchmarks
-(Table 1), the five additional search benchmarks of its appendix, and PixmoCount
-(supported but not reported in the paper) are:
-
-| Domain | Dataset names |
-| --- | --- |
-| Counting and grounding | `FSC147_val`, `CountQA`, `FSCD_147_bbox_val`, `FSCD_LVIS_bbox_val`, `ODinW13_bbox_val_qwen3` |
-| Multimodal search and deep research | `MMSearch`, `MMSearchPlus`, `RealXBench`, `FVQA_test`, `hle`, `BrowseCompVL` |
-| General VQA and hallucination | `RealWorldQA`, `SimpleVQA`, `HallusionBench`, `FREAK_VQA`, `FREAK_MCQ`, `VStarBench` |
-| Spatial understanding | `MMSIBench_wo_circular`, `ERQA`, `EmbSpatialBench`, `SparBench_tiny`, `MindCubeBench_tiny_raw_qa` |
-| Extended search (appendix) | `MMBrowseComp`, `VDRBench`, `VisBrowseBench`, `Infoseek_GDM_test`, `EncyclopedicVQA_test` |
-| Additional | `PixmoCount_val` |
-
-Every dataset above except `PixmoCount_val` and `CountQA` downloads, with its images,
-from [OpenVLHarness-Evaluation-Datasets](https://huggingface.co/datasets/uclanlp/OpenVLHarness-Evaluation-Datasets)
-into `LMUData` on first use; the loaders build those two from their original
-sources. `PixmoCount_val` is built from
-[allenai/pixmo-count](https://huggingface.co/datasets/allenai/pixmo-count), with
-images fetched from their original URLs; images that can no longer be fetched are
-left out, so a fresh build can contain fewer than the 534 images the paper evaluated.
-`CountQA` is built from
-[Jayant-Sravan/CountQA](https://huggingface.co/datasets/Jayant-Sravan/CountQA) on
-the Hugging Face Hub. ODinW also downloads evaluation annotations into `LMUData/GLIP`
-unless `GLIP_ROOT` is set. The
-[preparation scripts](evaluation_kit/dataset/scripts) document how the released
-splits were built.
-
-`FVQA_test`, `Infoseek_GDM_test` and `EncyclopedicVQA_test` are the largest search
-benchmarks (1,800, 2,000 and 1,960 questions). `FVQA_test_300`,
-`Infoseek_GDM_test_300` and `EncyclopedicVQA_test_300` are fixed 300-question subsets
-of them, a quick estimate of the full-split score at a fraction of the time and
-search cost; `SimpleVQA_300` is the 300 English SimpleVQA questions WebWatcher
-evaluates on.
-
-Benchmarks that need an LLM judge or answer extractor read it from `JUDGE_MODEL`,
-`JUDGE_API_BASE` (the full chat-completions URL) and `JUDGE_API_KEY` through
-[configs/judge.yaml](configs/judge.yaml); any OpenAI-compatible endpoint works. The
-paper judged with Qwen3-VL-8B-Instruct, and with GPT-4o on the search and
-deep-research benchmarks:
+First use the grounding-only profile for both the router and CLI and start SAM 3
+as described above. Then run:
 
 ```bash
-export JUDGE_MODEL=gpt-4o
-export JUDGE_API_BASE=https://api.openai.com/v1/chat/completions
-export JUDGE_API_KEY=$OPENAI_API_KEY
+source scripts/env.sh
+bite-eval \
+  --config examples/local_grounding_tools.yaml \
+  --judge-config configs/judge_no_judge.yaml \
+  --data FSCD_147_bbox_val \
+  --num-examples 4 \
+  --shuffle --seed 42 \
+  --num-proc 1 \
+  --save-html all \
+  --work-dir outputs/grounding-smoke
 ```
 
-One judge serves every dataset of an invocation, so evaluate the search benchmarks in a
-separate `openvlharness-eval` run from the others, or re-score a finished run with
-`--mode eval --run-dir <run> --judge-config configs/judge.yaml` after switching the variables.
-
-<details>
-<summary>Grounding confidence scores</summary>
-
-[configs/judge_no_judge.yaml](configs/judge_no_judge.yaml) selects
-`score_mode: constant`, assigning every predicted box a confidence of 1.0.
-For ODinW, FSCD, and LVIS grounding, set `score_mode: original` to use matching
-tool detection scores. The configured value takes precedence over `SCORE_MODE`.
-With neither override, evaluators run both modes when detection sidecars exist
-(original is primary), or constant alone otherwise. The primary mode owns the
-unsuffixed metrics files; alternate metrics include the mode in their filenames.
-
-</details>
-
-### Inspect and resume runs
-
-Results are saved under `<work-dir>/<model>/<agent>/<run_id>/<dataset>/`.
-For image/text benchmarks, the main artifacts are:
+Run roots are created under
+`<work-dir>/<model-name>/<agent-class>/<run-id>/`. They contain a redacted run
+manifest and configuration snapshots. Important dataset-run artifacts are:
 
 | Artifact | Contents |
 | --- | --- |
-| `<model>.xlsx` | Predictions; set `PRED_FORMAT=tsv` or `PRED_FORMAT=json` to change the format |
-| Dataset-specific metric files | Scores and diagnostics written by the evaluator |
-| `full_trajectories/<sample_id>.json` | Agent messages, tool results and final answer |
-| `full_trajectories/images/` | Copied trajectory images; `--save-images base64` embeds images instead |
-| `tool_detections/<sample_id>.json` | Detection sidecars for samples with grounding results |
-| `htmls/<sample_id>.html` | Browsable tool evidence when `--save-html all` is supplied |
-| `<model>_incremental.jsonl` | Streaming results when `--incremental-json` is supplied |
+| `<model>.xlsx` | Aggregated predictions; `PRED_FORMAT=tsv` or `PRED_FORMAT=json` changes the format |
+| Dataset-specific metric files | Scores and row-level diagnostics |
+| `full_trajectories/<sample-id>.json` | Agent turns, tool results, and final answer |
+| `full_trajectories/images/` | Copied evidence images; `--save-images base64` embeds them instead |
+| `tool_detections/<sample-id>.json` | Grounding detections when available |
+| `htmls/<sample-id>.html` | Browsable evidence generated by `--save-html` |
+| `bite_observations/<sample-id>.json` | BITE observer sidecar when observation is enabled |
 
-Prediction filenames use the model ID's final component, such as
-`Qwen3-VL-8B-Instruct`.
+Add `--resume` to the same inference command to continue its latest compatible
+partial run. Effective configuration changes require a new run identity.
 
-The parent run directory contains `run_manifest.json`,
-`agent_config.redacted.yaml`, `judge_config.redacted.yaml`, and
-`tool_env_snapshot.json`, recording the effective configuration, resolved model
-profiles and service metadata. Add `--resume` to continue a compatible partial
-run; changes to the effective configuration require a new run. Rows that failed
-because a service was unreachable are scored as incorrect; once the service is
-back, rerun with `--run-dir <run-dir> --ignore-failed` to redo only those rows.
-
-To evaluate saved predictions, select the run directly:
+If a service failed during inference, restart it and rerun the exact run with
+`--run-dir <run-root> --ignore-failed`. To score saved predictions again without
+loading an inference agent:
 
 ```bash
-openvlharness-eval --mode eval --run-dir "$RUN_DIR" --data FSC147_val
+bite-eval \
+  --mode eval \
+  --run-dir /absolute/path/to/run-root \
+  --data FSC147_val
 ```
 
-Evaluation reads the saved model identity, prediction format and judge configuration;
-it does not load the inference agent, tokenizer or tool connections. Supply
-`--judge-config` when changing the judge or replacing redacted judge credentials.
-Inference resumes still validate the effective configuration and resolved model
-profiles. Without `--run-dir`, evaluation discovers the latest complete saved run
-under `--work-dir`; use `--run-dir` when several model/agent identities are present.
+`python run_benchmark.py` is the source-checkout compatibility entry point for
+the same evaluator. Use `bite-eval --help` for raw-trace, incremental-output,
+prediction-format, and image-storage options.
 
-For **Qwen3-VL-8B-only token-level export**, add `--save-raw-trace`. This writes per-sample
-JSON and images under `raw_traces/`, with explicit error records for export
-failures. It requires a matching tokenizer and a server that returns token IDs;
-see [raw trace export](docs/models.md#raw-trace-export-qwen-only). Ordinary
-trajectory JSON and HTML reports work with every preset.
+## Running the research workflows
 
-Where files go:
-
-- Run outputs go under `--work-dir` (default `./outputs`).
-- Benchmark TSVs and images go in `$LMUData`.
-- Image archives and ODinW annotations are downloaded into the Hugging Face cache
-  (`HF_HOME`, default `~/.cache/huggingface`) and then extracted into `$LMUData`,
-  so they are stored twice: about 3.6 GB of archives for the datasets listed above.
-  The CountQA and PixmoCount sources are cached there as well.
-- ODinW annotations go in `$LMUData/GLIP` unless `GLIP_ROOT` is set.
-- `openvlharness-eval` reads `./.env` if present, without overriding variables that
-  are already set. The router and the Python API do not read it.
-- For inference, the default `--config` and `--judge-config` paths
-  (`configs/agent/qwen3_8b_paper.yaml` and `configs/judge.yaml`) are relative, so
-  run from the repository root or pass both.
-
-<a id="configure-and-extend"></a>
-## 🧩 Configure and extend
-
-Each agent YAML separates `agent` policy, `memory`, `capabilities`, and `services`.
-Start from a copy of a paper preset and select the capabilities your deployment
-can support.
-
-### Choose tools for your available infrastructure
-
-| Keys under `capabilities.tools` | Requirements in the paper setup |
-| --- | --- |
-| `grounding` | A SAM 3 GPU worker |
-| `ocr` | A PaddleOCR-VL GPU worker |
-| `depth`, `camera_pose` | A shared Depth Anything 3 GPU worker |
-| `text_search`, `web_visit` | A funded **Serper** API key and the auxiliary Qwen model endpoint |
-| `image_search` | Serper and auxiliary Qwen, plus a public URL for the query image: the built-in image host behind a tunnel, or an **Amazon S3 or Google Cloud Storage bucket** with upload/signing credentials |
-| `zoom` | CPU image processing in the router; no external API or GPU worker |
-| `coding` | The orchestrator model endpoint for code generation and local CPU Python execution |
-
-GPU workers can run on another machine reachable from the router. The main Qwen
-model and the auxiliary Qwen summarizer also need model serving, separately from
-these perception workers; a hosted main model still needs auxiliary Qwen when
-the search capabilities are enabled. See the [model](docs/models.md) and
-[tool deployment](openvlharness/services/tools/README.md) guides.
-
-Only reverse image search needs image hosting. Text search, including its
-image-search mode, and webpage visits do not. Configure `SERPER_API_KEY` or
-`SERPER_API_KEY_FILE` in the router environment, and follow the
-[S3/GCS credential instructions](openvlharness/services/tools/serper_text_search/README.md#credentials-and-reverse-image-upload)
-when enabling `image_search`.
-
-### Disable capabilities you do not need
-
-For an optional web-search provider, see the
-[You.com backend guide](openvlharness/services/tools/youcom_text_search/README.md).
-`youcom_text_search` supports keyless general web search;
-`youcom_webpage_visit` uses an authenticated Contents API. They reuse the
-auxiliary summarizer and page extractor. Serper remains the paper default,
-including the only reverse-image-search backend.
-
-1. Remove the corresponding keys from `capabilities.tools`. For example, remove
-   `image_search` to avoid the image-hosting requirement; remove `text_search`,
-   `image_search`, and `web_visit` to disable Serper-backed tools altogether.
-   Remove `grounding`, `ocr`, `depth`, and `camera_pose` to omit the GPU perception
-   workers. Both depth and camera capabilities must be removed to stop needing DA3.
-2. Delete the now-unused entries from `services.tools`. If all search capabilities
-   are removed and nothing else uses it, also delete `services.models.auxiliary`.
-   **Every `${VARIABLE}` remaining in the YAML is expanded during loading**, and
-   every configured model is validated, even if its capability is disabled.
-   Removing unused connections lets you leave their environment variables unset.
-3. Restart the router with the edited file and pass that same file to
-   `build_agent(...)` or `openvlharness-eval --config ...`. Check `/tools` and
-   `/llm-schema` to confirm the selected tool set. Disabled capabilities are omitted
-   from the model's tool schemas and their backend implementations are not loaded.
-
-<details>
-<summary>Example: zoom and coding with a hosted GPT model, without GPU tool workers, Serper, or cloud storage</summary>
-
-This configuration ships as [examples/local_tools.yaml](examples/local_tools.yaml).
-It needs only `MODEL_BASE_URL`, `MODEL_API_KEY`, and `TOOL_SERVER_URL` from the
-quick start; point the model connection to your GPT Responses endpoint. Code
-generation still calls that model endpoint.
-
-```yaml
-agent_name: MainAgent
-agent_config_version: local_tools_v1
-agent:
-  model_service: orchestrator
-  max_iterations: 15
-memory:
-  modules: [{name: image}, {name: tool_context}, {name: url}]
-  emit_policy: always
-capabilities:
-  registries: [paper]
-  tools:
-    zoom:
-      backend: zoom_in_image_by_bbox
-    coding:
-      generator: python_coding_agent
-      executor: python_executor_local
-services:
-  client:
-    base_url: ${TOOL_SERVER_URL}
-  server:
-    host: 127.0.0.1
-    port: 8101
-    registration: configured_only
-  tools:
-    zoom_in_image_by_bbox: {}
-    python_coding_agent:
-      model_service: orchestrator
-      context: fresh
-    python_executor_local:
-      transport: local
-      timeout_seconds: 30
-  models:
-    orchestrator:
-      alias: gpt-6-luna
-      base: ${MODEL_BASE_URL}
-      key: ${MODEL_API_KEY}
-      max_tokens: 16000
-      reasoning_effort: medium
-```
-
-Start it with
-`python -m openvlharness.services.server --config examples/local_tools.yaml`,
-then use `build_agent("examples/local_tools.yaml")`. Keep the configured
-router port aligned with `TOOL_SERVER_URL`.
-
-</details>
-
-### Use another model
-
-Registered models are listed in the [model guide](docs/models.md#other-registered-models):
-copy the preset of the same family and change the orchestrator's `alias`. To add a
-model outside those families, register its served ID, API protocol, prompt, and
-supported options in [model_registry.yaml](openvlharness/services/model_registry.yaml).
-Auxiliary models can also use a registered compatible profile; multimodal Qwen
-remains the official search default.
-
-### Connect your own service
-
-For SAM 3, OCR, DA3, or GroundingDINO workers, point
-`services.tools.<backend>.server_url` to a service implementing that backend's HTTP
-contract. For example, merge this fragment into your configuration to use a SAM 3
-worker on another host:
-
-```yaml
-services:
-  tools:
-    sam3_segment:
-      server_url: http://gpu-host:8086
-```
-
-Use the service base URL; the backend wrapper adds the request route. The service
-must accept the wrapper's request format and return the expected result fields.
-The optional [GroundingDINO backend](openvlharness/services/tools/grounding_dino/README.md)
-shows how to select a different implementation of the same grounding capability.
-
-To integrate a service with a different API, add a wrapper under
-`openvlharness/services/tools/<backend>/tool.py`; the
-[OCR wrapper](openvlharness/services/tools/ocr/tool.py) is an HTTP example and
-the [zoom backend](openvlharness/services/tools/zoom_in_image_by_bbox/tool.py)
-is a small local example. Implement the backend's `BaseTool.execute` method,
-translate its response to the capability's expected fields, and register the
-backend as described below. Endpoints and credentials belong in deployment
-configuration or the service environment; public tool arguments describe the task.
-
-### Add a capability or backend
-
-New capability names and backends require source registration before they can be
-selected in YAML. The relevant files are:
-
-1. **Capability interface:** create `openvlharness/capabilities/<name>.py`,
-   following [zoom.py](openvlharness/capabilities/zoom.py). Define the public
-   function schema, a typed output contract, and a `Capability` subclass of
-   [BaseCapability](openvlharness/capabilities/_base.py). Set `name`, `schema`,
-   and `backends` (backend key to concrete tool class name). Implement
-   `normalize_result` and `process_output` for canonical results and model-readable
-   evidence. Use `translate_args`, `validate_result`, and `store_result` as needed
-   to adapt arguments, validate results before registration, and retain numerical
-   data for later tools. Image arguments such as `image_id` resolve through memory.
-2. **Backend implementation:** add a package with `__init__.py` and `tool.py` under
-   `openvlharness/services/tools/<backend>/`. Its tool class must match the
-   capability's `backends` mapping. Implement
-   [BaseTool](openvlharness/services/tools/base.py)'s `execute` method and return
-   result data; the router adds the success/error envelope and tool-call ID.
-3. **Configuration registration:** update `PAPER_CAPABILITIES`, `PAPER_BACKENDS`,
-   and the backend/service-option validation in
-   [bootstrap.py](openvlharness/bootstrap.py). For another implementation of
-   an existing capability, extend its `backends` mapping and accepted backend
-   selections. Add HTTP workers to `RAW_BACKENDS` when they need `server_url`
-   injected from their service configuration.
-4. **Router wiring:** [server.py](openvlharness/services/server.py) imports the
-   configured backend class. Extend its construction logic if your tool needs
-   injected model clients or other dependencies. For resource-limited services,
-   assign a `BACKEND_GROUPS` entry and a `DEFAULT_LIMITS` concurrency limit. Keep
-   capability and backend registration available on both the agent and router hosts.
-5. **Select and verify:** add `capabilities.tools.<name>.backend` and the matching
-   `services.tools.<backend>` settings to your YAML. Add focused coverage in
-   [tests/test_capabilities.py](tests/test_capabilities.py) and
-   [tests/test_services.py](tests/test_services.py) for valid calls, malformed
-   arguments/results, and any stored image or numerical artifacts. Run a small
-   question and inspect its trajectory to verify the model can use the evidence.
-
-See [runtime design](docs/runtime.md) for capability, memory, and service contracts.
-
-<a id="repository-layout"></a>
-## 📁 Repository layout
-
-```text
-openvlharness/          the harness (installed as the openvlharness package)
-  agent/                orchestrator loop over model requests and tool calls
-  capabilities/         the nine capability interfaces above
-  memory/               per-question multimodal memory and Environment Update
-  services/             model profiles, tool client and tool router
-    tools/              tool backends (SAM 3, OCR, depth, search, Python executor, ...)
-  prompts/              system prompts
-  bootstrap.py          builds an agent from a YAML config
-evaluation_kit/         benchmark loaders, judges and the runner (openvlharness-eval)
-configs/                paper agent presets and judge settings
-examples/               example agent configurations
-docs/                   model, runtime and validation notes
-tests/                  harness tests; tests/evaluation/ needs the eval extra
-validation/             fixed perception subset for checking a tool deployment
-assets/                 logo and README figures
-run_benchmark.py        same program as openvlharness-eval
-```
-
-The harness never imports `evaluation_kit`; the evaluation layer uses the
-harness the same way any other application would.
-
-<a id="documentation-and-tests"></a>
-## 📚 Documentation and tests
-
-| Guide | Contents |
-| --- | --- |
-| [Model services](docs/models.md) | Presets, registered models, Qwen serving, GPT and Kimi connections, per-role settings, raw trace export |
-| [Tool services](openvlharness/services/tools/README.md) | GPU workers, router deployment, search credentials, backend guides |
-| [Runtime design](docs/runtime.md) | Agent loop, configuration, memory, capability interfaces |
-| [Your model in the live demo](docs/demo_endpoint.md) | Serve a model with vLLM and get the Base URL and Model name for the demo's OpenAI-compatible option |
-| [Benchmarks and judges](evaluation_kit/dataset/README.md) | Benchmark loaders, metrics, judge configuration, `score_mode` |
-| [Release validation](docs/validation.md) | Regression coverage and live validation evidence |
-| [Security](SECURITY.md) | What runs where, what leaves your machine, reporting vulnerabilities |
-
-To run the package tests:
+### 1. Run the offline test suite
 
 ```bash
-python -m pip install -e '.[test,server]'
+source scripts/env.sh
+python -m pytest tests/bite tests/bite_collection tests/bite_calibration -q
+
+# Full repository regression suite
 python -m pytest tests -q
 ```
 
-The evaluator tests under `tests/evaluation` are collected only when the `eval`
-extra is installed as well.
+The current checkout passes 1,005 tests and 451 subtests. Several HTTP tests bind
+temporary loopback servers, so the execution environment must permit localhost
+sockets.
 
-<a id="acknowledgements"></a>
-## 🙏 Acknowledgements
+### 2. Reproduce the completed Zoom utility analysis
 
-The benchmark loaders and evaluators build on
-[VLMEvalKit](https://github.com/open-compass/VLMEvalKit). The default tools use
-[SAM 3](https://github.com/facebookresearch/sam3),
-[Depth Anything 3](https://github.com/ByteDance-Seed/Depth-Anything-3),
-[PaddleOCR-VL](https://github.com/PaddlePaddle/PaddleOCR) and the
-[Serper](https://serper.dev/) search APIs, and
-[Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) serves as the default backbone and
-search summarizer. We thank their authors for releasing them.
+The analysis reads the frozen Phase 4C-1D prediction artifacts and does not call
+a model or perception worker:
 
-<a id="license"></a>
-## 📄 License
-
-OpenVLHarness is released under the [MIT License](LICENSE). The benchmark
-loaders and evaluators under `evaluation_kit/` are derived from
-[VLMEvalKit](https://github.com/open-compass/VLMEvalKit) (Apache License 2.0), and
-the SAM 3 visualization helpers in `openvlharness/services/tools/sam3_segment/viz/`
-are under the SAM License. See [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md)
-for these notices and for the licenses of the models, services and datasets the
-default tools use, which are not covered by the MIT License.
-
-<a id="citation"></a>
-## 📝 Citation
-
-If you use OpenVLHarness in your research, please cite:
-
-```bibtex
-@article{openvlharness2026,
-  title   = {OpenVLHarness: Real World Visual Agentic Tool-Use with Multimodal Memory},
-  author  = {Zhou, Yu and Yang, Cheng-Fu and Sun, Rui and Wu, Di and Peng, Sibo and Zhang, Mingyang and Yang, Zhen and Zhang, Ruiyi and Peng, Nanyun and Gan, Zhe and Chang, Kai-Wei},
-  journal = {arXiv preprint arXiv:2610.26860},
-  year    = {2026},
-  url     = {https://arxiv.org/abs/2610.26860}
-}
+```bash
+source scripts/env.sh
+python scripts/bite/evaluate_zoom_action_utility.py \
+  --output outputs/bite/phase04c1e \
+  --bootstrap-replicates 2000
 ```
+
+Required input: `outputs/bite/phase04c1d/`. That directory is intentionally
+ignored by Git and is not currently included in the public repository. A clean
+clone can run the code and synthetic tests but cannot reproduce the reported
+development numbers until the frozen, license-cleared artifact bundle is
+released separately.
+
+### 3. Rebuild the GT-blind semantic pilot design
+
+These commands make no model calls and open no labels:
+
+```bash
+source scripts/env.sh
+python scripts/bite/prepare_semantic_verification_pilot.py \
+  --output outputs/bite/phase04c1e
+python scripts/bite/preflight_semantic_pilot.py \
+  --output outputs/bite/phase04c1f
+```
+
+They require the earlier frozen collection and runtime-feature artifacts. The
+preflight verifies artifact identity, model/cache readiness, request estimates,
+and whether the researcher authorization gate exists.
+
+Run the semantic contract with mock responses:
+
+```bash
+python scripts/bite/run_semantic_verification_pilot.py \
+  --mode mock_dry_run \
+  --output outputs/bite/phase04c1f/mock_semantic_run
+```
+
+### 4. Rebuild the task-level four-branch protocol
+
+The preparation and preflight are offline and label-sealed:
+
+```bash
+source scripts/env.sh
+python scripts/bite/prepare_oracle_headroom_pilot.py \
+  --output outputs/bite/phase04c1g
+python scripts/bite/preflight_oracle_headroom.py
+python scripts/bite/assess_phase04c1g_readiness.py
+python scripts/bite/build_phase04c1g_manifest.py
+```
+
+The preflight writes the exact authorization requirements and performs a
+101-task mock B0/B1 contract run unless `--skip-mock-run` is supplied.
+
+### 5. Live execution: researcher authorization required
+
+Live runs are deliberately not one-command defaults. A researcher must inspect
+the generated requirements and write authorization JSON bound to the exact
+manifest, prompt, ontology/parser/renderer digests, model identity, endpoint,
+output directory, expiry, and cumulative request caps.
+
+Run a semantic canary of at most five pending cases:
+
+```bash
+python scripts/bite/run_semantic_verification_pilot.py \
+  --mode live \
+  --authorization outputs/bite/phase04c1f/authorization/researcher_authorization.json \
+  --output outputs/bite/phase04c1f/raw_observations/semantic_pilot_run \
+  --canary 5
+```
+
+After reviewing the canary, resume the same bound run:
+
+```bash
+python scripts/bite/run_semantic_verification_pilot.py \
+  --mode live \
+  --authorization outputs/bite/phase04c1f/authorization/researcher_authorization.json \
+  --output outputs/bite/phase04c1f/raw_observations/semantic_pilot_run \
+  --resume
+```
+
+The final-answer branches require a second authorization and a completed
+semantic run. The combined phase cap is at most 505 calls: 101 semantic requests
+plus 404 task/branch final answers.
+
+```bash
+python scripts/bite/run_oracle_headroom_branches.py \
+  --mode live \
+  --authorization outputs/bite/phase04c1g/authorization/researcher_authorization.json \
+  --semantic-run outputs/bite/phase04c1f/raw_observations/semantic_pilot_run \
+  --output outputs/bite/phase04c1g/raw_continuations/task_probe_run \
+  --canary 5
+
+# After canary review
+python scripts/bite/run_oracle_headroom_branches.py \
+  --mode live \
+  --authorization outputs/bite/phase04c1g/authorization/researcher_authorization.json \
+  --semantic-run outputs/bite/phase04c1f/raw_observations/semantic_pilot_run \
+  --output outputs/bite/phase04c1g/raw_continuations/task_probe_run \
+  --resume
+```
+
+Only after all 404 live units are complete does the analysis command finalize
+the GT-free table, open the official annotations, join labels, and compute
+headroom and selector results:
+
+```bash
+python scripts/bite/analyze_oracle_headroom.py \
+  --run outputs/bite/phase04c1g/raw_continuations/task_probe_run
+```
+
+Do not describe mock runs as model performance or development groups as held-out
+validation.
+
+## Data and model requirements
+
+| Resource | Purpose | Public-release status |
+| --- | --- | --- |
+| Aquarium Combined COCO data | Task-V candidate and count-label experiments | Source is CC BY 4.0; images and derived visual artifacts are not redistributed in this repository |
+| ODinW validation sample | Observer integration check | Loaded through the existing evaluation layer; the single sample is not a benchmark estimate |
+| Qwen3-VL-8B-Instruct | Semantic inspection and fixed-decoder task branches | Pinned cache revision is documented in the phase reports; weights are downloaded from the official model host |
+| SAM 3 | Initial and focused grounding | Gated checkpoint under its own license; runtime worker identity alone does not attest the loaded revision |
+| Stored Zoom crops and branch records | Offline controlled comparisons | Ignored local artifacts; a license-cleared public artifact bundle is still needed for independent reproduction |
+
+Ground truth must remain unavailable to collection, rendering, model requests,
+action selection, and output finalization. The analysis scripts enforce this
+ordering, but users remain responsible for dataset access terms and for keeping
+private or restricted images out of public artifacts.
+
+## Repository layout
+
+```text
+core Python package: bite/       passive observer, schemas, budget, geometry,
+                                 serialization, and provenance graph
+evaluation_kit/bite_collection/ controlled branch collection and persistence
+evaluation_kit/bite_calibration/utility, calibration, uncertainty, headroom,
+                                 semantic-action, and protocol analysis
+scripts/bite/                    phase preparation, collection, validation,
+                                 analysis, readiness, and manifest commands
+docs/bite/                       frozen protocols, phase reports, decisions,
+                                 schemas, theory notes, and limitations
+tests/bite/                      passive observer tests and replay fixtures
+tests/bite_collection/           controlled collection tests
+tests/bite_calibration/          calibration and protocol tests
+configs/                         underlying agent/model/tool configurations
+scripts/                         environment, service, inference, and model setup
+```
+
+Start with:
+
+- [Passive observation schema](docs/bite/OBSERVATION_SCHEMA_V1.md)
+- [Phase 3 observer implementation](docs/bite/PHASE_03_OBSERVER_IMPLEMENTATION.md)
+- [Collection schema](docs/bite/COLLECTION_SCHEMA_V1.md)
+- [Dependent-evidence theory note](docs/bite/BITE_DEPENDENT_EVIDENCE_VALUE_THEORY.md)
+- [Task-level probe protocol](docs/bite/TASK_LEVEL_PROBE_PROTOCOL.md)
+- [Latest phase report](docs/bite/PHASE_04C1G_REPORT.md)
+- [Latest research decision](docs/bite/PHASE_04C1G_RESEARCH_DECISION.md)
+
+## Limitations
+
+- No adaptive BITE controller, calibrated online belief state, or enforced
+  budget is implemented.
+- The latest task-level experiment has zero live model calls and therefore no
+  result.
+- Existing utility findings are development-only and may be dominated by
+  class-absent queries or a small number of source groups.
+- Zoom and semantic evidence are dependent on the same pixels and initial
+  proposal; naive likelihood multiplication is prohibited.
+- The controlled decoder protocol measures response changes under evidence
+  presentation, not autonomous agent behavior.
+- B1/B3 contain more text and an additional image, with no length-matched
+  control in the frozen protocol.
+- Logical calls, latency, tokens, and monetary cost are distinct quantities and
+  must not be pooled without an explicit conversion.
+- Independent reproduction currently requires ignored experiment artifacts that
+  have not yet been released.
+
+## Citation
+
+BITE does not yet have a paper, DOI, or archival citation. Until citation
+metadata is finalized, cite the repository URL and the exact commit used. Do not
+cite the planned experiments as completed results.
+
+## License and code acknowledgement
+
+Repository-authored code is distributed under the [MIT License](LICENSE), with
+third-party components and model/data licenses listed in
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+This work is built on the OpenVLHarness codebase. The retained Python package,
+evaluation CLI, capability layer, multimodal memory, model adapters, tool
+services, benchmark loaders, and several compatibility command names originate
+from that project and remain under their original attribution and applicable
+licenses. BITE-specific contributions are concentrated in the observer,
+collection, calibration, protocol, analysis, and research-documentation paths
+listed above.

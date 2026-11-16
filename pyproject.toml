@@ -3,14 +3,14 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "openvlharness"
+name = "bite-visual-agents"
 version = "0.1.0"
-description = "Training-free harness that gives multimodal models perception, search and coding tools with multimodal memory"
+description = "Evidence provenance and controlled tool-utility evaluation for visual agents"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md", "LICENSES/*"]
-authors = [{name = "The OpenVLHarness Authors"}]
+authors = [{name = "BITE Contributors"}]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
@@ -24,14 +24,8 @@ classifiers = [
 dependencies = ["requests>=2.31", "PyYAML>=6.0.1", "numpy>=1.26", "Pillow>=10", "jsonschema>=4"]
 
 [project.scripts]
-openvlharness-eval = "evaluation_kit.cli:main"
-
-[project.urls]
-Homepage = "https://openvlharness.github.io/"
-Paper = "https://arxiv.org/abs/2610.26860"
-Datasets = "https://huggingface.co/datasets/uclanlp/OpenVLHarness-Evaluation-Datasets"
-Source = "https://github.com/uclanlp/OpenVLHarness"
-Issues = "https://github.com/uclanlp/OpenVLHarness/issues"
+bite-eval = "evaluation_kit.cli:main"
+openvlharness-eval = "evaluation_kit.cli:main"  # Legacy compatibility alias.
 
 [project.optional-dependencies]
 server = ["fastapi>=0.100", "pydantic>=2", "uvicorn>=0.23", "openai>=1.66,<4", "boto3>=1.28", "matplotlib>=3.8"]

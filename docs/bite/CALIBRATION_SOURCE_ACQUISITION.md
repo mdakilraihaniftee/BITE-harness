@@ -20,13 +20,14 @@ image/archive redistribution is planned. Destination is isolated from benchmark
 data:
 
 ```text
-/home/ai5377/OpenVLHarness/data/calibration_sources/odinw13/
+<repository-root>/data/calibration_sources/odinw13/
 ```
 
 ## Required approval record
 
-Review [approval_request.json](../../outputs/bite/phase04b2b1/acquisition/approval_request.json),
-then create its `bite.source_acquisition_approval.v1` template as
+Review the generated
+`outputs/bite/phase04b2b1/acquisition/approval_request.json`, then create its
+`bite.source_acquisition_approval.v1` template as
 `outputs/bite/phase04b2b1/acquisition/researcher_approval.json`. It must name a
 researcher authority, exact source URL/bytes/hash, intended use, no-redistribution
 decision, reviewed terms and destination. An assistant-generated recommendation
