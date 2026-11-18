@@ -377,6 +377,102 @@ worker trajectories, private-memory records, messages, events, budgets, resolved
 configuration, and the final result below `outputs/multi_agent/`. See
 [the architecture, configuration, execution, and reproducibility guide](docs/MULTI_AGENT.md).
 
+### Observe a live investigation
+
+The authenticated Investigation Studio turns the structured multi-agent event log
+into a live research dashboard. It includes a complete, interactive architecture graph
+(coordinator, every worker's harness, model client, tool router, and private memory,
+shared model and tool services, communication bus, budget, and evidence store) that
+lights up the actual direction of each tool request and result, message and reply,
+memory read and write, model call, and budget decision. It also has a compact
+timeline, original-image ROI overlays, crop and tool-result inspection, scoped memory
+views, final synthesis, deterministic replay, and light, dark, and system themes. It
+reads the same run directory written by normal inference; watching is optional and
+never blocks an agent.
+
+Create a complete two-worker visual trajectory without model servers:
+
+```bash
+./scripts/run_studio_demo.sh
+```
+
+The run commands start or reuse a compatible Studio for the same runs directory and
+print which instance they used. They then open the browser on that exact instance
+with a **single-use launch link** that selects the new run; the page waits for the
+run to appear if necessary. Older or unrelated servers on the port are reported and
+left untouched. Run a dataset task with one command:
+
+```bash
+./scripts/run_studio_dataset_task.sh FSC147_val 0
+```
+
+If the environment cannot open a browser, open the printed link. Links carry a
+short-lived ticket, not the viewer token. Manage instances with
+`scripts/studio_ctl.py`: `status` lists Studios and their compatibility, `url --run
+<id>` mints a fresh link, `ensure --open` reuses or starts one, and `stop --port
+<p>` stops only your own Studio server. Set `STUDIO_OPEN_BROWSER=0` only for a
+headless run. Before you connect, the canvas shows a generic **architecture
+preview**. After connecting without a run, it shows the **configured architecture**
+(coordinator, a worker template, registered tools, and model services). After
+selecting a run, it shows that run's recorded topology and activity.
+
+For a real image outside a dataset, start the model/tool services described above
+and execute:
+
+```bash
+./scripts/run_studio_investigation.sh /path/to/image.jpg \
+  'What visual evidence answers this question?'
+```
+
+The run appears immediately and continues if the browser disconnects. Select a
+completed run from the same menu to replay it without new model or tool calls.
+Private-memory endpoints require the viewer token and can be disabled with
+`./scripts/studio.sh --disable-private-memory`. Hidden model reasoning is never
+published; the dashboard shows recorded public action intent or states that no
+explicit rationale was available.
+
+The graph has two modes over one topology. **Full architecture** shows everything;
+**Live activity** subdues components that are idle at the current position. Click an
+event, component, or connection to inspect it. Zoom, fit, focus, and per-worker
+collapse are in the graph toolbar. The topology comes from the sanitized run manifest,
+and activity comes only from recorded events (never from future events during
+replay). Components that older runs did not declare are drawn dashed as *observed* or
+*inferred*. See the [Investigation Studio architecture, event mapping, correlation,
+theme, lifecycle, security, and troubleshooting guide](docs/INVESTIGATION_STUDIO.md),
+which also explains the harmless `None of PyTorch … found` tokenizer notice and
+documents run-to-run variation on repeated real tasks.
+
+**Answer status, configuration, and compact team (`studio.ui.v3`).** A sticky strip
+keeps three separate fields in view: the **ground truth**, released by an
+evaluator-only endpoint after the run is terminal (shown as *Sealed until completion*
+while inference runs, with dataset/row provenance), the **coordinator's current
+estimate** (starts as *No estimate yet*; changes only when the coordinator records a
+new provisional, revised, unresolved, or final answer state, with an expandable
+history linked to the evidence it cited), and the **final answer**, plus an
+evaluation label when a deterministic rule exists. The default **Compact team** view
+draws each agent as one harness card with model, memory, peer-communication, and
+tool-chip indicators and directional request/result arrows; *Full architecture*
+keeps the detailed graph. An **Investigation story** explains each step from recorded
+events, with the raw log one tab away. Worker count (1–4), the optional worker
+memory notebook, peer communication, and coordinator estimates are real runtime
+switches recorded with every run:
+
+```bash
+STUDIO_NUM_AGENTS=3 STUDIO_WORKER_MEMORY=off STUDIO_PEER_COMMUNICATION=on \
+  ./scripts/run_studio_dataset_task.sh FSC147_val 10        # real models
+STUDIO_NUM_AGENTS=4 STUDIO_WORKER_MEMORY=on STUDIO_PEER_COMMUNICATION=off \
+  ./scripts/run_studio_demo.sh                              # deterministic fixture
+python scripts/studio_config_matrix.py matrix               # all 16 configurations (fixture)
+```
+
+Labels never reach agents, prompts, tools, messages, memory, or event payloads; see
+[answer status and reference security](docs/INVESTIGATION_STUDIO.md#answer-status-run-configuration-and-the-compact-team-view-studiouiv3)
+and the [v3 validation report](docs/STUDIO_V3_VALIDATION.md).
+
+![Compact team view with ground truth, coordinator estimate, and final answer](docs/images/studio_v3/04-w4-memory-off-peer-on.png)
+
+![Investigation Studio tool result returning to its worker](docs/images/studio/04-tool-result-return-path.png)
+
 ### Single-image inference with BITE observation
 
 With the base services running and `AGENT_CONFIG=configs/local_qwen.yaml`, run:

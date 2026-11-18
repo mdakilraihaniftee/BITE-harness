@@ -1,0 +1,110 @@
+{
+  "checks": [
+    {
+      "name": "real_fsc147_row10_w1_memoff_peeroff: 1 worker cards + coordinator, no overlap",
+      "ok": true,
+      "detail": "1 workers, 63 events"
+    },
+    {
+      "name": "real_fsc147_row10_w1_memoff_peeroff: reference released post-run with evaluation",
+      "ok": true,
+      "detail": "46 · Evaluation: Incorrect (|error| 6) · final 40"
+    },
+    {
+      "name": "real_fsc147_row10_w1_memoff_peeroff: estimate history from recorded events",
+      "ok": true,
+      "detail": "Final answer 40 (no provisional estimate preceded it)"
+    },
+    {
+      "name": "real_fsc147_row10_w1_memoff_peeroff: replay start shows no estimate and no final",
+      "ok": true,
+      "detail": "{\"est\":\"No estimate yet\",\"final\":\"—\"}"
+    },
+    {
+      "name": "screenshot real_fsc147_row10_w1_memoff_peeroff is a nonblank PNG",
+      "ok": true,
+      "detail": "164861 bytes"
+    },
+    {
+      "name": "real_fsc147_row10_w2_memon_peeron: 2 worker cards + coordinator, no overlap",
+      "ok": true,
+      "detail": "2 workers, 185 events"
+    },
+    {
+      "name": "real_fsc147_row10_w2_memon_peeron: reference released post-run with evaluation",
+      "ok": true,
+      "detail": "46 · Evaluation: Incorrect (|error| 44) · final 2"
+    },
+    {
+      "name": "real_fsc147_row10_w2_memon_peeron: estimate history from recorded events",
+      "ok": true,
+      "detail": "Final answer 2 (no provisional estimate preceded it)"
+    },
+    {
+      "name": "real_fsc147_row10_w2_memon_peeron: replay start shows no estimate and no final",
+      "ok": true,
+      "detail": "{\"est\":\"No estimate yet\",\"final\":\"—\"}"
+    },
+    {
+      "name": "screenshot real_fsc147_row10_w2_memon_peeron is a nonblank PNG",
+      "ok": true,
+      "detail": "175460 bytes"
+    },
+    {
+      "name": "real_fsc147_row10_w3_memon_peeroff: 3 worker cards + coordinator, no overlap",
+      "ok": true,
+      "detail": "3 workers, 127 events"
+    },
+    {
+      "name": "real_fsc147_row10_w3_memon_peeroff: reference released post-run with evaluation",
+      "ok": true,
+      "detail": "46 · Evaluation: Incorrect (|error| 44) · final 2"
+    },
+    {
+      "name": "real_fsc147_row10_w3_memon_peeroff: estimate history from recorded events",
+      "ok": true,
+      "detail": "Final answer 2 (no provisional estimate preceded it)"
+    },
+    {
+      "name": "real_fsc147_row10_w3_memon_peeroff: replay start shows no estimate and no final",
+      "ok": true,
+      "detail": "{\"est\":\"No estimate yet\",\"final\":\"—\"}"
+    },
+    {
+      "name": "screenshot real_fsc147_row10_w3_memon_peeroff is a nonblank PNG",
+      "ok": true,
+      "detail": "201815 bytes"
+    },
+    {
+      "name": "real_fsc147_row10_w4_memoff_peeron: 4 worker cards + coordinator, no overlap",
+      "ok": true,
+      "detail": "4 workers, 278 events"
+    },
+    {
+      "name": "real_fsc147_row10_w4_memoff_peeron: reference released post-run with evaluation",
+      "ok": true,
+      "detail": "46 · Evaluation: Incorrect (|error| 7) · final 39"
+    },
+    {
+      "name": "real_fsc147_row10_w4_memoff_peeron: estimate history from recorded events",
+      "ok": true,
+      "detail": "Final answer 39 (no provisional estimate preceded it)"
+    },
+    {
+      "name": "real_fsc147_row10_w4_memoff_peeron: replay start shows no estimate and no final",
+      "ok": true,
+      "detail": "{\"est\":\"No estimate yet\",\"final\":\"—\"}"
+    },
+    {
+      "name": "screenshot real_fsc147_row10_w4_memoff_peeron is a nonblank PNG",
+      "ok": true,
+      "detail": "180651 bytes"
+    },
+    {
+      "name": "no console errors or exceptions",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "problems": []
+}

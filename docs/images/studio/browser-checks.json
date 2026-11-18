@@ -1,0 +1,324 @@
+{
+  "checks": [
+    {
+      "name": "light: theme applied",
+      "ok": true,
+      "detail": "rgb(243, 245, 248)"
+    },
+    {
+      "name": "light: every topology node drawn",
+      "ok": true,
+      "detail": "30/30"
+    },
+    {
+      "name": "light: token removed from URL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "light: token field masked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "light: body text contrast ≥ 4.5",
+      "ok": true,
+      "detail": "{\"p\":\"16.3\",\"s\":\"6.0\"}"
+    },
+    {
+      "name": "light: node label contrast ≥ 4.5",
+      "ok": true,
+      "detail": "16.3 / 6.0"
+    },
+    {
+      "name": "light: arrow contrast ≥ 3",
+      "ok": true,
+      "detail": "5.2 / 4.2 / 5.3"
+    },
+    {
+      "name": "dark: theme applied",
+      "ok": true,
+      "detail": "rgb(14, 19, 26)"
+    },
+    {
+      "name": "dark: every topology node drawn",
+      "ok": true,
+      "detail": "30/30"
+    },
+    {
+      "name": "dark: token removed from URL",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dark: token field masked",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "dark: body text contrast ≥ 4.5",
+      "ok": true,
+      "detail": "{\"p\":\"14.8\",\"s\":\"7.2\"}"
+    },
+    {
+      "name": "dark: node label contrast ≥ 4.5",
+      "ok": true,
+      "detail": "13.9 / 6.8"
+    },
+    {
+      "name": "dark: arrow contrast ≥ 3",
+      "ok": true,
+      "detail": "7.4 / 9.6 / 7.2"
+    },
+    {
+      "name": "theme persists across reload",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "theme storage holds no token",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "system mode follows dark preference",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "system mode follows light preference",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tool request highlights request-direction path",
+      "ok": true,
+      "detail": "[\"flow on flow-request level-selected\",\"flow on flow-request level-selected\"]"
+    },
+    {
+      "name": "replay hides future final answer",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "replay result node pending",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "running tool shows running state",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "tool result highlights response-direction path",
+      "ok": true,
+      "detail": "[\"flow on flow-response level-selected\",\"flow on flow-response level-selected\",\"flow on flow-response level-selected\"]"
+    },
+    {
+      "name": "response overlay geometry is distinct from request direction",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ROI boxes drawn with authoritative dimensions",
+      "ok": true,
+      "detail": "{\"rects\":14,\"warn\":null,\"label\":\"576 × 384 source pixels\"}"
+    },
+    {
+      "name": "graph nodes keep DOM identity across updates",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "coordinator assignment travels coordinator → bus",
+      "ok": true,
+      "detail": "[\"flow on flow-control level-selected\"]"
+    },
+    {
+      "name": "memory write highlights harness → memory",
+      "ok": true,
+      "detail": "[\"flow on flow-memory level-selected\"]"
+    },
+    {
+      "name": "backward replay clears later running tools",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "backward replay hides later timeline cards",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "go live restores final answer",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "worker question travels sender → bus",
+      "ok": true,
+      "detail": "[\"flow on flow-message level-selected\"]"
+    },
+    {
+      "name": "question queued for recipient",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "reply recognised from correlation id",
+      "ok": true,
+      "detail": "Worker 3 → Worker 1: evidence"
+    },
+    {
+      "name": "concurrent same-tool calls both shown running",
+      "ok": true,
+      "detail": "{\"running\":\"Running ×2\",\"w1\":\"Running: Visual_Grou…\",\"w2\":\"Running: Visual_Grou…\",\"flows\":5}"
+    },
+    {
+      "name": "edge inspector lists related events",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "node inspector shows agent details without fetching memory",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "demo replay labelled deterministic",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "reduced motion disables flow animation",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "legacy run renders graph",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A disconnected: preview architecture drawn",
+      "ok": true,
+      "detail": "{\"nodes\":18,\"edges\":20,\"visibleEdges\":15,\"finite\":true,\"width\":1574,\"height\":780,\"scope\":\"preview\",\"viewBox\":\"0.0 0.0 1160.0 506.0\",\"activeFlows\":0,\"chip\":\"Authentication required\",\"title\":\"Architecture preview — not live execution\",\"task\":\"Connect to inspect a run\"}"
+    },
+    {
+      "name": "A disconnected: labelled as preview, not live",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A disconnected: no activity and no run data",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "A disconnected: connection instructions visible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L invalid token reported",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B connected: configured architecture drawn",
+      "ok": true,
+      "detail": "{\"nodes\":23,\"edges\":25,\"configured\":{\"nodes\":23,\"edges\":25,\"tools\":6,\"agents\":[\"coordinator\",\"worker_template\"]}}"
+    },
+    {
+      "name": "B connected: worker template, not invented workers",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B connected: labelled configured, no activity",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B connected: run menu populated",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "B connected: token removed from URL and field",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "L launch link is single-use",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C real run: run topology drawn",
+      "ok": true,
+      "detail": "{\"nodes\":23,\"edges\":28,\"workers\":2}"
+    },
+    {
+      "name": "C real run: task, timeline, final answer, evidence",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "C real run: run kept in URL without credentials",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "J replay keeps topology visible",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "J switching runs resets replay and selection",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "J returning to live keeps graph",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "I legacy run renders observed/inferred structure",
+      "ok": true,
+      "detail": "{\"nodes\":20,\"inferred\":8,\"source\":\"manifest.actors\"}"
+    },
+    {
+      "name": "K laptop size: graph visible",
+      "ok": true,
+      "detail": "1340x553"
+    },
+    {
+      "name": "H waiting state shown for not-yet-existing run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "H run discovered and loaded without refresh",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "F outdated backend detected, not treated as connected",
+      "ok": true,
+      "detail": "{\"chip\":\"Backend incompatible\",\"notice\":\"Studio backend at 127.0.0.1:8814 is outdated or not an Investigation Studio (HTTP 404). It cannot provide the architecture data this page needs. Run `python sc"
+    },
+    {
+      "name": "no unexpected console errors or exceptions",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "problems": [
+    "log: Failed to load resource: the server responded with a status of 401 (Unauthorized) http://127.0.0.1:8799/api/runs",
+    "log: Failed to load resource: the server responded with a status of 401 (Unauthorized) http://127.0.0.1:8799/api/launch-tickets/redeem",
+    "log: Failed to load resource: the server responded with a status of 404 (Not Found) http://127.0.0.1:8814/api/info"
+  ]
+}

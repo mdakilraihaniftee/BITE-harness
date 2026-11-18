@@ -12,7 +12,15 @@ multi_agent:
     agent_config: examples/local_grounding_tools.yaml
     tool_access: false
     max_rounds: 2
-    model_requests: 4
+    # Plan + synthesis, plus room for bounded estimate reassessments. A
+    # coordinator call can use 2 requests (answer-tag retry), and every
+    # reassessment counts against this and the global model budget.
+    model_requests: 8
+    estimate_updates:
+      enabled: false          # the Studio runners pass --estimate-updates
+      trigger: meaningful_evidence
+      max_reassessments: 2
+    max_follow_up_rounds: 0
 
   workers:
     default:
@@ -23,6 +31,9 @@ multi_agent:
     overrides:
       worker_02:
         role: independent verification and contradiction checking
+
+  memory:
+    optional_worker_memory: true   # private cross-phase notebook; working context is always on
 
   communication:
     enabled: true

@@ -1,8 +1,11 @@
 """One agent loop; capabilities own tool meaning and adapters own API syntax."""
+
 import copy
 import hashlib
 import os
 import re
+import time
+from uuid import uuid4
 
 from ..bite import create_observer
 from ..capabilities._base import BaseCapability, failure
@@ -29,14 +32,25 @@ class MainAgent:
     implementations own tool semantics; the adapter owns provider message formats,
     context handling and final-answer extraction.
     """
+
     fail_msg = "Error: Unable to get response from the server."
     # Returned when max_iterations ends a question without an answer. Digit-free so that numeric
     # answer parsers (counting, MRA) cannot read it as a prediction.
     limit_msg = "Error: Reached the iteration limit without a final answer."
 
-    def __init__(self, model_adapter, capabilities, memory_factory, system_prompt, user_prefix,
-                 max_iterations=15, tool_choice="auto", paired_sampling_seed=False,
-                 budget_guard=None):
+    def __init__(
+        self,
+        model_adapter,
+        capabilities,
+        memory_factory,
+        system_prompt,
+        user_prefix,
+        max_iterations=15,
+        tool_choice="auto",
+        paired_sampling_seed=False,
+        budget_guard=None,
+        event_sink=None,
+    ):
         """Configure the agent and publish tool schemas to its model adapter.
 
         Args:
@@ -60,6 +74,9 @@ class MainAgent:
         # Multi-agent execution installs an actor-scoped guard. Legacy agents leave
         # this unset and retain byte-for-byte action semantics.
         self.budget_guard = budget_guard
+        # Optional structured observer installed by the multi-agent Studio. It is
+        # deliberately separate from model history and never changes model input.
+        self.event_sink = event_sink
         self.model = model_adapter.model
         self.json_schema = [c.public_schema() for c in self.capabilities.values()]
         self.adapter.json_schema = self.json_schema
@@ -89,10 +106,23 @@ class MainAgent:
         original = copy.deepcopy(message)
         question, system = normalize_input(message, self.system_prompt)
         memory = self.memory_factory()
-        history = [self.adapter.encode_message(m) for m in input_messages(question, system, self.user_prefix)]
+        history = [
+            self.adapter.encode_message(m)
+            for m in input_messages(question, system, self.user_prefix)
+        ]
         initial = memory.start(question)
         if initial:
             history.append(self.adapter.encode_message(initial))
+            self._emit(
+                "MEMORY_READ",
+                {
+                    "memory_scope": "private",
+                    "memory_kind": "working_context",
+                    "read_kind": "initial_inventory",
+                    "modules": list(getattr(memory, "modules", []) or []),
+                },
+                summary="Initial memory inventory entered the model context.",
+            )
         turns, detections, usage = [], [], {}
         observer = create_observer(memory, task_id, self.model)
         if observer is not None:
@@ -101,31 +131,76 @@ class MainAgent:
         error = None
         capture = {} if self.adapter.raw_trace_enabled else None
         try:
-            final = self._run(history, memory, turns, detections, usage, task_id, capture=capture, observer=observer)
+            final = self._run(
+                history,
+                memory,
+                turns,
+                detections,
+                usage,
+                task_id,
+                capture=capture,
+                observer=observer,
+            )
         except (RuntimeError, OSError) as exc:
             error = str(exc)
-        trajectory = {"input_messages": original, "chat_history": turns,
-                      "messages": history, "final_answer": final}
+        trajectory = {
+            "input_messages": original,
+            "chat_history": turns,
+            "messages": history,
+            "final_answer": final,
+        }
         if error:
             trajectory["error"] = error
         if capture is not None:
             try:
                 if error:
-                    raise RawTraceExportError("inference_failed", f"Raw trace export failed because inference did not complete: {error}")
-                trajectory["raw_trace"] = self.adapter.export_raw_trace(capture, task_id)
+                    raise RawTraceExportError(
+                        "inference_failed",
+                        f"Raw trace export failed because inference did not complete: {error}",
+                    )
+                trajectory["raw_trace"] = self.adapter.export_raw_trace(
+                    capture, task_id
+                )
             except RawTraceExportError as exc:
                 trajectory["raw_trace_error"] = {"code": exc.code, "message": str(exc)}
-                self.adapter.logger.error("Raw trace export failed for task %s: %s", task_id, exc)
+                self.adapter.logger.error(
+                    "Raw trace export failed for task %s: %s", task_id, exc
+                )
         if final == self.limit_msg and not error:
-            trajectory["error"] = f"Reached max_iterations ({self.max_iterations}) without a final answer."
+            trajectory["error"] = (
+                f"Reached max_iterations ({self.max_iterations}) without a final answer."
+            )
         extra = {"trajectory": trajectory, "tool_detections": detections}
         if usage:
             extra["usage"] = {"total": usage}
         if observer is not None:
-            extra["bite_observer"] = observer.finalize(final, usage, trajectory.get("error"))
+            extra["bite_observer"] = observer.finalize(
+                final, usage, trajectory.get("error")
+            )
+        self._emit(
+            "AGENT_ANSWER_RECORDED",
+            {"answer": final, "error": trajectory.get("error")},
+            summary=(
+                "Agent returned an answer."
+                if not trajectory.get("error")
+                else "Agent stopped with an execution error."
+            ),
+            status="failed" if trajectory.get("error") else "completed",
+        )
         return {"prediction": final, "extra_records": extra}
 
-    def _run(self, history, memory, turns, detections, usage, task_id, *, capture=None, observer=None):
+    def _run(
+        self,
+        history,
+        memory,
+        turns,
+        detections,
+        usage,
+        task_id,
+        *,
+        capture=None,
+        observer=None,
+    ):
         """Run model/tool iterations, updating history, memory and reporting lists.
 
         Returns the extracted final answer or the failure message. The adapter may
@@ -137,34 +212,83 @@ class MainAgent:
         tools, choice = self.json_schema, self.tool_choice
         seed_base = None
         if self.paired_sampling_seed and task_id is not None:
-            base = int(hashlib.md5(str(task_id).encode()).hexdigest()[:8], 16) % 1_000_000_000
+            base = (
+                int(hashlib.md5(str(task_id).encode()).hexdigest()[:8], 16)
+                % 1_000_000_000
+            )
             try:
                 salt = int(os.environ.get("HARNESS_SEARCH_SAMPLE_INDEX", "0") or "0")
             except ValueError:
                 salt = 0
             seed_base = (base + salt * 1_000_003) % 2_000_000_000
         for index in range(self.max_iterations):
-            if self.budget_guard is not None and not self.budget_guard.reserve("model_requests"):
+            if self.budget_guard is not None and not self.budget_guard.reserve(
+                "model_requests"
+            ):
                 raise RuntimeError("Multi-agent model-request budget exhausted")
             if observer is not None:
                 observer.model_start(index)
             if index == self.max_iterations - 1:
-                history.append(adapter.encode_message({"role": "user",
-                    "content": "Please provide your best final answer now if enough information is available."}))
+                history.append(
+                    adapter.encode_message(
+                        {
+                            "role": "user",
+                            "content": "Please provide your best final answer now if enough information is available.",
+                        }
+                    )
+                )
             if policy.get("context_policy") == "qwen_tokenizer":
-                before = observer.serializer.fingerprint(history) if observer is not None else None
+                before = (
+                    observer.serializer.fingerprint(history)
+                    if observer is not None
+                    else None
+                )
                 tools, choice = adapter._ensure_context_fits(history, tools, choice)
                 if observer is not None:
-                    observer.context_change(before, observer.serializer.fingerprint(history), tools)
+                    observer.context_change(
+                        before, observer.serializer.fingerprint(history), tools
+                    )
             seed = seed_base + index if seed_base is not None else None
             try:
-                response = adapter.request(history, tools, choice, seed=seed, capture=capture)
+                response = self._observed_request(
+                    {
+                        "iteration": index,
+                        "phase": "tool_selection",
+                        "tools_offered": len(tools or []),
+                    },
+                    adapter.request,
+                    history,
+                    tools,
+                    choice,
+                    seed=seed,
+                    capture=capture,
+                )
             except RuntimeError as exc:
-                context_error = any(text in str(exc).lower() for text in ("context length", "maximum input length"))
+                context_error = any(
+                    text in str(exc).lower()
+                    for text in ("context length", "maximum input length")
+                )
                 if policy.get("context_error_fallback") and context_error:
                     if observer is not None:
-                        observer.context_change("context_error", "vanilla_fallback", False, "provider_context_error_fallback")
-                    response = adapter.request(adapter._build_vanilla_fallback_msgs(history), None, "none", seed=seed, capture=capture)
+                        observer.context_change(
+                            "context_error",
+                            "vanilla_fallback",
+                            False,
+                            "provider_context_error_fallback",
+                        )
+                    response = self._observed_request(
+                        {
+                            "iteration": index,
+                            "phase": "context_error_fallback",
+                            "tools_offered": 0,
+                        },
+                        adapter.request,
+                        adapter._build_vanilla_fallback_msgs(history),
+                        None,
+                        "none",
+                        seed=seed,
+                        capture=capture,
+                    )
                 else:
                     raise
             if isinstance(response, dict) and isinstance(response.get("usage"), dict):
@@ -177,76 +301,251 @@ class MainAgent:
                 adapter.append_assistant_calls(history, text, calls, original)
                 deferred = []
                 for call in calls:
+                    # Stable per-invocation identity for Studio correlation. The
+                    # model-supplied call ID is not guaranteed unique across actors.
+                    invocation_id = f"inv_{uuid4().hex}"
+                    decision_event = self._emit(
+                        "DECISION_SUMMARY_RECORDED",
+                        {
+                            "current_goal": "Continue the assigned visual investigation.",
+                            "action_intent": f"Invoke {call['name']} with the recorded arguments.",
+                            "rationale_recorded": False,
+                            "public_note": "Action rationale was not explicitly recorded by the model.",
+                            "tool_call_id": call["id"],
+                            "invocation_id": invocation_id,
+                        },
+                        summary=f"Selected {call['name']}; no explicit public rationale was recorded.",
+                        tool_name=call["name"],
+                    )
+                    request_event = self._emit(
+                        "TOOL_CALL_REQUESTED",
+                        {
+                            "tool_call_id": call["id"],
+                            "invocation_id": invocation_id,
+                            "arguments": call.get("args", {}),
+                            "parse_error": call.get("parse_error"),
+                        },
+                        summary=f"Requested {call['name']}.",
+                        status="planned",
+                        parent_event_id=(decision_event or {}).get("event_id"),
+                        tool_name=call["name"],
+                    )
+                    started_event = None
+                    tool_latency = None
                     if observer is not None:
                         observer.proposal(call, self.capabilities.get(call["name"]))
                     virtual = VirtualCall(call["id"], call["name"], call["args"])
                     if call.get("parse_error"):
-                        result = failure(virtual, call["parse_error"]["code"], call["parse_error"]["message"],
-                                         details=call["parse_error"].get("details"))
+                        result = failure(
+                            virtual,
+                            call["parse_error"]["code"],
+                            call["parse_error"]["message"],
+                            details=call["parse_error"].get("details"),
+                        )
                     elif call["name"] not in self.capabilities:
-                        result = failure(virtual, "tool_not_found", f"Tool not found: {call['name']}")
+                        result = failure(
+                            virtual, "tool_not_found", f"Tool not found: {call['name']}"
+                        )
                     else:
-                        if self.budget_guard is not None and not self.budget_guard.reserve("tool_calls"):
+                        if (
+                            self.budget_guard is not None
+                            and not self.budget_guard.reserve("tool_calls")
+                        ):
                             result = failure(
                                 virtual,
                                 "budget_denied",
                                 "The actor or global multi-agent tool-call budget is exhausted.",
                             )
                         else:
-                            if observer is not None and not isinstance(self.capabilities[call["name"]], BaseCapability):
-                                observer.dispatch(virtual, self.capabilities[call["name"]], memory)
+                            if observer is not None and not isinstance(
+                                self.capabilities[call["name"]], BaseCapability
+                            ):
+                                observer.dispatch(
+                                    virtual, self.capabilities[call["name"]], memory
+                                )
                             capability = self.capabilities[call["name"]]
-                            result = (observer.invoke(capability, virtual, memory) if observer is not None
-                                      else capability.invoke(virtual, memory))
+                            # Emitted only once the call is actually dispatched to
+                            # its capability, after parsing and budget checks pass.
+                            started_event = self._emit(
+                                "TOOL_CALL_STARTED",
+                                {
+                                    "tool_call_id": call["id"],
+                                    "invocation_id": invocation_id,
+                                    "backend": getattr(capability, "backend", None),
+                                },
+                                summary=f"Started {call['name']}.",
+                                status="running",
+                                parent_event_id=(request_event or {}).get("event_id"),
+                                tool_name=call["name"],
+                            )
+                            tool_started = time.monotonic()
+                            result = (
+                                observer.invoke(capability, virtual, memory)
+                                if observer is not None
+                                else capability.invoke(virtual, memory)
+                            )
+                            tool_latency = time.monotonic() - tool_started
                     if observer is not None:
-                        observer.result(virtual, result, memory, len(turn["tool_responses"]))
+                        observer.result(
+                            virtual, result, memory, len(turn["tool_responses"])
+                        )
+                    result_event = self._emit(
+                        "TOOL_CALL_COMPLETED" if result.ok else "TOOL_CALL_FAILED",
+                        {
+                            "tool_call_id": call["id"],
+                            "invocation_id": invocation_id,
+                            "latency_seconds": tool_latency,
+                            "ok": result.ok,
+                            "result": result.payload.get("result"),
+                            "canonical_result": result.data,
+                            "error": result.error,
+                            "meta": result.payload.get("meta", {}),
+                        },
+                        summary=(
+                            f"{call['name']} returned evidence."
+                            if result.ok
+                            else f"{call['name']} failed; no usable evidence was recorded."
+                        ),
+                        status="completed" if result.ok else "failed",
+                        parent_event_id=(started_event or request_event or {}).get(
+                            "event_id"
+                        ),
+                        tool_name=call["name"],
+                    )
+                    if result.ok:
+                        self._emit(
+                            "EVIDENCE_OBSERVED",
+                            {
+                                "tool_call_id": call["id"],
+                                "invocation_id": invocation_id,
+                                "evidence_refs": [
+                                    ref.id for ref in result.artifact_refs
+                                ],
+                            },
+                            summary=f"Evidence from {call['name']} entered the agent context.",
+                            parent_event_id=(result_event or {}).get("event_id"),
+                            tool_name=call["name"],
+                        )
                     if result.detection:
                         detection = copy.deepcopy(result.detection)
                         detection["tool_call_idx"] = len(detections)
-                        detection["boxes_xyxy_pixels"] = [list(map(float, box[:4])) for box in detection["boxes_xyxy_pixels"]]
+                        detection["boxes_xyxy_pixels"] = [
+                            list(map(float, box[:4]))
+                            for box in detection["boxes_xyxy_pixels"]
+                        ]
                         detection["scores"] = [float(s) for s in detection["scores"]]
                         detections.append(detection)
                     turn["tool_responses"].append(result.payload)
                     immediate, later = adapter.result_messages(call, result)
                     start = len(history)
                     history.extend(immediate)
-                    record = {"tool_call_id": call["id"], "tool_name": call["name"],
-                              "immediate_message_indices": list(range(start, len(history))),
-                              "deferred_message_indices": [], "image_refs": result.prepared.get("image_refs", []),
-                              "tool_output_processor": result.processor_info,
-                              "canonical_result": result.data}
+                    record = {
+                        "tool_call_id": call["id"],
+                        "tool_name": call["name"],
+                        "immediate_message_indices": list(range(start, len(history))),
+                        "deferred_message_indices": [],
+                        "image_refs": result.prepared.get("image_refs", []),
+                        "tool_output_processor": result.processor_info,
+                        "canonical_result": result.data,
+                    }
                     turn["memory_outputs"].append(record)
+                    self._emit(
+                        "MEMORY_WRITTEN",
+                        {
+                            "tool_call_id": call["id"],
+                            "invocation_id": invocation_id,
+                            "tool_name": call["name"],
+                            "image_refs": record["image_refs"],
+                            "memory_scope": "private",
+                    "memory_kind": "working_context",
+                        },
+                        summary=f"Stored {call['name']} references in private agent memory.",
+                        parent_event_id=(result_event or {}).get("event_id"),
+                        tool_name=call["name"],
+                    )
                     deferred.append((record, later))
                 for record, messages in deferred:
                     start = len(history)
                     history.extend(messages)
-                    record["deferred_message_indices"] = list(range(start, len(history)))
-                update = memory.build_environment_update(successful=any(p.get("ok") is True for p in turn["tool_responses"]))
+                    record["deferred_message_indices"] = list(
+                        range(start, len(history))
+                    )
+                update = memory.build_environment_update(
+                    successful=any(p.get("ok") is True for p in turn["tool_responses"])
+                )
                 if update:
                     turn["memory_turn_message_indices"] = [len(history)]
                     history.append(adapter.encode_message(update))
+                    self._emit(
+                        "MEMORY_READ",
+                        {
+                            "memory_scope": "private",
+                    "memory_kind": "working_context",
+                            "read_kind": "environment_update",
+                            "modules": list(getattr(memory, "modules", []) or []),
+                        },
+                        summary="Private memory inventory entered the model context.",
+                    )
                 turns.append(turn)
-                if index == self.max_iterations - 1 and policy.get("extra_final_request"):
-                    if self.budget_guard is not None and not self.budget_guard.reserve("model_requests"):
+                if index == self.max_iterations - 1 and policy.get(
+                    "extra_final_request"
+                ):
+                    if self.budget_guard is not None and not self.budget_guard.reserve(
+                        "model_requests"
+                    ):
                         raise RuntimeError("Multi-agent model-request budget exhausted")
                     if observer is not None:
                         observer.model_start(index + 1, "final_text_only")
-                    before = observer.serializer.fingerprint(history) if observer is not None else None
-                    final_tools, final_choice = adapter._ensure_context_fits(history, tools, "none")
+                    before = (
+                        observer.serializer.fingerprint(history)
+                        if observer is not None
+                        else None
+                    )
+                    final_tools, final_choice = adapter._ensure_context_fits(
+                        history, tools, "none"
+                    )
                     if observer is not None:
-                        observer.context_change(before, observer.serializer.fingerprint(history), final_tools)
-                    response = adapter.request(history, final_tools, final_choice, seed=seed, capture=capture)
-                    text, calls, original = adapter.parse(response, index + 1, phase="final_text_only")
+                        observer.context_change(
+                            before,
+                            observer.serializer.fingerprint(history),
+                            final_tools,
+                        )
+                    response = self._observed_request(
+                        {
+                            "iteration": index + 1,
+                            "phase": "final_text_only",
+                            "tools_offered": len(final_tools or []),
+                        },
+                        adapter.request,
+                        history,
+                        final_tools,
+                        final_choice,
+                        seed=seed,
+                        capture=capture,
+                    )
+                    text, calls, original = adapter.parse(
+                        response, index + 1, phase="final_text_only"
+                    )
                     if observer is not None:
-                        observer.model_response(calls, not calls and adapter.final_answer(text))
+                        observer.model_response(
+                            calls, not calls and adapter.final_answer(text)
+                        )
                         for call in calls:
-                            observer.proposal(call, self.capabilities.get(call["name"]), rejected_reason="final_text_only")
+                            observer.proposal(
+                                call,
+                                self.capabilities.get(call["name"]),
+                                rejected_reason="final_text_only",
+                            )
                     if isinstance(response.get("usage"), dict):
                         _accumulate(usage, response["usage"])
                     if calls:
                         adapter.append_assistant_calls(history, text, calls, original)
                     else:
-                        history.append(adapter.encode_message({"role": "assistant", "content": text}))
+                        history.append(
+                            adapter.encode_message(
+                                {"role": "assistant", "content": text}
+                            )
+                        )
                     final_turn = self._turn(index + 1, text, calls)
                     final_turn["final_answer"] = adapter.final_answer(text)
                     turns.append(final_turn)
@@ -256,20 +555,116 @@ class MainAgent:
             turn["final_answer"] = answer
             turns.append(turn)
             if policy.get("append_final_message") and text:
-                history.append(adapter.encode_message({"role": "assistant", "content": text}))
+                history.append(
+                    adapter.encode_message({"role": "assistant", "content": text})
+                )
             if answer or not policy.get("continue_empty_answer"):
                 return answer or self.fail_msg
-            history.append(adapter.encode_message({"role": "assistant", "content": text}))
+            history.append(
+                adapter.encode_message({"role": "assistant", "content": text})
+            )
         return self.limit_msg
+
+    def _observed_request(self, meta, request, *args, **kwargs):
+        """Run one model request, emitting public request/response boundaries.
+
+        Only timing, phase and token counts are recorded; request and response
+        text never enter the event log.
+        """
+        if self.event_sink is None:
+            return request(*args, **kwargs)
+        iteration, phase = meta["iteration"], meta["phase"]
+        request_id = f"mreq_{uuid4().hex}"
+        started = self._emit(
+            "MODEL_REQUEST_STARTED",
+            {
+                "request_id": request_id,
+                "iteration": iteration,
+                "phase": phase,
+                "tools_offered": meta["tools_offered"],
+                "model_id": self.model,
+            },
+            summary=f"Sent inference request {iteration + 1} ({phase.replace('_', ' ')}).",
+            status="running",
+        )
+        began = time.monotonic()
+        try:
+            response = request(*args, **kwargs)
+        except Exception as exc:
+            self._emit(
+                "MODEL_REQUEST_FAILED",
+                {
+                    "request_id": request_id,
+                    "latency_seconds": time.monotonic() - began,
+                    "error": f"{type(exc).__name__}: {str(exc)[:300]}",
+                },
+                summary="Inference request failed.",
+                status="failed",
+                parent_event_id=(started or {}).get("event_id"),
+            )
+            raise
+        usage = response.get("usage") if isinstance(response, dict) else None
+        counts = {
+            key: value
+            for key, value in (usage or {}).items()
+            if key in {"prompt_tokens", "completion_tokens", "total_tokens"}
+            and isinstance(value, int)
+        }
+        self._emit(
+            "MODEL_RESPONSE_RECEIVED",
+            {
+                "request_id": request_id,
+                "latency_seconds": time.monotonic() - began,
+                "usage": counts,
+            },
+            summary="Model response received.",
+            parent_event_id=(started or {}).get("event_id"),
+        )
+        return response
+
+    def _emit(self, event_type, payload, **metadata):
+        """Emit optional public observability without affecting agent execution."""
+        if self.event_sink is None:
+            return None
+        try:
+            return self.event_sink(event_type, payload, **metadata)
+        except Exception as exc:  # noqa: BLE001 - observability must never stop inference
+            self.adapter.logger.warning(
+                "Studio event emission failed for %s: %s", event_type, exc
+            )
+            return None
 
     @staticmethod
     def _turn(index, text, calls):
         """Create a reporting record with tagged reasoning and normalized tool calls."""
+
         def tag(name):
-            match = re.search(rf"<{name}>(.*?)</{name}>", text, re.DOTALL | re.IGNORECASE)
+            match = re.search(
+                rf"<{name}>(.*?)</{name}>", text, re.DOTALL | re.IGNORECASE
+            )
             return match.group(1).strip() if match else ""
-        return {"turn": index + 1, "assistant": {"content": text,
-                    "perception": tag("perception"), "thinking": tag("thinking"),
-                    "tool_calls": [{key: call.get(key) for key in
-                                   ("id", "name", "raw_arguments", "args", "parse_error")} for call in calls]},
-                "tool_responses": [], "memory_outputs": [], "memory_turn_message_indices": []}
+
+        return {
+            "turn": index + 1,
+            "assistant": {
+                "content": text,
+                "perception": tag("perception"),
+                "thinking": tag("thinking"),
+                "tool_calls": [
+                    {
+                        key: call.get(key)
+                        for key in (
+                            "id",
+                            "name",
+                            "raw_arguments",
+                            "args",
+                            "parse_error",
+                        )
+                    }
+                    for call in calls
+                ],
+            },
+            "tool_responses": [],
+            "memory_outputs": [],
+            "memory_turn_message_indices": [],
+        }

@@ -41,6 +41,7 @@ class CommunicationBus:
         self._inboxes: dict[str, deque[Message]] = defaultdict(deque)
         self._seen: set[str] = set()
         self._messages: list[dict[str, Any]] = []
+        self._delivered: dict[str, str] = {}
         self._lock = threading.Lock()
         message_path.parent.mkdir(parents=True, exist_ok=True)
         message_path.write_text("")
@@ -106,7 +107,22 @@ class CommunicationBus:
                 "message_id": message.message_id,
                 "recipient_id": message.recipient_id,
                 "message_type": message.message_type,
+                "correlation_id": message.correlation_id,
+                "content": message.content,
+                "delivery_status": "delivered",
+                "metadata": message.metadata,
+                "channel": (
+                    "peer"
+                    if self.coordinator_id not in {message.sender_id, message.recipient_id}
+                    else "coordinator"
+                ),
             },
+            summary=(
+                f"{message.sender_id} sent {message.message_type.lower().replace('_', ' ')} "
+                f"to {message.recipient_id}."
+            ),
+            status="completed",
+            artifact_refs=list(message.artifact_refs),
         )
         return "delivered"
 
@@ -117,16 +133,35 @@ class CommunicationBus:
             messages = list(self._inboxes[agent_id])
             self._inboxes[agent_id].clear()
         for message in messages:
-            self.events.emit(
+            event = self.events.emit(
                 agent_id,
-                "MESSAGE_RECEIVED",
+                "MESSAGE_DELIVERED",
                 {
                     "message_id": message.message_id,
                     "sender_id": message.sender_id,
                     "message_type": message.message_type,
+                    "correlation_id": message.correlation_id,
+                    "metadata": message.metadata,
+                    "channel": (
+                        "peer"
+                        if self.coordinator_id not in {message.sender_id, agent_id}
+                        else "coordinator"
+                    ),
                 },
+                summary=(
+                    f"{agent_id} received {message.message_type.lower().replace('_', ' ')} "
+                    f"from {message.sender_id}."
+                ),
+                artifact_refs=list(message.artifact_refs),
             )
+            with self._lock:
+                self._delivered[message.message_id] = event["event_id"]
         return messages
+
+    def delivery_event(self, message_id: str) -> str | None:
+        """Event ID that recorded delivery of ``message_id``, if delivered."""
+        with self._lock:
+            return self._delivered.get(message_id)
 
     def snapshot(self) -> list[dict[str, Any]]:
         with self._lock:

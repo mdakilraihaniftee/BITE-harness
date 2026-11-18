@@ -1,0 +1,45 @@
+{
+  "checks": [
+    {
+      "name": "live: launcher printed a single-use link",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "live: events streamed incrementally",
+      "ok": true,
+      "detail": "18 → 84"
+    },
+    {
+      "name": "live: run completed while watching",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "live: running activity observed during the run",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "live: full topology (workers, harnesses, tools) available mid-run and stable",
+      "ok": true,
+      "detail": "24 nodes at event 18"
+    },
+    {
+      "name": "live: graph rebuilt only on topology changes",
+      "ok": true,
+      "detail": "svg instances 1"
+    },
+    {
+      "name": "live: stayed in live mode",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "no unexpected console errors or exceptions",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "problems": []
+}

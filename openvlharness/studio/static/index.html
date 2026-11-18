@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Investigation Studio</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/theme.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div><strong>Investigation Studio</strong><small>OpenVLHarness</small></div>
+    </div>
+    <div class="connection-controls">
+      <label class="token-field"><span>Viewer token</span><input id="token" type="password" autocomplete="off" placeholder="Required"></label>
+      <button id="connect" class="primary">Connect</button>
+      <label><span class="sr-only">Select run</span><select id="run-select" disabled><option>Select a run</option></select></label>
+      <span id="connection-state" class="status-chip idle">Disconnected</span>
+      <div class="segmented theme-switch" role="radiogroup" aria-label="Color theme">
+        <button type="button" role="radio" data-theme-choice="light" aria-checked="false" title="Light theme">Light</button>
+        <button type="button" role="radio" data-theme-choice="dark" aria-checked="false" title="Dark theme">Dark</button>
+        <button type="button" role="radio" data-theme-choice="system" aria-checked="true" title="Follow system preference">System</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="task-strip" aria-labelledby="task-title">
+      <div class="task-copy">
+        <p class="eyebrow">Current investigation</p>
+        <h1 id="task-title">Connect to inspect a run</h1>
+        <div id="config-chips" class="config-chips" aria-label="Effective run configuration"></div>
+      </div>
+      <div class="task-metrics">
+        <div><span>Status</span><strong id="run-status">—</strong></div>
+        <div><span>Mode</span><strong id="run-mode">—</strong></div>
+        <div><span>Agents</span><strong id="agent-count">—</strong></div>
+        <div><span>Elapsed</span><strong id="elapsed">—</strong></div>
+        <div><span>Tool budget</span><strong id="tool-budget">—</strong></div>
+      </div>
+    </section>
+
+    <!-- Persistent answer status: ground truth, coordinator estimate, and final answer are separate fields. -->
+    <section id="answer-strip" class="answer-strip" aria-label="Answer status">
+      <div class="as-task"><span class="as-label">Original task</span><strong id="as-task">—</strong></div>
+      <div class="as-cell as-gt" id="gt-cell" data-state="NOT_AVAILABLE">
+        <span class="as-label">Ground truth</span>
+        <strong id="gt-value">—</strong>
+        <span id="gt-note" class="as-note">Connect to a run</span>
+        <details id="gt-detail" class="as-pop">
+          <summary aria-label="Reference provenance and evaluator access">ⓘ</summary>
+          <div class="as-pop-body">
+            <div id="gt-provenance" class="prov-list"></div>
+            <p class="muted" id="gt-policy">References are released only after the run reaches a terminal state, and only to an authorized evaluator. They are never shown to agents.</p>
+            <label class="evaluator-field"><span>Evaluator token</span><input id="evaluator-token" type="password" autocomplete="off" placeholder="Optional"></label>
+            <button type="button" id="evaluator-unlock">Unlock evaluator view</button>
+          </div>
+        </details>
+      </div>
+      <div class="as-cell as-estimate" id="est-cell" data-status="none">
+        <span class="as-label">Coordinator's current estimate</span>
+        <strong id="est-value">—</strong>
+        <span id="est-note" class="as-note">No run selected</span>
+        <button type="button" id="est-history-toggle" class="as-link" aria-controls="estimate-history-panel">History</button>
+      </div>
+      <div class="as-cell as-final" id="final-cell">
+        <span class="as-label">Coordinator final answer</span>
+        <strong id="final-value">—</strong>
+        <span id="final-note" class="as-note">Pending</span>
+        <span id="eval-label" class="eval-label hidden"></span>
+      </div>
+      <div class="as-meta"><span id="as-round">Investigation: —</span><span id="as-evidence">Evidence received: —</span><span id="as-status">Status: —</span></div>
+    </section>
+
+    <details class="panel config-panel" id="config-panel">
+      <summary><span class="eyebrow">Run configuration</span><span id="config-summary" class="muted">Effective settings of the selected run and a launcher for new runs</span></summary>
+      <div class="config-body">
+        <section class="config-effective" aria-labelledby="cfg-effective-title">
+          <h3 id="cfg-effective-title">Selected run (as executed)</h3>
+          <dl id="cfg-effective" class="cfg-list"><dt>Run</dt><dd>None selected</dd></dl>
+          <p class="muted">Settings are read from the run's recorded configuration. A running run is never reconfigured; changes below apply to a new run.</p>
+        </section>
+        <section class="config-planner" aria-labelledby="cfg-plan-title">
+          <h3 id="cfg-plan-title">Plan a new run</h3>
+          <div class="plan-row"><span>Workers</span><div class="segmented" role="radiogroup" aria-label="Worker count" id="plan-workers">
+            <button type="button" role="radio" data-value="1" aria-checked="false">1</button><button type="button" role="radio" data-value="2" aria-checked="true">2</button><button type="button" role="radio" data-value="3" aria-checked="false">3</button><button type="button" role="radio" data-value="4" aria-checked="false">4</button></div></div>
+          <div class="plan-row"><span>Optional memory</span><div class="segmented" role="radiogroup" aria-label="Optional worker memory" id="plan-memory">
+            <button type="button" role="radio" data-value="on" aria-checked="true">On</button><button type="button" role="radio" data-value="off" aria-checked="false">Off</button></div></div>
+          <div class="plan-row"><span>Peer communication</span><div class="segmented" role="radiogroup" aria-label="Peer communication" id="plan-peer">
+            <button type="button" role="radio" data-value="on" aria-checked="true">On</button><button type="button" role="radio" data-value="off" aria-checked="false">Off</button></div></div>
+          <div class="plan-row"><span>Execution mode</span><div class="segmented" role="radiogroup" aria-label="Execution mode" id="plan-mode">
+            <button type="button" role="radio" data-value="concurrent" aria-checked="true">Concurrent</button><button type="button" role="radio" data-value="cooperative" aria-checked="false">Cooperative</button></div></div>
+          <div class="plan-row"><span>Coordinator estimates</span><div class="segmented" role="radiogroup" aria-label="Coordinator estimate updates" id="plan-estimates">
+            <button type="button" role="radio" data-value="on" aria-checked="true">On</button><button type="button" role="radio" data-value="off" aria-checked="false">Off</button></div></div>
+          <div class="plan-row"><span>Task</span><select id="plan-target" aria-label="Task source">
+            <option value="dataset">FSC-147 dataset row (real models)</option><option value="fixture">Deterministic fixture (no models)</option></select>
+            <input id="plan-row" type="number" min="0" value="10" aria-label="Dataset row" class="plan-row-input"></div>
+          <pre id="plan-command" class="plan-command" aria-live="polite"></pre>
+          <div class="plan-actions"><button type="button" id="plan-copy">Copy command</button><span id="plan-note" class="muted">Run it in a terminal; the browser cannot start inference.</span></div>
+        </section>
+      </div>
+    </details>
+
+    <section class="panel architecture-panel" aria-labelledby="architecture-title">
+      <div class="panel-heading architecture-heading">
+        <div><p class="eyebrow">System architecture</p><h2 id="architecture-title">Information flow</h2></div>
+        <div class="graph-toolbar" role="toolbar" aria-label="Architecture graph controls">
+          <div class="segmented" role="radiogroup" aria-label="Graph mode">
+            <button type="button" role="radio" data-graph-mode="team" aria-checked="true">Compact team</button>
+            <button type="button" role="radio" data-graph-mode="full" aria-checked="false">Full architecture</button>
+            <button type="button" role="radio" data-graph-mode="live" aria-checked="false">Live activity</button>
+          </div>
+          <div class="tool-group svg-only" aria-label="Zoom and focus">
+            <button type="button" id="graph-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+            <button type="button" id="graph-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+            <button type="button" id="graph-fit" title="Fit to view">Fit</button>
+            <button type="button" id="graph-focus-activity" title="Focus current activity">Focus activity</button>
+            <button type="button" id="graph-focus-selection" title="Focus selected component or event">Focus selection</button>
+          </div>
+          <div class="tool-group svg-only" aria-label="Worker groups">
+            <button type="button" id="graph-expand" title="Expand all agent groups">Expand all</button>
+            <button type="button" id="graph-collapse" title="Collapse all agent groups">Collapse all</button>
+          </div>
+          <details class="view-menu svg-only">
+            <summary>View</summary>
+            <div class="view-menu-body">
+              <label class="check"><input id="toggle-memory-nodes" type="checkbox" checked> Memory nodes</label>
+              <label class="check"><input id="toggle-memory-flows" type="checkbox" checked> Memory flows</label>
+              <label class="check"><input id="toggle-infra" type="checkbox"> Budget &amp; recorder links</label>
+              <label class="check"><input id="toggle-animation" type="checkbox" checked> Animate flows</label>
+              <p class="muted">Ctrl/⌘ + scroll zooms; drag the background to pan.</p>
+            </div>
+          </details>
+        </div>
+      </div>
+      <div class="activity-caption" aria-live="polite">
+        <span id="activity-kind" class="flow-chip lifecycle">Idle</span>
+        <strong id="activity-label">No activity at this position.</strong>
+        <span id="activity-detail" class="muted"></span>
+        <span id="activity-running" class="running-count"></span>
+      </div>
+      <div id="graph-notice" class="graph-notice hidden" role="status" aria-live="polite"></div>
+      <div id="team-view" class="team-view" role="group" aria-label="Compact investigation team"></div>
+      <div id="agent-graph" class="agent-graph hidden" role="group" aria-label="System architecture and agent communication graph">
+        <div class="empty-state graph-empty">Loading the framework architecture…</div>
+      </div>
+      <div class="graph-legend" aria-label="Graph legend">
+        <span class="svg-only-inline"><i class="key node-key coordinator"></i>Coordinator</span>
+        <span class="svg-only-inline"><i class="key node-key worker"></i>Worker</span>
+        <span class="svg-only-inline"><i class="key node-key harness"></i>Harness</span>
+        <span class="svg-only-inline"><i class="key node-key model"></i>Model</span>
+        <span class="svg-only-inline"><i class="key node-key tool"></i>Tool</span>
+        <span class="svg-only-inline"><i class="key node-key memory"></i>Memory</span>
+        <span class="svg-only-inline"><i class="key node-key comm"></i>Communication</span>
+        <span class="svg-only-inline"><i class="key node-key shared"></i>Shared service</span>
+        <span class="team-only-inline">● on · ○ off · ? not recorded · → request · ← result · ✕ failure · ↓ assignment · ↑ report</span>
+        <span class="legend-gap"></span>
+        <span><i class="key line-key request"></i>Request</span>
+        <span><i class="key line-key response"></i>Response</span>
+        <span><i class="key line-key message"></i>Message</span>
+        <span><i class="key line-key pending"></i>Queued</span>
+        <span><i class="key line-key failure"></i>Failure</span>
+        <span class="muted legend-note svg-only-inline">Dashed outline = observed or inferred · dotted = generic preview</span>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <section class="panel story-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">What happened</p><h2>Investigation story</h2></div>
+          <div class="segmented" role="tablist" aria-label="Story or raw event log">
+            <button type="button" role="tab" data-tab="story" aria-selected="true" aria-checked="true">Story</button>
+            <button type="button" role="tab" data-tab="log" aria-selected="false" aria-checked="false">Event log</button>
+          </div>
+        </div>
+        <div id="story-view" class="story-view">
+          <div class="story-filters"><select id="story-agent" aria-label="Filter story by agent"><option value="">All agents</option></select>
+            <label class="check"><input id="story-minor" type="checkbox"> Show minor steps</label><span id="story-count" class="muted"></span></div>
+          <ol id="story-list" class="story-list empty-state"><li>No run selected.</li></ol>
+        </div>
+        <div id="log-view" class="log-view hidden">
+          <div class="filters">
+            <select id="agent-filter" aria-label="Filter by agent"><option value="">All agents</option></select>
+            <select id="category-filter" aria-label="Filter by activity category">
+              <option value="">All categories</option>
+              <option value="tool">Tool calls</option>
+              <option value="message">Messages</option>
+              <option value="memory">Memory</option>
+              <option value="model">Model requests</option>
+              <option value="budget">Budget</option>
+              <option value="estimate">Coordinator answer state</option>
+              <option value="lifecycle">Lifecycle</option>
+            </select>
+            <select id="type-filter" aria-label="Filter by event type"><option value="">All event types</option></select>
+            <label class="check"><input id="failure-filter" type="checkbox"> Failures</label>
+          </div>
+          <div class="log-head"><span id="event-count" class="muted">0 events</span></div>
+          <div id="timeline" class="timeline empty-state">No events loaded.</div>
+        </div>
+      </section>
+
+      <section class="evidence-column">
+        <section class="panel evidence-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Grounded observations</p><h2>Visual evidence</h2></div>
+            <div id="evidence-kind" class="status-chip idle">No evidence selected</div>
+          </div>
+          <div class="viewer-grid">
+            <div class="source-viewer">
+              <div class="viewer-label"><span>Original image</span><span id="coordinate-label">source pixels</span></div>
+              <div id="image-stage" class="image-stage empty-state">
+                <span>Image artifacts will appear here.</span>
+              </div>
+            </div>
+            <div class="derived-viewer">
+              <div class="viewer-label"><span>Tool output</span><span id="artifact-meta"></span></div>
+              <div id="derived-stage" class="derived-stage empty-state">Select a tool or evidence event.</div>
+              <div id="evidence-facts" class="evidence-facts"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel details-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Selected step</p><h2>Step details</h2></div><button id="clear-event" class="quiet">Clear selection</button></div>
+          <div id="step-details" class="detail-grid empty-state">Select a story step or event to see what it did, what it returned, and what changed.</div>
+        </section>
+      </section>
+    </section>
+
+    <section class="lower-grid">
+      <section class="panel inspector-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Selection</p><h2>Component inspector</h2></div><span id="agent-filter-label" class="muted">All agents</span></div>
+        <div id="inspector" class="inspector empty-state">Click a harness, tool, or connection.</div>
+      </section>
+
+      <section class="panel memory-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Authorized view</p><h2>Memory inspector</h2></div><span class="lock">Private</span></div>
+        <div id="memory-tabs" class="tab-row"></div>
+        <div id="memory-content" class="memory-content empty-state">Select an agent to request its permitted memory view.</div>
+      </section>
+
+      <section class="panel final-panel" id="estimate-history-panel">
+        <div class="panel-heading"><div><p class="eyebrow">Coordinator answer state</p><h2>Estimate history</h2></div><span id="final-status" class="status-chip idle">Pending</span></div>
+        <ol id="estimate-history" class="estimate-history empty-state"><li>No run selected.</li></ol>
+        <div id="final-answer" class="final-answer empty-state">The coordinator has not recorded a final answer.</div>
+        <div class="candidate-head muted">Worker candidates (worker claims, not the coordinator's estimate)</div>
+        <div id="candidate-row" class="candidate-row"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="replay-bar">
+    <div class="replay-title"><span id="replay-mode">Replay</span><strong id="replay-position">0 / 0</strong></div>
+    <button id="replay-start" title="First event" aria-label="First event">|◀</button>
+    <button id="replay-prev" title="Previous event" aria-label="Previous event">◀</button>
+    <button id="replay-play" class="primary" title="Play or pause" aria-label="Play replay">▶</button>
+    <button id="replay-next" title="Next event" aria-label="Next event">▶</button>
+    <input id="replay-slider" type="range" min="0" max="0" value="0" aria-label="Replay position">
+    <label class="speed"><span>Speed</span><select id="replay-speed"><option value="1200">0.5×</option><option value="650" selected>1×</option><option value="300">2×</option><option value="120">4×</option></select></label>
+    <button id="go-live" class="quiet">Go live</button>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="/static/activity-state.js" defer></script>
+  <script src="/static/answer-state.js" defer></script>
+  <script src="/static/story.js" defer></script>
+  <script src="/static/team-view.js" defer></script>
+  <script src="/static/architecture-graph.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -63,18 +64,55 @@ class BudgetManager:
                         self.actor_used[agent_id].get(resource, 0) + amount
                     )
                 result = Reservation(True, resource, agent_id, amount)
+            global_remaining = (
+                global_limit - self.global_used.get(resource, 0)
+                if global_limit is not None
+                else None
+            )
+            actor_remaining = (
+                actor_limit - self.actor_used.get(agent_id, {}).get(resource, 0)
+                if actor_limit is not None
+                else None
+            )
         if self._event_sink:
             self._event_sink(
                 agent_id,
-                "BUDGET_RESERVATION",
+                "BUDGET_UPDATED",
                 {
                     "resource": resource,
                     "amount": amount,
                     "granted": result.granted,
                     "reason": result.reason,
+                    "global_remaining": global_remaining,
+                    "actor_remaining": actor_remaining,
                 },
+                summary=(
+                    f"Reserved {amount} {resource.replace('_', ' ')}."
+                    if result.granted
+                    else f"Denied {resource.replace('_', ' ')} reservation: {result.reason}."
+                ),
+                status="completed" if result.granted else "failed",
             )
         return result
+
+    def remaining(self, agent_id: str, resource: str) -> int | None:
+        """Smallest remaining global/actor allowance for a resource (None = unlimited)."""
+        with self._lock:
+            values = []
+            if resource in self.global_limits:
+                values.append(
+                    self.global_limits[resource] - self.global_used.get(resource, 0)
+                )
+            actor_limit = self.actor_limits.get(agent_id, {}).get(resource)
+            if actor_limit is not None:
+                values.append(
+                    actor_limit - self.actor_used.get(agent_id, {}).get(resource, 0)
+                )
+            return min(values) if values else None
+
+    def used(self, agent_id: str, resource: str) -> int:
+        with self._lock:
+            return self.actor_used.get(agent_id, {}).get(resource, 0)
 
     def record_usage(self, usage: dict[str, Any]) -> None:
         def token_total(value: Any) -> int:
@@ -125,6 +163,25 @@ class AgentBudgetGuard:
     def __init__(self, manager: BudgetManager, agent_id: str) -> None:
         self.manager = manager
         self.agent_id = agent_id
+        # Optional per-call ceiling on model requests (e.g. one bounded
+        # coordinator reassessment), applied on top of actor/global limits.
+        self._call_cap: int | None = None
+        self._call_used = 0
 
     def reserve(self, resource: str) -> bool:
+        if resource == "model_requests" and self._call_cap is not None:
+            if self._call_used >= self._call_cap:
+                return False
+            granted = self.manager.reserve(self.agent_id, resource).granted
+            self._call_used += int(granted)
+            return granted
         return self.manager.reserve(self.agent_id, resource).granted
+
+    @contextmanager
+    def capped(self, model_requests: int):
+        """Limit the model requests one bounded call may use."""
+        self._call_cap, self._call_used = max(0, model_requests), 0
+        try:
+            yield self
+        finally:
+            self._call_cap, self._call_used = None, 0

@@ -7,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from .config import load_multi_agent_config
+from .config import apply_run_options, load_multi_agent_config
 from .orchestrator import MultiAgentOrchestrator
 
 
@@ -30,7 +30,52 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument(
         "--peer-communication", action=argparse.BooleanOptionalAction, default=None
     )
+    add_run_option_arguments(result, include_basic=False)
     return result
+
+
+def add_run_option_arguments(
+    result: argparse.ArgumentParser, *, include_basic: bool = True
+) -> None:
+    """Run-configuration flags shared by every multi-agent runner."""
+    if include_basic:
+        result.add_argument("--num-agents", type=int)
+        result.add_argument("--mode", choices=("concurrent", "cooperative"))
+        result.add_argument(
+            "--communication", action=argparse.BooleanOptionalAction, default=None,
+            help="Message bus for worker reports and peer messages (assignments are always delivered).",
+        )
+        result.add_argument(
+            "--peer-communication", action=argparse.BooleanOptionalAction, default=None,
+            help="Worker-to-worker messages; coordinator assignment/reporting stays on.",
+        )
+    result.add_argument(
+        "--worker-memory", action=argparse.BooleanOptionalAction, default=None,
+        help="Optional private cross-phase worker notebook (working context is always on).",
+    )
+    result.add_argument(
+        "--estimate-updates", action=argparse.BooleanOptionalAction, default=None,
+        help="Record coordinator provisional estimates (each is one extra, budgeted model request).",
+    )
+    result.add_argument("--max-reassessments", type=int, default=None)
+    result.add_argument("--follow-up-rounds", type=int, default=None)
+
+
+def apply_cli_run_options(config: dict, args: argparse.Namespace) -> dict:
+    try:
+        return apply_run_options(
+            config,
+            num_agents=args.num_agents,
+            worker_memory=args.worker_memory,
+            peer_communication=args.peer_communication,
+            communication=args.communication,
+            mode=args.mode,
+            estimate_updates=args.estimate_updates,
+            max_reassessments=args.max_reassessments,
+            follow_up_rounds=args.follow_up_rounds,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,11 +88,7 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         pass
     args = parser().parse_args(argv)
-    config = load_multi_agent_config(args.config)
-    if args.num_agents is not None:
-        if args.num_agents < 1 or args.num_agents > config["max_agents"]:
-            raise SystemExit(f"--num-agents must be in 1..{config['max_agents']}")
-        config["num_agents"] = args.num_agents
+    config = apply_cli_run_options(load_multi_agent_config(args.config), args)
     if args.agent_config:
         config["coordinator"]["agent_config"] = str(Path(args.agent_config).resolve())
         config["workers"]["default"]["agent_config"] = str(
@@ -55,12 +96,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         for override in config["workers"]["overrides"].values():
             override["agent_config"] = str(Path(args.agent_config).resolve())
-    if args.mode:
-        config["execution"]["mode"] = args.mode
-    if args.communication is not None:
-        config["communication"]["enabled"] = args.communication
-    if args.peer_communication is not None:
-        config["communication"]["peer_to_peer"] = args.peer_communication
     original_input: list[dict[str, str]] = []
     if args.image:
         if not args.image.is_file():
