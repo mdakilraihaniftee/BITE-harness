@@ -1,0 +1,320 @@
+{
+  "description": "Shared reference cases for openvlharness/studio/geometry.py and static/geometry.js. Each chain is ordered from the innermost frame outward (child -> parent).",
+  "chains": [
+    {
+      "name": "spec example: 1000x800 original, ROI [200,100,600,500] -> 400x400 crop -> resized to 800x800",
+      "chain": [
+        {
+          "resize": {
+            "child": [
+              800,
+              800
+            ],
+            "parent": [
+              400,
+              400
+            ]
+          }
+        },
+        {
+          "crop": {
+            "box": [
+              200,
+              100,
+              600,
+              500
+            ],
+            "output": [
+              400,
+              400
+            ]
+          }
+        }
+      ],
+      "box": [
+        100,
+        200,
+        300,
+        400
+      ],
+      "expected": [
+        250,
+        200,
+        350,
+        300
+      ]
+    },
+    {
+      "name": "non-square crop of a 640x400 image",
+      "chain": [
+        {
+          "crop": {
+            "box": [
+              438,
+              230,
+              640,
+              400
+            ],
+            "output": [
+              202,
+              170
+            ]
+          }
+        }
+      ],
+      "box": [
+        67,
+        55,
+        96,
+        84
+      ],
+      "expected": [
+        505,
+        285,
+        534,
+        314
+      ]
+    },
+    {
+      "name": "nested crops: original -> crop A -> crop B",
+      "chain": [
+        {
+          "crop": {
+            "box": [
+              104,
+              83,
+              151,
+              128
+            ],
+            "output": [
+              47,
+              45
+            ]
+          }
+        },
+        {
+          "crop": {
+            "box": [
+              438,
+              230,
+              640,
+              400
+            ],
+            "output": [
+              202,
+              170
+            ]
+          }
+        }
+      ],
+      "box": [
+        10,
+        9,
+        37,
+        36
+      ],
+      "expected": [
+        552,
+        322,
+        579,
+        349
+      ]
+    },
+    {
+      "name": "letterboxed 640x640 model input (top padding 140) of a 1280x720 image",
+      "chain": [
+        {
+          "letterbox": {
+            "content": [
+              640,
+              360
+            ],
+            "padding": [
+              0,
+              140
+            ],
+            "parent": [
+              1280,
+              720
+            ]
+          }
+        }
+      ],
+      "box": [
+        0,
+        140,
+        640,
+        500
+      ],
+      "expected": [
+        0,
+        0,
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "0-1000 normalized box on a non-square 1000x800 frame",
+      "chain": [
+        {
+          "normalized": {
+            "scale": 1000,
+            "frame": [
+              1000,
+              800
+            ]
+          }
+        }
+      ],
+      "box": [
+        100,
+        200,
+        300,
+        400
+      ],
+      "expected": [
+        100,
+        160,
+        300,
+        320
+      ]
+    }
+  ],
+  "clip": [
+    {
+      "box": [
+        -10,
+        -10,
+        50,
+        50
+      ],
+      "size": [
+        40,
+        40
+      ],
+      "expected": [
+        0,
+        0,
+        40,
+        40
+      ]
+    },
+    {
+      "box": [
+        50,
+        50,
+        60,
+        60
+      ],
+      "size": [
+        40,
+        40
+      ],
+      "expected": null
+    }
+  ],
+  "zoom": [
+    {
+      "name": "recorded real FSC-147 call",
+      "coords": [
+        156,
+        54,
+        707,
+        781
+      ],
+      "padding": 100,
+      "input": [
+        674,
+        384
+      ],
+      "expected": [
+        38,
+        0,
+        544,
+        338
+      ]
+    },
+    {
+      "name": "fixture ROI",
+      "coords": [
+        734,
+        625,
+        969,
+        950
+      ],
+      "padding": 50,
+      "input": [
+        640,
+        400
+      ],
+      "expected": [
+        438,
+        230,
+        640,
+        400
+      ]
+    },
+    {
+      "name": "round-half-even tie",
+      "coords": [
+        62.5,
+        62.5,
+        937.5,
+        937.5
+      ],
+      "padding": 50,
+      "input": [
+        40,
+        40
+      ],
+      "expected": [
+        0,
+        0,
+        40,
+        40
+      ]
+    },
+    {
+      "name": "x/1000*w lands near .5 (Python rounding semantics)",
+      "coords": [
+        200,
+        200,
+        800,
+        800
+      ],
+      "padding": 50,
+      "input": [
+        10,
+        10
+      ],
+      "expected": [
+        2,
+        2,
+        8,
+        8
+      ]
+    }
+  ],
+  "round_half_even": [
+    [
+      2.5,
+      2
+    ],
+    [
+      3.5,
+      4
+    ],
+    [
+      0.5,
+      0
+    ],
+    [
+      1.4999,
+      1
+    ],
+    [
+      7.5000001,
+      8
+    ]
+  ]
+}

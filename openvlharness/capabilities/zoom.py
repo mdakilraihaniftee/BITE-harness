@@ -112,3 +112,39 @@ class Capability(BaseCapability):
     def normalize_result(self, call, result, prepared, binding_refs) -> Output:
         """Return the first registered crop image ID, or None if unavailable."""
         return {"image": next(iter(prepared["image_refs"]), None)}
+
+    @staticmethod
+    def visual_transform(arguments, inputs, outputs, result):
+        """Describe the executed crop for the Studio (never shown to the model).
+
+        The pixel box is recomputed with the tool's own geometry (coerce_xyxy on
+        the padded 0-1000 coordinates) and accepted only when it reproduces the
+        returned crop's pixel size exactly.
+        """
+        from ..services.tools.image_utils import coerce_xyxy
+
+        source = next((item for item in inputs if item.get("width") and item.get("height")), None)
+        output = next((item for item in outputs if item.get("width") and item.get("height")), None)
+        coords = arguments.get("coords")
+        if source is None or output is None or not isinstance(coords, list) or len(coords) != 4:
+            return {"type": "crop", "verified": False, "reason": "missing input/output size or coordinates"}
+        padding = float(arguments.get("padding", 50))
+        x1, y1, x2, y2 = (float(value) for value in coords)
+        left, top, right, bottom = coerce_xyxy(
+            [x1 - padding, y1 - padding, x2 + padding, y2 + padding],
+            source["width"], source["height"], "normalized_xyxy",
+        )
+        size = [output["width"], output["height"]]
+        return {
+            "type": "crop",
+            "input_registry_id": source.get("registry_id"),
+            "output_registry_id": output.get("registry_id"),
+            "input_size": [source["width"], source["height"]],
+            "crop_box": [left, top, right, bottom],
+            "requested_region": [x1, y1, x2, y2],
+            "requested_region_system": "normalized_0_1000",
+            "padding": padding,
+            "output_size": size,
+            "method": "tool_geometry_recomputed",
+            "verified": size == [right - left, bottom - top],
+        }

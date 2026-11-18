@@ -5,6 +5,9 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const Activity = window.StudioActivity;
 const Theme = window.StudioTheme;
 const Answer = window.StudioAnswer;
+const Lineage = window.StudioLineage;
+const SimpleTeamApi = window.StudioSimpleTeam;
+const Geo = window.StudioGeometry;
 const Story = window.StudioStory;
 
 const state = {
@@ -19,6 +22,8 @@ const state = {
   // Evaluator credential lives only in page memory (never storage, never the URL).
   evaluatorToken: "", reference: null, referenceKey: null, referenceLoading: false,
   team: null, tab: "story", answerCache: null, storyCache: null, selectedStepId: null, linkedSteps: new Set(),
+  expandedSteps: new Set(), traceFilter: null, technical: false,
+  lineageCache: null, ta: {boxes: true, labels: "auto", scores: false, view: "boxes", selectedBox: null, invocation: null},
   plan: {workers: "2", memory: "on", peer: "on", mode: "concurrent", estimates: "on"},
 };
 
@@ -41,23 +46,23 @@ function el(tag, className, text) {
   return node;
 }
 
-function safeValue(value, depth = 0) {
-  if (depth > 5) return "[nested value omitted]";
-  if (Array.isArray(value)) return value.slice(0, 30).map((item) => safeValue(item, depth + 1));
+function safeValue(value, depth = 0, full = false) {
+  if (!full && depth > 5) return "[nested value omitted]";
+  if (Array.isArray(value)) return (full ? value : value.slice(0, 30)).map((item) => safeValue(item, depth + 1, full));
   if (value && typeof value === "object") {
     const result = {};
     for (const [key, item] of Object.entries(value)) {
-      if (!hiddenKeys.has(key.toLowerCase())) result[key] = safeValue(item, depth + 1);
+      if (!hiddenKeys.has(key.toLowerCase())) result[key] = safeValue(item, depth + 1, full);
     }
     return result;
   }
-  if (typeof value === "string" && value.length > 5000) return `${value.slice(0, 5000)}…`;
+  if (!full && typeof value === "string" && value.length > 5000) return `${value.slice(0, 5000)}…`;
   return value;
 }
 
 function pretty(value, limit = 1600) {
   let output;
-  try { output = typeof value === "string" ? value : JSON.stringify(safeValue(value), null, 2); }
+  try { output = typeof value === "string" ? value : JSON.stringify(safeValue(value, 0, limit === Infinity), null, 2); }
   catch { output = String(value); }
   return output.length > limit ? `${output.slice(0, limit)}…` : output;
 }
@@ -97,7 +102,7 @@ function loadPrefs() {
 }
 function savePrefs() {
   const o = state.graph?.options || {};
-  const value = {mode: o.mode, viewMode: state.viewMode, showMemory: o.showMemory, showMemoryFlows: o.showMemoryFlows, showInfra: o.showInfra};
+  const value = {mode: o.mode, viewMode: state.viewMode, showMemory: o.showMemory, showMemoryFlows: o.showMemoryFlows, showInfra: o.showInfra, technical: state.technical};
   try { window.localStorage.setItem(PREFS_KEY, JSON.stringify(value)); } catch { /* storage unavailable */ }
 }
 
@@ -247,7 +252,7 @@ async function loadRun(runId) {
   state.runId = runId; state.selectedEventId = null; state.selectedAgent = ""; state.live = true;
   state.selectedNode = null; state.selectedEdge = null; state.activityCache = null; state.evidenceKey = null;
   state.reference = null; state.referenceKey = null; state.answerCache = null; state.storyCache = null;
-  state.selectedStepId = null; state.linkedSteps = new Set();
+  state.selectedStepId = null; state.linkedSteps = new Set(); state.expandedSteps = new Set(); state.traceFilter = null;
   try {
     state.snapshot = await (await api(`/api/runs/${encodeURIComponent(runId)}/snapshot`)).json();
     setEvents(state.snapshot.events || []);
@@ -394,7 +399,7 @@ function renderNow() {
   const activity = activityState();
   const answer = answerState();
   renderHeader(activity); renderFilters(); renderGraph(activity); renderTeam(activity, answer); renderReplay();
-  renderAnswerStrip(answer); renderConfig(); renderEstimateHistory(answer);
+  renderAnswerStrip(answer); renderConfig(); renderEstimateHistory(answer); renderSimpleTeam(activity, answer); renderFocus();
   if (state.tab === "log") renderTimeline(); else renderStory();
   renderMemoryTabs(); renderInspector(activity);
   const selected = state.selectedEventId && isVisible(state.selectedEventId) ? state.eventIndex.get(state.selectedEventId) : null;
@@ -418,8 +423,51 @@ function storySteps() {
   const last = state.events[count - 1]?.event_id || null;
   if (state.storyCache && state.storyCache.count === count && state.storyCache.last === last) return state.storyCache.steps;
   const steps = Story.buildStory(visibleEvents());
-  state.storyCache = {count, last, steps};
+  const attached = new Map();
+  for (const step of steps) for (const id of step.source_event_ids) attached.set(id, step);
+  state.storyCache = {count, last, steps, attached};
   return steps;
+}
+
+/** The story step that owns an event (null for technical-only events). */
+function stepForEvent(eventId) { storySteps(); return state.storyCache?.attached.get(eventId) || null; }
+
+/** Story-relevant events drive highlights unless technical activity is switched on. */
+function isMeaningful(event) {
+  if (!event) return false;
+  if (state.technical) return true;
+  // Attaching bookkeeping to a story card preserves provenance; it does not
+  // turn that bookkeeping into a meaningful graph animation.
+  if (event.status !== "failed" && ["MEMORY_WRITTEN", "MEMORY_READ", "OPTIONAL_MEMORY_WRITTEN",
+    "MESSAGE_DELIVERED", "MESSAGE_RECEIVED", "WORKER_STARTED", "WORKER_FINISHED",
+    "PEER_REVIEW_FINISHED", "FOLLOW_UP_FINISHED", "RUN_CONFIGURATION_RECORDED",
+    "RUN_COMPLETED"].includes(event.event_type)) return false;
+  if (event.event_type === "EVIDENCE_OBSERVED" && event.status !== "failed"
+    && !event.payload?.supported_findings && !event.payload?.remaining_uncertainties && !event.payload?.decision_to_continue_or_stop) return false;
+  const step = stepForEvent(event.event_id);
+  return Boolean(step && step.level !== "divider");
+}
+
+/** The event that best shows a step on the graph: a tool step's result, or its request while running. */
+function representative(step) {
+  const get = (id) => (id && isVisible(id) ? state.eventIndex.get(id) : null);
+  if (step.kind === "tool") {
+    if (step.resultEventId && get(step.resultEventId)) return get(step.resultEventId);
+    const started = step.source_event_ids.map(get).filter((e) => e && ["TOOL_CALL_STARTED", "TOOL_CALL_REQUESTED"].includes(e.event_type)).at(-1);
+    if (started) return started;
+  }
+  return get(step.primaryEventId) || get(step.source_event_ids[0]);
+}
+
+/** Latest story-relevant activity (the raw latest event in technical mode). */
+function latestMeaningful() {
+  const count = visibleCount();
+  if (state.technical) return state.events[count - 1] || null;
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const step = stepForEvent(state.events[i].event_id);
+    if (step && step.level !== "divider") return representative(step) || state.events[i];
+  }
+  return null;
 }
 
 /** Incrementally maintained activity state for the visible prefix. */
@@ -534,7 +582,7 @@ function renderGraph(activity) {
     $("#activity-running").textContent = "";
     return;
   }
-  const latest = state.events[visibleCount() - 1] || null;
+  const latest = latestMeaningful();
   const selected = state.selectedEventId && isVisible(state.selectedEventId) ? state.eventIndex.get(state.selectedEventId) : null;
   state.graph.selection = {nodeId: state.selectedNode, edgeId: state.selectedEdge};
   state.graph.update(activity, {latest: highlightOf(activity, latest), selected: highlightOf(activity, selected)}, nodeSubtitle);
@@ -613,25 +661,29 @@ function hostOf(endpoint) { try { return endpoint ? new URL(endpoint).host : nul
 
 function renderCaption(activity, event) {
   const chip = $("#activity-kind"); const label = $("#activity-label"); const detail = $("#activity-detail");
-  const runningTools = [...activity.open.values()].filter((open) => open.kind.startsWith("tool") || open.kind === "model_request");
+  const runningTools = [...activity.open.values()].filter((open) => open.kind.startsWith("tool") || (state.technical && open.kind === "model_request"));
   $("#activity-running").textContent = runningTools.length ? `${runningTools.length} running` : "";
   if (!event?.activity) { chip.className = "flow-chip lifecycle"; chip.textContent = "Idle"; label.textContent = "No activity at this position."; detail.textContent = ""; return; }
   const style = Activity.flowStyle(event.activity.kind);
   chip.className = `flow-chip ${style}`;
   chip.textContent = event.activity.kind.replaceAll("_", " ");
-  label.textContent = event.activity.label || event.summary || event.event_type;
-  const selected = event.event_id === state.selectedEventId ? "Selected" : (state.live ? "Latest" : "Replay position");
-  detail.textContent = `${selected} · #${event.sequence} · ${event.summary || event.event_type}`;
+  const step = stepForEvent(event.event_id);
+  label.textContent = step && step.level !== "divider" ? `${step.number ? `${String(step.number).padStart(2, "0")} · ` : ""}${step.title}` : (event.activity.label || event.summary || event.event_type);
+  const selected = event.event_id === state.selectedEventId ? "Selected" : (state.live ? "Latest step" : "At replay position");
+  detail.textContent = `${selected} · ${event.activity.label || event.summary || event.event_type} (event #${event.sequence})`;
 }
 
 function queuePulse(eventId) { state.pulseQueue.push(eventId); }
 function flushPulses() {
-  const ids = state.pulseQueue.splice(0).slice(-3);
+  const ids = state.pulseQueue.splice(0).filter((id) => {
+    const event = state.eventIndex.get(id);
+    return event && isVisible(id) && (isMeaningful(event) || id === state.selectedEventId);
+  }).slice(-3);
   const activity = state.activityCache?.state;
   if (!activity || !state.graph) return;
   for (const id of ids) {
     const event = state.eventIndex.get(id);
-    if (event && isVisible(id)) state.graph.pulse(Activity.highlightFor(activity, event));
+    state.graph.pulse(Activity.highlightFor(activity, event));
   }
 }
 
@@ -765,10 +817,30 @@ function eventList(title, events) {
   return wrap;
 }
 
-function selectNode(id) {
+function selectNode(id, agentId = null) {
   state.selectedNode = state.selectedNode === id ? null : id;
   state.selectedEdge = null;
+  if (state.selectedNode && state.runId) openStepForNode(id, agentId);
   renderAll();
+}
+
+/** Clicking an agent or tool opens its latest story step at the current position. */
+function openStepForNode(nodeId, agentId = null) {
+  const node = (state.topology?.nodes || []).find((n) => n.id === nodeId);
+  const steps = Story.mainSteps(storySteps());
+  let step = null;
+  if (node?.type === "tool") {
+    const name = node.label;
+    step = [...steps].reverse().find((s) => s.kind === "tool" && s.tool === name && (!agentId || s.agent === agentId));
+  } else if (node?.type === "worker" || node?.type === "coordinator") {
+    step = [...steps].reverse().find((s) => s.agent === nodeId);
+  }
+  if (!step) return;
+  state.selectedStepId = step.id;
+  state.linkedSteps = Story.linkedSteps(step, storySteps());
+  state.selectedEventId = step.primaryEventId;
+  state.expandedSteps.add(step.id);
+  if (state.tab !== "story") setTab("story");
 }
 function selectEdge(id) { state.selectedEdge = state.selectedEdge === id ? null : id; state.selectedNode = null; renderAll(); }
 function selectEvent(id, {keepStep = false} = {}) {
@@ -808,9 +880,13 @@ function renderTimeline() {
   const category = $("#category-filter").value;
   const failuresOnly = $("#failure-filter").checked;
   if (!state.runId) { host.classList.add("empty-state"); host.textContent = "Select a run to see its event timeline."; $("#event-count").textContent = "0 events"; return; }
-  let events = visibleEvents().filter((e) => (!selectedAgent || e.agent_id === selectedAgent) && (!selectedType || e.event_type === selectedType)
-    && (!category || eventCategory(e) === category) && (!failuresOnly || e.status === "failed"));
-  $("#event-count").textContent = `${events.length} event${events.length === 1 ? "" : "s"}`;
+  const filter = state.traceFilter;
+  const banner = $("#trace-filter");
+  banner.classList.toggle("hidden", !filter);
+  if (filter) $("#trace-filter-label").textContent = `Underlying events of ${filter.label}`;
+  let events = visibleEvents().filter((e) => (!filter || filter.ids.has(e.event_id)) && (!selectedAgent || e.agent_id === selectedAgent) && (!selectedType || e.event_type === selectedType)
+    && (!category || (category === "technical" ? !stepForEvent(e.event_id) : eventCategory(e) === category)) && (!failuresOnly || e.status === "failed"));
+  $("#event-count").textContent = `${events.length} event${events.length === 1 ? "" : "s"}${filter ? "" : ` · ${storySteps().technicalEventIds.length} technical-only`}`;
   if (!events.length) { host.classList.add("empty-state"); host.textContent = "No events match the current filters."; return; }
   events = events.slice(-1000);
   for (const event of events) {
@@ -819,8 +895,18 @@ function renderTimeline() {
     card.dataset.eventId = event.event_id;
     card.tabIndex = 0;
     const head = el("div", "event-head"); head.append(el("span", "", `#${event.sequence} · ${event.agent_id}`), el("time", "", formatTime(event.timestamp)));
-    card.append(head, el("strong", "", event.event_type.replaceAll("_", " ")), el("p", "", event.summary || "Recorded event"));
+    card.append(head, el("strong", "", event.event_type), el("p", "", event.summary || "Recorded event"));
     if (event.activity?.path?.length) card.append(el("div", "flow-line", event.activity.label));
+    const owner = stepForEvent(event.event_id);
+    const meta = [`id ${event.event_id}`, event.parent_event_id ? `parent ${event.parent_event_id}` : null, event.causal_refs?.length ? `causal ${event.causal_refs.length}` : null,
+      event.tool_name ? `tool ${event.tool_name}` : null, event.payload?.tool_call_id ? `call ${event.payload.tool_call_id}` : null,
+      event.artifact_refs?.length ? `artifacts ${event.artifact_refs.length}` : null, `status ${event.status}`,
+      owner && owner.level !== "divider" ? `story ${owner.number ? `#${owner.number}` : "(routine)"}` : "technical only"].filter(Boolean);
+    card.append(el("div", "trace-meta", meta.join(" · ")));
+    const payload = el("details", "trace-payload"); payload.append(el("summary", "", "Payload"));
+    payload.addEventListener("toggle", () => { if (payload.open && payload.childElementCount === 1) payload.append(el("pre", "", pretty(event, Infinity))); });
+    payload.addEventListener("click", (e) => e.stopPropagation());
+    card.append(payload);
     const choose = () => selectEvent(event.event_id);
     card.addEventListener("click", choose);
     card.addEventListener("keydown", (keyEvent) => { if (keyEvent.key === "Enter") choose(); });
@@ -906,15 +992,16 @@ function renderDetails(event) {
   cards.push(["Recorded intent", intent || "No explicit public rationale was recorded for this step.", false]);
   const input = step?.arguments || payload.arguments || request?.payload?.arguments;
   if (input) cards.push(["Tool request", keyValues(input), false]);
-  const output = step?.resultSummary || (payload.hypothesis !== undefined ? `Candidate: ${payload.hypothesis}` : null) || (payload.estimate !== undefined ? `Estimate: ${payload.estimate ?? "none"} (${payload.status || payload.outcome})` : null);
+  const output = step?.observation || (payload.hypothesis !== undefined ? `Candidate: ${payload.hypothesis}` : null) || (payload.estimate !== undefined ? `Estimate: ${payload.estimate ?? "none"} (${payload.status || payload.outcome})` : null);
   if (output) cards.push(["What it returned", output, false]);
   const region = regionText(result?.payload || payload);
   if (region) cards.push(["Original-image region", region, false]);
-  const facts = (step?.facts || []).map(([k, v]) => `${k}: ${v}`);
+  const facts = [...(step?.interpretation || []).map(([k, v]) => `Agent's assessment — ${k}: ${v}`), ...(step?.facts || []).map(([k, v]) => `${k}: ${v}`)];
   if (facts.length) cards.push(["Assessment and uncertainty", facts.join("\n"), true]);
-  if (step?.memory) cards.push(["Memory update", step.memory, false]);
+  if (step?.memory?.length) cards.push(["Memory", [...new Set(step.memory)].join("; "), false]);
   const next = step?.next ? `${agentLabel(step.agent)} ${step.next}.` : effectText(event);
   cards.push(["What happened next", next, false]);
+  if (step) cards.push(["Underlying events", `${step.source_event_ids.length} raw event(s) form this step. Use “View underlying events” in the story card to open them in the Technical Trace.`, false]);
   if (citing.length) cards.push(["Coordinator estimate impact", citing.map((other) => `${other.title.replace(/^Coordinator — /, "")} (step #${state.eventIndex.get(other.primaryEventId)?.sequence ?? "?"}): ${other.text}`).join("\n"), true]);
   else if (step && ["tool", "hypothesis"].includes(step.kind)) cards.push(["Coordinator estimate impact", "No recorded coordinator assessment cites this step at this position.", false]);
   for (const [title, value, wide] of cards) {
@@ -940,7 +1027,8 @@ function effectText(event) { if (event.status === "failed") return "The step fai
 // ---- Evidence workspace --------------------------------------------------------
 function latestEvidenceEvent() {
   const events = [...visibleEvents()].reverse();
-  return events.find((event) => event.event_type === "TOOL_CALL_COMPLETED") || events.find((event) => event.event_type === "EVIDENCE_OBSERVED") || events.find((event) => event.artifact_refs?.length);
+  const tool = events.find((event) => ["TOOL_CALL_REQUESTED", "TOOL_CALL_STARTED", "TOOL_CALL_COMPLETED", "TOOL_CALL_FAILED"].includes(event.event_type) && invocationForEvent(event));
+  return tool || events.find((event) => event.event_type === "TOOL_CALL_COMPLETED") || events.find((event) => event.event_type === "EVIDENCE_OBSERVED") || events.find((event) => event.artifact_refs?.length);
 }
 
 /** The event whose payload carries the evidence for a selected step (same invocation, visible prefix only). */
@@ -962,6 +1050,11 @@ function sourceArtifactFor(event) {
 }
 
 async function renderEvidence(selection) {
+  if (state.runId && selection) {
+    const inv = invocationForEvent(evidenceEventFor(selection) || selection) || invocationForEvent(selection);
+    if (inv) return renderToolAction(inv, selection);
+  }
+  hideToolAction();
   if (!state.runId) {
     if (state.evidenceKey === "none") return;
     state.evidenceKey = "none"; state.evidenceToken += 1;
@@ -1148,6 +1241,350 @@ async function loadMemory(agentId) {
   } catch (error) { host.textContent = error.message; toast(`Memory view: ${error.message}`); }
 }
 
+// ---- Simple view: team picture and the selected-step card -------------------------------
+function renderSimpleTeam(activity, answer) {
+  if (!state.simple) return;
+  const topology = state.scope === "run" ? state.topology : null;
+  if (!topology) {
+    state.simple.key = null;
+    const host = $("#simple-team");
+    if (!host.querySelector(".empty-state")) host.replaceChildren(el("div", "empty-state", state.scope === "configured" ? "Select a run to see who works on it." : "Connect, then select a run."));
+    return;
+  }
+  state.simple.setTopology(topology);
+  const events = visibleEvents();
+  const now = new Map();
+  for (const step of Story.mainSteps(storySteps())) {
+    if (!step.agent) continue;
+    const text = step.title.replace(/^(Worker \d+|Coordinator)('s)?\s*/, "");
+    now.set(step.agent, step.status === "running" ? `Now: ${text.replace(/^is\s+/, "")}` : `Last step: ${text}`);
+  }
+  const answers = new Map();
+  for (const event of events) if (event.event_type === "HYPOTHESIS_UPDATED") answers.set(event.agent_id, String(event.payload?.hypothesis ?? ""));
+  const running = new Map();
+  for (const open of activity?.open.values() || []) {
+    if (open.toolNode && open.kind.startsWith("tool")) running.set(open.agentId, `Using ${Story.toolLabel(open.toolNode.replace(/^tool:/, ""))}`);
+    else if (open.kind === "model_request" && !running.has(open.agentId)) running.set(open.agentId, "Thinking");
+  }
+  const b = budgetSummary().global;
+  const selected = state.selectedEventId && isVisible(state.selectedEventId) ? state.eventIndex.get(state.selectedEventId) : null;
+  state.simple.update({agents: activity?.agents, now, answers, estimate: answer?.estimate, running,
+    traffic: SimpleTeamApi.traffic(events), flow: SimpleTeamApi.activeFlow(selected || latestMeaningful()),
+    focusAgent: $("#story-agent").value || null,
+    budget: b?.tool_calls ? `Tool budget used: ${b.tool_calls.used} of ${b.tool_calls.limit}` : "Budget —"});
+}
+
+function focusStep() {
+  if (!state.runId) return null;
+  const steps = storySteps();
+  if (state.selectedStepId) return steps.find((step) => step.id === state.selectedStepId) || null;
+  if (state.selectedEventId) return stepForEvent(state.selectedEventId);
+  return Story.mainSteps(steps).at(-1) || null;
+}
+
+function focusRows(step) {
+  if (step.kind === "tool") {
+    const lin = lineage(); const ids = new Set(step.source_event_ids);
+    const inv = lin ? [...lin.invocations.values()].find((i) => ids.has(i.requestEventId) || ids.has(i.resultEventId)) : null;
+    const input = inv ? lin.images.get(inv.inputKeys[0]) : null;
+    const where = input ? (input.kind === "input" ? "the original image" : `the ${input.kind === "crop" ? "zoomed crop" : "image"} made in ${producerText(input) || "an earlier step"}`) : "the image";
+    const a = step.arguments || {};
+    const tool = Story.toolLabel(step.tool);
+    let request;
+    if (/zoom/i.test(step.tool || "")) request = `Zoom into a selected region of ${where}.`;
+    else if (/ground|detect/i.test(step.tool || "") && a.query) request = `Find “${a.query}” in ${where}.`;
+    else request = `${tool}${Object.keys(a).length ? ` (${keyValues(a).replace(/\n/g, "; ")})` : ""}.`;
+    const output = inv?.outputKeys?.length ? lin.images.get(inv.outputKeys[0]) : null;
+    let result = step.status === "running" ? "Waiting for the tool to return…" : `${tool} ${step.observation || "finished"}.`;
+    if (/zoom/i.test(step.tool || "") && output?.width && step.status === "completed") result = `Returned a ${output.width}×${output.height} zoomed image.`;
+    const interpretation = step.interpretation?.length ? step.interpretation.map(([k, v]) => `${k}: ${v}`).join(" ") : "Not recorded.";
+    return [["Why", step.intent || "Not recorded — the model did not state a reason."], ["Request", request], ["Result", result],
+      ["Interpretation", interpretation], ["Next", step.next ? `${agentLabel(step.agent)} ${step.next}.` : step.status === "running" ? "—" : "No later action by this agent yet."]];
+  }
+  const rows = [["What happened", step.text || step.title]];
+  if (step.list?.length) rows.push(["Assignments", step.list.join("\n")]);
+  for (const [k, v] of (step.facts || []).slice(0, 3)) rows.push([k, String(v)]);
+  if (step.delivery) rows.push(["Sent", step.delivery[0].toUpperCase() + step.delivery.slice(1)]);
+  return rows;
+}
+
+function renderFocus() {
+  const host = $("#focus-flow");
+  const step = focusStep();
+  const explicit = Boolean(state.selectedStepId || state.selectedEventId);
+  $("#focus-mode").textContent = !state.runId || explicit ? "" : state.live ? "Following the latest step" : "Latest step at this replay position";
+  $("#clear-event").hidden = !explicit;
+  if (!step) {
+    $("#focus-title").textContent = state.runId ? "No steps yet" : "Nothing selected yet";
+    host.dataset.key = ""; host.replaceChildren(el("li", "empty-state", state.runId ? "Steps appear here as the agents work." : "Select a run, then pick a step on the left."));
+    return;
+  }
+  const key = `${step.id}|${step.source_event_ids.length}|${step.status}|${step.next || ""}`;
+  $("#focus-title").textContent = `${step.number ? `Step ${String(step.number).padStart(2, "0")} · ` : ""}${step.title}`;
+  if (host.dataset.key === key) return;
+  host.dataset.key = key; host.replaceChildren();
+  for (const [label, text] of focusRows(step)) {
+    const li = el("li", `fl-${label.toLowerCase().replace(/[^a-z]/g, "")}`);
+    li.append(el("span", "fl-label", label), el("p", "", text));
+    host.append(li);
+  }
+}
+
+// ---- Visual lineage and the tool-action workspace ---------------------------------------
+function lineage() {
+  if (!state.runId || !Lineage) return null;
+  const count = visibleCount(); const last = state.events[count - 1]?.event_id || null;
+  if (state.lineageCache && state.lineageCache.count === count && state.lineageCache.last === last) return state.lineageCache.value;
+  const value = Lineage.buildLineage(visibleEvents(), {artifacts: state.snapshot?.artifacts || {}, aliases: state.snapshot?.artifact_aliases || {}});
+  state.lineageCache = {count, last, value};
+  return value;
+}
+
+/** The tool invocation an event belongs to, if it involved recorded images. */
+function invocationForEvent(event) {
+  const lin = event ? lineage() : null;
+  const key = lin?.byEvent.get(event.event_id);
+  const inv = key ? lin.invocations.get(key) : null;
+  return inv && (inv.inputKeys.length || inv.outputKeys.length) ? inv : null;
+}
+
+function stepForInvocation(inv) {
+  if (!inv) return null;
+  const ids = new Set([inv.requestEventId, inv.resultEventId].filter(Boolean));
+  return storySteps().find((step) => step.kind === "tool" && step.source_event_ids.some((id) => ids.has(id))) || null;
+}
+
+function imageLabel(node) {
+  if (!node) return "image not recorded";
+  const size = node.width ? `${node.width}×${node.height}` : "size unknown";
+  const kind = {input: "Original image", crop: "Zoom crop", annotation: "Annotated rendering", visualization: "Visualization", output: "Tool output"}[node.kind] || "Image";
+  return `${kind} · ${node.registryId} · ${size}`;
+}
+
+function producerText(node) {
+  const lin = lineage(); const inv = node?.producer ? lin.invocations.get(node.producer) : null;
+  const step = stepForInvocation(inv);
+  return step ? `step ${step.number ? String(step.number).padStart(2, "0") : "?"} (${Story.toolLabel(inv.tool)})` : null;
+}
+
+function hideToolAction() {
+  $("#tool-action").classList.add("hidden");
+  $("#legacy-viewer").classList.remove("hidden");
+}
+
+/** Shapes to draw, with boxes already expressed in the target image's pixels. */
+function detectionShapes(inv, transform, prefix = "det") {
+  const det = inv.detections; if (!det || !transform) return [];
+  return det.boxes.map((box, index) => ({box: Geo.applyBox(transform, box), cls: prefix, index: index + 1,
+    label: det.labels?.[index], score: det.scores?.[index]}));
+}
+
+function taFigure(title, node, shapes, {placeholder = null, note = null} = {}) {
+  const figure = el("figure", "ta-panel");
+  const caption = el("figcaption"); caption.append(el("strong", "", title), el("span", "muted", node ? imageLabel(node) : ""));
+  figure.append(caption);
+  const stageBox = el("div", "ta-stage");
+  if (placeholder) { stageBox.classList.add("empty-state"); stageBox.textContent = placeholder; figure.append(stageBox); }
+  else if (!node?.artifactId) { stageBox.classList.add("empty-state"); stageBox.textContent = "Visual artifact unavailable."; figure.append(stageBox); }
+  else {
+    const inner = el("div", "ta-zoom");
+    const img = el("img"); img.alt = imageLabel(node); img.dataset.artifact = node.artifactId; img.draggable = false;
+    inner.append(img);
+    if (node.width && shapes.length) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("class", "ta-overlay"); svg.setAttribute("viewBox", `0 0 ${node.width} ${node.height}`); svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      for (const shape of shapes) {
+        const clipped = Geo.clipBox(shape.box, node.width, node.height); if (!clipped) continue;
+        if (shape.cls === "det" && !state.ta.boxes) continue;
+        const g = document.createElementNS(svg.namespaceURI, "g");
+        const selected = shape.index && shape.index === state.ta.selectedBox;
+        g.setAttribute("class", `ta-shape ${shape.cls}${selected ? " selected" : ""}`);
+        const rect = document.createElementNS(svg.namespaceURI, "rect");
+        rect.setAttribute("x", clipped[0]); rect.setAttribute("y", clipped[1]); rect.setAttribute("width", clipped[2] - clipped[0]); rect.setAttribute("height", clipped[3] - clipped[1]);
+        rect.dataset.box = clipped.map((v) => v.toFixed(2)).join(",");
+        g.append(rect);
+        const labels = state.ta.labels === "auto" ? shapes.filter((x) => x.cls === "det").length <= 30 : state.ta.labels;
+        const text = [shape.index && (labels || selected) ? String(shape.index) : null, shape.cls === "det" && selected && shape.label ? shape.label : null,
+          shape.cls === "det" && (state.ta.scores || selected) && typeof shape.score === "number" ? `score ${shape.score.toFixed(2)}` : null, shape.caption].filter(Boolean).join(" · ");
+        if (text) { const t = document.createElementNS(svg.namespaceURI, "text"); t.setAttribute("x", clipped[0] + 2); t.setAttribute("y", Math.max(clipped[1] - 3, 9)); t.textContent = text; g.append(t); }
+        if (shape.index) { g.addEventListener("click", (event) => { event.stopPropagation(); state.ta.selectedBox = state.ta.selectedBox === shape.index ? null : shape.index; state.evidenceKey = null; renderAll(); }); }
+        svg.append(g);
+      }
+      inner.append(svg);
+    }
+    stageBox.append(inner);
+    enableStageZoom(stageBox, inner);
+    figure.append(stageBox);
+  }
+  if (note) figure.append(el("p", "ta-note", note));
+  return figure;
+}
+
+function enableStageZoom(stageBox, inner) {
+  let scale = 1; let x = 0; let y = 0; let drag = null;
+  const apply = () => { inner.style.transform = `translate(${x}px, ${y}px) scale(${scale})`; stageBox.classList.toggle("zoomed", scale > 1); };
+  stageBox.addEventListener("dblclick", (event) => {
+    const rect = stageBox.getBoundingClientRect();
+    if (scale > 1) { scale = 1; x = 0; y = 0; } else { scale = 2.5; x = -(event.clientX - rect.left) * 1.5; y = -(event.clientY - rect.top) * 1.5; }
+    apply();
+  });
+  stageBox.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault(); scale = Math.max(1, Math.min(8, scale * (event.deltaY < 0 ? 1.2 : 1 / 1.2))); if (scale === 1) { x = 0; y = 0; } apply();
+  }, {passive: false});
+  stageBox.addEventListener("pointerdown", (event) => { if (scale > 1) { drag = {x: event.clientX - x, y: event.clientY - y}; stageBox.setPointerCapture(event.pointerId); } });
+  stageBox.addEventListener("pointermove", (event) => { if (drag) { x = event.clientX - drag.x; y = event.clientY - drag.y; apply(); } });
+  stageBox.addEventListener("pointerup", () => { drag = null; });
+}
+
+async function renderToolAction(inv, selection) {
+  const lin = lineage();
+  if (state.ta.invocation !== inv.key) { state.ta.invocation = inv.key; state.ta.selectedBox = null; state.ta.view = "boxes"; state.ta.labels = "auto"; }
+  const key = `ta|${state.runId}|${inv.key}|${inv.status}|${inv.outputKeys.join(",")}|${JSON.stringify(state.ta)}|${selection?.linkedFrom?.event_id || ""}`;
+  if (key === state.evidenceKey) return;
+  state.evidenceKey = key;
+  const token = ++state.evidenceToken;
+  const input = lin.images.get(inv.inputKeys[0]) || null;
+  const outputs = inv.outputKeys.map((k) => lin.images.get(k)).filter(Boolean);
+  const chain = input && input.kind !== "input" ? lin.chainToRoot(input.key) : null;
+  const root = chain?.complete ? lin.images.get(chain.rootKey) : null;
+  // Load every image before touching the DOM (a late response must not replace a newer selection).
+  const wanted = [input, ...outputs, root].filter((n) => n?.artifactId).map((n) => n.artifactId);
+  const urls = new Map();
+  for (const id of new Set(wanted)) { try { urls.set(id, await artifactUrl(id)); } catch { /* shown as unavailable */ } }
+  if (token !== state.evidenceToken) return;
+
+  const isZoom = /zoom|crop/i.test(inv.tool || ""); const det = inv.detections;
+  const step = stepForInvocation(inv);
+  const host = $("#tool-action"); host.replaceChildren(); host.classList.remove("hidden");
+  $("#legacy-viewer").classList.add("hidden");
+  $("#evidence-kind").textContent = `${inv.tool} · ${inv.status}`;
+  $("#evidence-kind").className = `status-chip ${inv.status === "failed" ? "failed" : inv.status === "completed" ? "completed" : "idle"}`;
+
+  // Header: what ran, on which image, and how it connects to other steps.
+  const head = el("div", "ta-head");
+  const source = input ? `${imageLabel(input)}${producerText(input) ? ` — produced by ${producerText(input)}` : ""}` : "input image not recorded";
+  head.append(el("strong", "", `${step?.number ? `Step ${String(step.number).padStart(2, "0")} · ` : ""}${Story.toolLabel(inv.tool)} · ${agentLabel(inv.agent)} · ${inv.status}`),
+    el("span", "muted", `Input: ${source}`));
+  const nav = el("div", "ta-nav");
+  const go = (label, targetInv) => { const s2 = stepForInvocation(targetInv); if (!s2) return; const b = el("button", "quiet", label.replace("#", s2.number ? String(s2.number).padStart(2, "0") : "?")); b.type = "button"; b.addEventListener("click", () => selectStep(s2)); nav.append(b); };
+  if (input?.producer) go("← Producing step #", lin.invocations.get(input.producer));
+  for (const out of outputs) for (const consumer of out.consumers) go("Used by step # →", lin.invocations.get(consumer));
+  if (selection?.linkedFrom) nav.append(el("span", "muted", `Shown for: ${selection.linkedFrom.summary || "coordinator answer state"}`));
+  head.append(nav);
+  host.append(head);
+
+  // Controls (kept small; detection-only options appear only for detections).
+  const controls = el("div", "ta-controls");
+  const toggle = (name, label) => { const l = el("label", "check"); const c = el("input"); c.type = "checkbox"; c.checked = state.ta[name] === "auto" ? (det?.boxes.length || 0) <= 30 : Boolean(state.ta[name]); c.addEventListener("change", () => { state.ta[name] = c.checked; renderAll(); }); l.append(c, document.createTextNode(` ${label}`)); controls.append(l); };
+  if (det) {
+    toggle("boxes", "Boxes"); toggle("labels", "Labels"); toggle("scores", "Scores");
+    if (outputs.length) {
+      const select = el("select"); select.setAttribute("aria-label", "Output view");
+      select.append(new Option("Boxes on the processed image", "boxes"), new Option("Tool's rendered image", "rendered")); select.value = state.ta.view;
+      select.addEventListener("change", () => { state.ta.view = select.value; renderAll(); }); controls.append(select);
+    }
+  }
+  const full = outputs.find((n) => n.artifactId) || input;
+  if (full?.artifactId && urls.get(full.artifactId)) { const a = el("a", "ta-open", "Open full resolution"); a.href = urls.get(full.artifactId); a.target = "_blank"; a.rel = "noopener"; controls.append(a); }
+  controls.append(el("span", "muted", "Double-click an image to zoom; drag to pan."));
+  host.append(controls);
+
+  // Input and output panels.
+  const grid = el("div", "ta-grid");
+  const inputShapes = [];
+  if (isZoom && inv.roi?.requested) inputShapes.push({box: inv.roi.requested, cls: "roi", caption: "selected region"});
+  if (isZoom && inv.roi?.cropBox && inv.roi.verified) inputShapes.push({box: inv.roi.cropBox, cls: "crop", caption: "crop boundary (with padding)"});
+  grid.append(taFigure("Actual input", input, inputShapes, {note: !input ? "The tool's input image was not recorded for this call." : null}));
+  let outputFigure;
+  if (inv.status !== "completed" && inv.status !== "failed") outputFigure = taFigure("Actual output", null, [], {placeholder: "Running — the tool has not returned yet."});
+  else if (inv.status === "failed") outputFigure = taFigure("Actual output", null, [], {placeholder: `Failed: ${String(inv.error).slice(0, 200)}. No output was produced.`});
+  else if (det && state.ta.view === "boxes") {
+    const shapes = det.toInput ? detectionShapes(inv, det.toInput) : [];
+    outputFigure = taFigure(`Detections on the processed image (${det.boxes.length})`, input, shapes,
+      {note: !det.boxes.length ? "No detections returned." : det.reason || (det.system === "resized_pixels" ? `Boxes reported in a ${det.frameSize.join("×")} frame and scaled to the processed image.` : null)});
+  } else if (outputs.length) {
+    const out = outputs[0];
+    const note = isZoom ? (inv.roi?.verified ? `Crop of input pixels [${inv.roi.cropBox.join(", ")}] (${inv.roi.method === "recorded" ? "recorded by the capability" : "reconstructed with the tool's crop rule"}; verified against the returned ${out.width}×${out.height} crop).`
+      : `Crop geometry unverified: ${inv.roi?.reason || "missing transform metadata"}. The crop is shown without alignment.`) : null;
+    outputFigure = taFigure(isZoom ? "Actual zoomed image" : "Actual output", out, [], {note});
+  } else outputFigure = taFigure("Actual output", null, [], {placeholder: "This tool returned no image; see the structured result below."});
+  grid.append(outputFigure);
+  host.append(grid);
+
+  // Original context: where the processed image (and its result) sits in the original.
+  if (input && input.kind !== "input") {
+    if (root && chain.complete) {
+      const shapes = [{box: Geo.applyBox(chain.transform, [0, 0, input.width, input.height]), cls: "footprint", caption: `${input.registryId} footprint`}];
+      if (isZoom && inv.roi?.cropBox && inv.roi.verified) shapes.push({box: Geo.applyBox(chain.transform, inv.roi.cropBox), cls: "crop", caption: "this crop"});
+      if (det?.toInput) shapes.push(...detectionShapes(inv, Geo.then(det.toInput, chain.transform), "det"));
+      host.append(taFigure("Original context (mapped through verified transforms)", root, shapes));
+    } else host.append(el("p", "ta-note warn", `Original context unavailable: ${chain?.reason || "the lineage is incomplete"}.`));
+  }
+
+  // Facts: input, operation, output, and the agent's recorded interpretation (kept distinct).
+  const facts = el("dl", "ta-facts");
+  const row = (k, v) => { if (v) facts.append(el("dt", "", k), el("dd", "", v)); };
+  row("Operation", `${inv.tool}${inv.arguments ? ` · ${keyValues(inv.arguments).replace(/\n/g, " · ")}` : ""}`);
+  row("Input source", inv.inputSource === "capability" ? "Recorded by the capability's image resolution" : inv.inputSource === "registry_alias_preview" ? "Requested image (resolved when the call was made)" : inv.inputSource === "argument" ? "Requested image ID (before execution)" : null);
+  if (det) {
+    row("Result", `${det.boxes.length} detection${det.boxes.length === 1 ? "" : "s"} in ${det.system === "input_pixels" ? "the processed image's pixels" : det.system}`);
+    const selected = state.ta.selectedBox ? det.boxes[state.ta.selectedBox - 1] : null;
+    if (selected) {
+      const mapped = chain?.complete && det.toInput ? Geo.applyBox(Geo.then(det.toInput, chain.transform), selected) : input?.kind === "input" && det.toInput ? Geo.applyBox(det.toInput, selected) : null;
+      row(`Box ${state.ta.selectedBox}`, `[${selected.map((v) => Math.round(v)).join(", ")}] in ${input?.registryId}${mapped ? ` → [${mapped.map((v) => Math.round(v)).join(", ")}] in the original` : ""}${typeof det.scores?.[state.ta.selectedBox - 1] === "number" ? ` · model score ${det.scores[state.ta.selectedBox - 1].toFixed(3)} (not a calibrated probability)` : ""}`);
+    }
+  }
+  if (isZoom && inv.roi) row("Crop", inv.roi.verified ? `[${inv.roi.cropBox.join(", ")}] px of ${input?.registryId}, padding ${inv.roi.padding} (0-1000 scale)` : `unverified — ${inv.roi.reason}`);
+  for (const note of inv.notes) row("Note", note);
+  row("Agent's interpretation", step ? (step.interpretation?.length ? step.interpretation.map(([k, v]) => `${k}: ${v}`).join("\n") : "No interpretation of this result was recorded.") : null);
+  row("Next", step?.next ? `${agentLabel(inv.agent)} ${step.next}.` : null);
+  host.append(facts);
+  for (const img of host.querySelectorAll("img[data-artifact]")) { const url = urls.get(img.dataset.artifact); if (url) img.src = url; else img.closest(".ta-stage")?.replaceChildren(document.createTextNode("Visual artifact unavailable.")); }
+}
+
+/** Thumbnails for a story card: input (with ROI or boxes) → output. */
+function visualThumbs(step) {
+  if (step.kind !== "tool") return null;
+  const lin = lineage(); if (!lin) return null;
+  const ids = new Set(step.source_event_ids);
+  const inv = [...lin.invocations.values()].find((i) => ids.has(i.requestEventId) || ids.has(i.resultEventId));
+  if (!inv || !(inv.inputKeys.length || inv.outputKeys.length)) return null;
+  const input = lin.images.get(inv.inputKeys[0]); const output = lin.images.get(inv.outputKeys[0]);
+  const strip = el("div", "ta-thumbs");
+  const thumb = (node, shapes, label) => {
+    const box = el("div", "ta-thumb"); box.title = label;
+    if (node?.artifactId) {
+      const img = el("img"); img.alt = label; img.dataset.thumb = node.artifactId; box.append(img);
+      if (node.width && shapes.length) {
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", `0 0 ${node.width} ${node.height}`); svg.setAttribute("preserveAspectRatio", "xMidYMid meet"); svg.setAttribute("class", "ta-overlay");
+        for (const s of shapes) { const c = Geo.clipBox(s.box, node.width, node.height); if (!c) continue; const g = document.createElementNS(svg.namespaceURI, "g"); g.setAttribute("class", `ta-shape ${s.cls}`); const r = document.createElementNS(svg.namespaceURI, "rect"); r.setAttribute("x", c[0]); r.setAttribute("y", c[1]); r.setAttribute("width", c[2] - c[0]); r.setAttribute("height", c[3] - c[1]); g.append(r); svg.append(g); }
+        box.append(svg);
+      }
+    } else box.append(el("span", "muted", node ? "unavailable" : "—"));
+    box.append(el("span", "ta-thumb-label", label));
+    return box;
+  };
+  const isZoom = /zoom|crop/i.test(inv.tool || "");
+  if (isZoom) {
+    strip.append(thumb(input, [inv.roi?.requested && {box: inv.roi.requested, cls: "roi"}, inv.roi?.verified && {box: inv.roi.cropBox, cls: "crop"}].filter(Boolean), `${input?.registryId || "input"} + ROI`), el("span", "ta-arrow", "→"),
+      inv.status === "completed" ? thumb(output, [], `${output?.registryId || "crop"}`) : el("span", "muted", inv.status === "failed" ? "failed" : "running…"));
+  } else if (inv.detections) {
+    strip.append(thumb(input, [], input?.registryId || "input"), el("span", "ta-arrow", "→"),
+      thumb(input, inv.detections.toInput ? detectionShapes(inv, inv.detections.toInput) : [], `${inv.detections.boxes.length} box${inv.detections.boxes.length === 1 ? "" : "es"}`));
+  } else {
+    strip.append(thumb(input, [], input?.registryId || "input"));
+    if (output) strip.append(el("span", "ta-arrow", "→"), thumb(output, [], output.registryId));
+  }
+  return strip;
+}
+
+async function hydrateThumbs(host) {
+  for (const img of host.querySelectorAll("img[data-thumb]")) {
+    try { const url = await artifactUrl(img.dataset.thumb); if (img.isConnected) img.src = url; } catch { /* unavailable */ }
+  }
+}
+
 // ---- Answer status strip --------------------------------------------------------
 const TERMINAL = new Set(["COMPLETED", "FAILED", "CANCELLED", "BUDGET_EXHAUSTED"]);
 const GT_TEXT = {
@@ -1308,7 +1745,13 @@ function latestByAgent() {
     if (!event.activity) continue;
     const agent = event.agent_id;
     if (agent === "coordinator" || /^worker_\d+$/.test(agent)) {
-      if (!["budget_grant", "message_delivery"].includes(event.activity.kind)) map.set(agent, event);
+      if (state.technical) { map.set(agent, event); continue; }
+      const step = stepForEvent(event.event_id);
+      if (step && step.level !== "divider") {
+        const shown = representative(step) || event;
+        // The card's activity line reads as the story step, not a raw event summary.
+        map.set(agent, {...shown, activity: {...(shown.activity || {}), label: step.title}});
+      }
     }
   }
   return map;
@@ -1332,10 +1775,9 @@ function renderTeam(activity, answer) {
   const topology = state.scope === "run" ? state.topology : state.displayTopology;
   if (!topology) return;
   state.team.setTopology(topology, state.scope === "run" ? state.snapshot?.effective_config || null : null);
-  const latest = state.scope === "run" ? state.events[visibleCount() - 1] || null : null;
   const selected = state.selectedEventId && isVisible(state.selectedEventId) ? state.eventIndex.get(state.selectedEventId) : null;
   const budget = state.scope === "run" ? budgetSummary() : {global: null, actors: new Map()};
-  state.team.update({activity: state.scope === "run" ? activity : null, latest, selected, lastByAgent: state.scope === "run" ? latestByAgent() : new Map(),
+  state.team.update({activity: state.scope === "run" ? activity : null, latest: state.scope === "run" ? latestMeaningful() : null, selected, technical: state.technical, lastByAgent: state.scope === "run" ? latestByAgent() : new Map(),
     answer, budget: budget.global, actorBudget: budget.actors});
 }
 
@@ -1353,6 +1795,37 @@ function setViewMode(mode) {
 }
 
 // ---- Investigation story ------------------------------------------------------------
+function detailRows(step) {
+  const rows = [];
+  if (step.kind === "tool") {
+    rows.push(["Why", step.intent || "Action rationale was not recorded."]);
+    rows.push(["Tool", `${Story.toolLabel(step.tool)} (${step.tool || "unknown"})`]);
+    const lin = lineage(); const ids = new Set(step.source_event_ids);
+    const inv = lin ? [...lin.invocations.values()].find((i) => ids.has(i.requestEventId) || ids.has(i.resultEventId)) : null;
+    if (inv && (inv.inputKeys.length || inv.outputKeys.length)) {
+      const input = lin.images.get(inv.inputKeys[0]);
+      rows.push(["Input image", input ? `${imageLabel(input)}${producerText(input) ? ` — output of ${producerText(input)}` : ""}` : "not recorded"]);
+      if (inv.outputKeys.length) rows.push(["Output image", inv.outputKeys.map((k) => imageLabel(lin.images.get(k))).join("\n")]);
+    }
+    if (step.arguments) rows.push(["Input", keyValues(step.arguments)]);
+    rows.push(["Result", step.status === "running" ? "Waiting for the tool to return." : (step.observation || "No result recorded.")]);
+    rows.push(["Agent's assessment", step.interpretation.length ? step.interpretation.map(([k, v]) => `${k}: ${v}`).join("\n") : "No interpretation of this result was recorded."]);
+  } else if (step.interpretation?.length) rows.push(["Agent's assessment", step.interpretation.map(([k, v]) => `${k}: ${v}`).join("\n")]);
+  for (const [k, v] of step.facts || []) rows.push([k, String(v)]);
+  if (step.list?.length) rows.push(["Assignments", step.list.join("\n")]);
+  if (step.delivery) rows.push(["Communication", step.delivery[0].toUpperCase() + step.delivery.slice(1)]);
+  if (step.memory?.length) rows.push(["Memory", [...new Set(step.memory)].join("; ")]);
+  if (step.next) rows.push(["Next", `${agentLabel(step.agent)} ${step.next}.`]);
+  const related = (step.related_step_ids || []).map((id) => storySteps().find((s) => s.id === id)).filter(Boolean);
+  if (related.length) rows.push(["Related", related.map((r) => `${r.number ? `#${r.number} ` : ""}${r.title}`).join("\n")]);
+  return rows;
+}
+
+function openTrace(step) {
+  state.traceFilter = {ids: new Set(step.source_event_ids), label: `${step.number ? `Step ${step.number}: ` : ""}${step.title}`};
+  setTab("log");
+}
+
 function renderStory() {
   const host = $("#story-list");
   if (!state.runId) { host.className = "story-list empty-state"; host.replaceChildren(el("li", "", state.scope === "configured" ? "Select a run to read its investigation story." : "No run selected.")); $("#story-count").textContent = ""; return; }
@@ -1362,31 +1835,50 @@ function renderStory() {
   const select = $("#story-agent");
   const ids = agentIds(); const signature = ids.join("|");
   if (select.dataset.signature !== signature) { const current = select.value; select.replaceChildren(new Option("All agents", "")); for (const id of ids) select.append(new Option(agentLabel(id), id)); select.dataset.signature = signature; select.value = current; }
-  const visible = steps.filter((step) => (showMinor || !step.minor) && (!agent || step.agent === agent));
-  const key = `${state.runId}|${steps.length}|${steps.at(-1)?.eventIds.length}|${steps.at(-1)?.outcome}|${agent}|${showMinor}|${state.selectedStepId}|${[...state.linkedSteps].join(",")}|${visible.at(-1)?.next || ""}`;
+  const visible = steps.filter((step) => (step.level === "main" || (step.level === "minor" && showMinor) || (step.level === "divider" && !agent)) && (!agent || step.agent === agent));
+  const mainCount = visible.filter((step) => step.level === "main").length;
+  const fingerprint = steps.map((step) => `${step.id}:${step.source_event_ids.length}:${step.status}:${step.next || ""}`).join("|");
+  const key = `${state.runId}|${fingerprint}|${agent}|${showMinor}|${state.selectedStepId}|${[...state.linkedSteps].join(",")}|${[...state.expandedSteps].join(",")}`;
   if (host.dataset.key === key) return;
   host.dataset.key = key;
   host.replaceChildren(); host.className = "story-list";
-  $("#story-count").textContent = `${visible.length} step${visible.length === 1 ? "" : "s"}`;
+  $("#story-count").textContent = `${mainCount} step${mainCount === 1 ? "" : "s"} · ${visibleCount()} raw events`;
   if (!visible.length) { host.className = "story-list empty-state"; host.append(el("li", "", "No story steps at this position.")); return; }
   for (const step of visible) {
-    const item = el("li", `story-step kind-${step.kind} outcome-${step.outcome}${step.minor ? " minor" : ""}${step.id === state.selectedStepId ? " selected" : ""}${state.linkedSteps.has(step.id) ? " linked" : ""}`);
-    item.dataset.step = step.id; item.dataset.agent = step.agent; item.tabIndex = 0;
+    if (step.level === "divider") {
+      const divider = el("li", "story-divider"); divider.append(el("span", "", step.title), el("span", "muted", step.text || ""));
+      host.append(divider); continue;
+    }
+    const item = el("li", `story-step kind-${step.kind} outcome-${step.outcome} status-${step.status}${step.minor ? " minor" : ""}${step.id === state.selectedStepId ? " selected" : ""}${state.linkedSteps.has(step.id) ? " linked" : ""}`);
+    item.dataset.step = step.id; item.dataset.agent = step.agent;
     const head = el("div", "story-head");
+    head.append(el("span", "story-number", step.number ? String(step.number).padStart(2, "0") : "·"));
     head.append(el("span", `story-agent a-${step.agent === "coordinator" ? "coordinator" : /^worker/.test(step.agent) ? "worker" : "run"}`, agentLabel(step.agent)));
-    head.append(el("strong", "", step.title.replace(/^[^—]*— /, "")));
+    const title = el("button", "story-title", step.title); title.type = "button";
+    head.append(title);
     if (step.outcomeText) head.append(el("span", `outcome-tag o-${step.outcome}`, step.outcomeText));
-    item.append(head, el("p", "story-text", step.text || ""));
-    if (step.intent) item.append(el("p", "story-intent", `Intent: ${step.intent}`));
-    if (step.list?.length) { const ul = el("ul", "story-sublist"); for (const line of step.list) ul.append(el("li", "", line)); item.append(ul); }
-    for (const [label, value] of step.facts || []) { const fact = el("p", "story-fact"); fact.append(el("span", "", `${label}: `), document.createTextNode(String(value))); item.append(fact); }
-    if (step.next) item.append(el("p", "story-next", `Next: ${agentLabel(step.agent)} ${step.next}.`));
-    const choose = () => selectStep(step);
-    item.addEventListener("click", choose);
-    item.addEventListener("keydown", (event) => { if (event.key === "Enter") choose(); });
+    item.append(head);
+    if (step.text) item.append(el("p", "story-text", step.text));
+    const thumbs = visualThumbs(step);
+    if (thumbs) item.append(thumbs);
+    if (step.delivery) item.append(el("p", "story-meta", step.delivery[0].toUpperCase() + step.delivery.slice(1)));
+    const details = el("details", "story-details");
+    details.open = state.expandedSteps.has(step.id);
+    details.append(el("summary", "", "Details"));
+    const dl = el("dl");
+    for (const [k, v] of detailRows(step)) dl.append(el("dt", "", k), el("dd", "", v));
+    details.append(dl);
+    const trace = el("button", "trace-link quiet", `View underlying events (${step.source_event_ids.length})`); trace.type = "button";
+    trace.addEventListener("click", (event) => { event.stopPropagation(); openTrace(step); });
+    details.append(trace);
+    details.addEventListener("toggle", () => { if (details.open) state.expandedSteps.add(step.id); else state.expandedSteps.delete(step.id); });
+    item.append(details);
+    title.addEventListener("click", () => selectStep(step));
+    item.addEventListener("click", (event) => { if (!event.target.closest("details")) selectStep(step); });
     host.append(item);
   }
   host.querySelector(".story-step.selected")?.scrollIntoView({block: "nearest"});
+  hydrateThumbs(host);
 }
 
 function selectStep(step) {
@@ -1442,10 +1934,20 @@ function renderEstimateHistory(answer) {
   node.textContent = final ? `Final answer: ${final.value === null ? "abstained" : pretty(final.value, 2000)}` : "The coordinator has not recorded a final answer at this replay position.";
   node.className = final ? "final-answer" : "final-answer empty-state";
   row.replaceChildren();
-  const latest = new Map();
-  for (const event of visibleEvents().filter((e) => e.event_type === "HYPOTHESIS_UPDATED")) latest.set(event.agent_id, event.payload?.hypothesis);
-  for (const [agent, candidate] of latest) { const card = el("div", "candidate"); card.append(el("span", "", agentLabel(agent)), document.createTextNode(pretty(candidate, 200))); row.append(card); }
-  if (!latest.size) row.append(el("span", "muted", "No worker candidate recorded at this position."));
+  const reports = new Map();
+  for (const event of visibleEvents().filter((e) => e.event_type === "HYPOTHESIS_UPDATED")) {
+    const p = event.payload || {}; const prior = reports.get(event.agent_id);
+    reports.set(event.agent_id, {value: p.hypothesis, first: prior ? prior.first : p.hypothesis, revised: (prior?.revised || 0) + (p.revision_kind === "revised" ? 1 : 0), limitation: p.uncertainty || null});
+  }
+  for (const [agent, r] of [...reports].sort(([a], [b]) => a.localeCompare(b))) {
+    const card = el("article", "report-card");
+    const head = el("header"); head.append(el("span", "st-badge", SimpleTeamApi ? SimpleTeamApi.badge(agent) : ""), el("b", "", agentLabel(agent)));
+    card.append(head, el("strong", "report-answer", pretty(r.value, 60)));
+    if (r.revised) card.append(el("p", "report-note", `Changed from ${pretty(r.first, 30)} after checking`));
+    if (r.limitation) card.append(el("p", "report-note muted", `Said: ${pretty(r.limitation, 140)}`));
+    row.append(card);
+  }
+  if (!reports.size) row.append(el("span", "muted", "No worker has answered at this position."));
 }
 
 // ---- Bootstrapping --------------------------------------------------------------------
@@ -1483,14 +1985,22 @@ function setupGraph() {
     onLayoutChange: () => renderAll(),
   });
   const prefs = loadPrefs();
+  state.simple = new SimpleTeamApi.SimpleTeam($("#simple-team"), {
+    onAgent: (id) => { const select = $("#story-agent"); select.value = select.value === id ? "" : id; renderAll(); },
+    onTool: (agent, tool) => { openStepForNode(`tool:${String(tool).replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 96)}`, agent); renderAll(); },
+  });
   state.team = new window.StudioTeam.TeamView($("#team-view"), {
-    onSelectNode: (id) => { state.selectedNode = id; state.selectedEdge = null; renderAll(); },
+    onSelectNode: (id, agentId) => { state.selectedNode = null; selectNode(id, agentId); },
     onMemory: (id) => { state.selectedAgent = id; renderMemoryTabs(); loadMemory(id); document.querySelector(".memory-panel").scrollIntoView({behavior: "smooth", block: "nearest"}); },
     onPeer: (id) => { setTab("log"); $("#agent-filter").value = id; $("#category-filter").value = "message"; state.selectedAgent = id; renderAll(); },
     onShowFull: (id) => { setViewMode("full"); state.graph.setAllCollapsed(false); state.graph.focusNodes([id, `${id}.harness`, `${id}.model_client`, `${id}.memory`, `${id}.tool_router`]); state.selectedNode = id; renderAll(); },
     onLayoutChange: () => renderAll(),
   });
   state.viewMode = ["team", "full", "live"].includes(prefs.viewMode) ? prefs.viewMode : "team";
+  state.technical = prefs.technical === true;
+  state.graph.options.technical = state.technical;
+  $("#toggle-technical").checked = state.technical;
+  $("#toggle-technical").addEventListener("change", (event) => { state.technical = event.target.checked; state.graph.setOptions({technical: state.technical}); state.pulseQueue = []; savePrefs(); renderAll(); });
   Object.assign(state.graph.options, {
     mode: prefs.mode === "live" ? "live" : "full",
     showMemory: prefs.showMemory !== false, showMemoryFlows: prefs.showMemoryFlows !== false, showInfra: Boolean(prefs.showInfra),
@@ -1538,10 +2048,12 @@ function setTab(tab) {
   state.tab = tab;
   for (const other of $$("[data-tab]")) { const on = other.dataset.tab === tab; other.setAttribute("aria-selected", String(on)); other.setAttribute("aria-checked", String(on)); }
   $("#story-view").classList.toggle("hidden", tab !== "story"); $("#log-view").classList.toggle("hidden", tab !== "log");
+  if (tab === "story") state.traceFilter = null;
   renderAll();
 }
 for (const button of $$("[data-tab]")) button.addEventListener("click", () => setTab(button.dataset.tab));
 $("#story-agent").addEventListener("change", renderAll);
+$("#trace-filter-clear").addEventListener("click", () => { state.traceFilter = null; renderAll(); });
 $("#story-minor").addEventListener("change", renderAll);
 $("#est-history-toggle").addEventListener("click", () => $("#estimate-history-panel").scrollIntoView({behavior: "smooth", block: "center"}));
 $("#evaluator-unlock").addEventListener("click", async () => {

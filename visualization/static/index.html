@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b10">
+  <title>ARGUS Forensic Investigation Console</title>
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/observability.css">
+  <link rel="stylesheet" href="/six_agent.css">
+</head>
+<body>
+  <noscript><div class="execution-banner" role="alert">This interactive console requires JavaScript. Open its HTTP URL in Chrome, Edge, Firefox, or another graphical browser. On VS Code Remote, forward the dashboard port in the Ports tab and use Open in Browser. A terminal text browser cannot display the investigation graph or live events.</div></noscript>
+  <header class="topbar">
+    <div class="brand-block"><div class="brand-mark" aria-hidden="true"><span></span></div><div><div class="eyebrow">ARGUS / EXPLAINABLE FORENSIC OPERATIONS</div><h1>Forensic Investigation Console</h1></div></div>
+    <div class="run-strip" aria-label="Run information"><div><span>RUN</span><strong id="run-id">waiting</strong></div><div><span>MEDIA</span><strong id="video-id">—</strong></div><div><span>HARNESS</span><strong id="harness">—</strong></div><div class="topology-cell"><span>EXECUTION</span><strong id="topology-badge">—</strong></div></div>
+    <div class="header-actions"><select id="workspace-mode" class="button workspace-mode" aria-label="Workspace modality" hidden><option value="combined">Combined view</option><option value="visual">Visual view</option><option value="audio">Audio view</option></select><span id="memory-policy-badge" class="policy-badge">Memory: waiting</span><button id="theme-toggle" class="button theme-button" title="Switch light or dark background" aria-label="Switch color theme">☀ Light</button><label class="button" for="file-input">Open trace</label><input id="file-input" type="file" accept=".jsonl,application/x-ndjson" hidden><a class="button" href="/api/raw" download>Raw JSONL</a><div id="live-badge" class="live-badge"><span></span><b>CONNECTING</b></div></div>
+  </header>
+  <div id="fixture-banner" class="fixture-banner" hidden></div>
+  <div id="execution-banner" class="execution-banner" role="status" hidden></div>
+
+  <nav class="phase-rail" aria-label="Investigation phases">
+    <button data-phase="setup"><i>01</i><span>Video received</span></button><button data-phase="observe"><i>02</i><span>Visual observations</span></button><button data-phase="scan"><i>03</i><span>Hypotheses</span></button><button data-phase="focus"><i>04</i><span>Verification</span></button><button data-phase="synthesize"><i>05</i><span>Peer review</span></button><button data-phase="judge"><i>06</i><span>Case assessment</span></button>
+  </nav>
+
+  <section class="metric-bar" aria-label="Run metrics">
+    <div><span id="metric-progress">0%</span><small>trajectory</small></div><div><span id="metric-events">0</span><small>key moments</small></div><div><span id="metric-tools">0</span><small>diagnostics</small></div><div><span id="metric-evidence">0</span><small>evidence records</small></div><div><span id="metric-claims">0</span><small>agent conclusions</small></div><div><span id="metric-errors">0</span><small>errors</small></div>
+  </section>
+
+  <main class="workspace">
+    <section id="av-workspace" class="panel av-workspace" hidden aria-label="Aligned audiovisual investigation">
+      <div class="panel-heading"><div><span class="kicker">SHARED SOURCE MEDIA · NOT EXECUTION TIME</span><h2>Audio–visual verification</h2></div><span id="av-alignment-quality" class="sequence-badge"></span></div>
+      <div class="av-controls"><label>Source time <input id="av-source-seek" type="range" step="0.001" aria-label="Seek source media"></label><output id="av-source-time"></output><label>Zoom <select id="av-zoom"><option value="1">Full source</option><option value="2">2×</option><option value="4">4×</option></select></label><button id="av-play" class="button" type="button">Play selected interval</button><button id="av-focus" class="button" type="button">Expand evidence</button></div>
+      <div id="av-media-tracks" class="av-media-tracks"></div>
+      <div class="av-evidence-grid"><article><h3>Original video · source PTS</h3><video id="av-source-video" controls preload="metadata"></video><div id="av-frame-strip" class="av-frame-strip"></div><div id="av-face-strip" class="av-frame-strip"></div></article><article><h3>Corresponding original audio</h3><audio id="av-source-audio" controls preload="metadata"></audio><canvas id="av-waveform" width="900" height="140" aria-label="Actual selected waveform"></canvas><img id="av-spectrogram" alt="Computed audio spectrogram, not a detector heatmap"><p id="av-playback-note"></p></article></div>
+      <div id="av-request-list" class="av-request-list"></div>
+      <canvas id="av-offset-plot" width="1000" height="180" aria-label="Actual SyncNet offset search distances" hidden></canvas>
+      <div class="av-detail-grid"><article><h3>Request and evidence trigger</h3><pre id="av-request-detail"></pre></article><article><h3>Actual measurements and recipient finding</h3><pre id="av-result-detail"></pre></article><article><h3>Judge hypothesis update / stop</h3><pre id="av-review-detail"></pre></article></div>
+    </section>
+    <section class="panel workflow-panel" aria-labelledby="workflow-heading">
+      <div class="panel-heading workflow-heading"><div><span class="kicker">LIVE INVESTIGATION FLOW · A · SIX-AGENT TOPOLOGY</span><h2 id="workflow-heading">Four peer visual investigators, Audio Agent 5, and Judge Agent 6</h2></div><div class="legend" aria-label="Edge legend"><span class="call">Tool request</span><span class="return">Tool result</span><span class="evidence">Finding → judge</span><span class="callback">Judge reinspection</span><span class="peer">Agent message</span><span class="topology">Topology only (not executed)</span></div></div>
+      <div class="replay-bar replay-top"><button id="jump-start" class="icon-button" title="First key moment">|‹</button><button id="step-back" class="icon-button" title="Previous key moment">‹</button><button id="play-pause" class="play-button" title="Play or pause">▶</button><button id="step-forward" class="icon-button" title="Next key moment">›</button><button id="jump-live" class="icon-button" title="Latest key moment">›|</button><div class="scrubber-wrap"><input id="scrubber" type="range" min="0" max="0" value="0" aria-label="Key trajectory position"><div><span id="step-label">Moment 0 / 0</span><span id="elapsed-label">+00:00</span></div></div><span id="follow-state" class="follow-state" aria-live="polite">Following live</span><label class="speed-label">SPEED<select id="speed" aria-label="Replay speed"><option value="2200">0.5×</option><option value="1300" selected>1×</option><option value="700">2×</option><option value="350">4×</option></select></label></div>
+      <div class="workflow-visual six-agent-visual">
+        <div id="flow-stage" class="six-agent-stage" data-topology="combined">
+          <svg id="flow-svg" class="route-layer" aria-hidden="true">
+            <defs>
+              <filter id="signal-glow" x="-200%" y="-200%" width="400%" height="400%"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+              <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L8,4 L0,8 Z" fill="context-stroke"/></marker>
+            </defs>
+          </svg>
+          <section class="team-band visual-band" aria-labelledby="visual-team-title">
+            <header class="band-heading">
+              <div><small>VISUAL TEAM</small><b id="visual-team-title">Four independent peer investigators</b></div>
+              <button type="button" class="source-chip" data-node="video" title="Source video used by the visual investigators"><span aria-hidden="true">▶</span><b>Source video</b><em id="video-node-copy">waiting</em></button>
+            </header>
+            <div id="visual-team-row" class="agent-row visual-row"></div>
+          </section>
+          <section class="team-band audio-band" aria-labelledby="audio-team-title">
+            <header class="band-heading">
+              <div><small>AUDIO</small><b id="audio-team-title">Specialized ToolDF investigator</b><em class="band-backend">Backend: ToolDF Qwen-Omni planner · XLSR-AASIST detectors</em></div>
+              <button type="button" class="source-chip" data-node="audio" title="Source audio used by Audio Agent 5"><span aria-hidden="true">♫</span><b>Source audio</b><em id="audio-node-copy">not analyzed</em></button>
+            </header>
+            <div id="audio-agent-slot" class="agent-row audio-row"></div>
+          </section>
+          <section class="team-band judge-band" aria-labelledby="judge-team-title">
+            <header class="band-heading">
+              <div><small>CASE REVIEW</small><b id="judge-team-title">Findings flow to the judge; reinspection flows back</b></div>
+            </header>
+            <div id="judge-slot" class="agent-row judge-row"></div>
+          </section>
+          <footer class="infra-strip" aria-label="Coordination infrastructure — not forensic agents">
+            <span class="infra-label">INFRASTRUCTURE · not forensic agents</span>
+            <button type="button" class="infra-chip" data-node="clawteam" title="ClawTeam task coordination service"><b>ClawTeam</b><em id="clawteam-copy">not recorded</em></button>
+            <button type="button" class="infra-chip" data-node="mcp" title="Trusted MCP tool gateway"><b>MCP gateway</b><em id="gateway-copy">0 calls</em></button>
+            <button type="button" class="infra-chip" data-node="evidence" title="Verified evidence store"><b>Evidence store</b><em id="evidence-node-copy">0 records</em></button>
+            <button type="button" class="infra-chip" data-node="memory" title="Case notebook"><b>Case notebook</b><em id="memory-node-copy">0 entries</em></button>
+          </footer>
+          <svg id="signal-svg" class="route-layer signal-layer" aria-hidden="true"><g id="base-routes"></g><g id="comm-routes"></g><g id="selected-route"></g><g id="active-signals"></g></svg>
+        </div>
+      </div>
+      <div id="exchange-card" class="exchange-card idle">
+        <div class="exchange-route"><span id="exchange-kind">WAITING</span><b id="exchange-source">Input</b><i>→</i><b id="exchange-target">Agents</b></div>
+        <div class="exchange-summary input"><small id="exchange-input-label">ORIGINAL REQUEST / MESSAGE</small><p id="exchange-input">Waiting for the first important trajectory event.</p></div>
+        <div class="exchange-summary output"><small id="exchange-output-label">ORIGINAL RESPONSE / OBSERVATION</small><p id="exchange-output">The real model, tool, or agent text will appear here.</p></div>
+        <div class="exchange-purpose"><small>WHY IT MATTERS</small><p id="exchange-purpose">Routine setup and status polling are hidden from this view.</p></div>
+      </div>
+            <div class="area-heading"><span class="kicker">C · EVIDENCE INSPECTOR</span><h3>The selected event controls these panels</h3><label class="toggle split-toggle"><input id="evidence-split" type="checkbox"><span></span>Split view</label></div>
+      <div id="evidence-panes" class="evidence-panes">
+      <section id="media-focus" class="media-focus">
+        <div class="media-heading"><span><small>VISUAL EVIDENCE WORKBENCH</small><b id="media-title">Select an evidence-linked moment</b></span><em id="media-time">No frame selected</em><button type="button" class="collapse-toggle" data-collapse aria-expanded="true" aria-label="Collapse visual evidence">−</button></div>
+        <div class="evidence-ownership" data-ownership aria-live="polite"><span>Select a tool or evidence moment to see which agent owns it.</span></div>
+        <div class="media-grid">
+          <article class="media-cell"><header><small>ORIGINAL SOURCE FRAME</small><span id="mapping-status">—</span><label id="diagnostic-overlay-control" class="diagnostic-overlay-control" hidden>MAP <input id="diagnostic-overlay-opacity" type="range" min="0" max="1" step="0.05" value="0.45" aria-label="Diagnostic overlay opacity"></label></header><div class="video-shell"><video id="evidence-video" muted playsinline preload="metadata"></video><img id="evidence-frame" class="source-frame" alt="Exact source-video evidence frame" hidden><img id="diagnostic-overlay" class="diagnostic-overlay" alt="Spatially aligned diagnostic overlay" hidden><div id="roi-overlay" class="roi-overlay" hidden><span>RECORDED ROI</span></div><div id="video-placeholder" class="video-placeholder"><span>▶</span><p>The exact recorded evidence frame will appear here.</p></div></div><div id="frame-chips" class="frame-chips"></div></article>
+          <article class="media-cell"><header><small id="crop-kind-label">EXACT CROP USED BY TOOL</small><span id="crop-coordinate-label">processed input pixels</span></header><div class="crop-shell"><img id="crop-image" alt="Exact pixels supplied to the forensic tool"><p id="crop-placeholder">No persisted tool-input crop is available for this step.</p></div></article>
+          <article id="diagnostic-compare" class="media-cell" hidden><header><small>FORENSIC TRANSFORMATION</small><span id="diagnostic-tool-label">—</span></header><div class="diagnostic-shell"><img id="diagnostic-image" alt="Diagnostic evidence map"></div><p id="diagnostic-caption"></p></article>
+          <article id="reference-media" class="media-cell reference-cell" hidden><header><small>AUTHORIZED REFERENCE FRAME</small><span id="reference-confidence">—</span></header><div class="diagnostic-shell"><img id="reference-frame" alt="Recorded matching reference frame"></div><p id="reference-caption"></p></article>
+          <article class="media-cell findings-cell"><header><small>INVESTIGATOR FINDING</small><span id="assessment-label">not recorded</span></header><p id="media-finding">Select an interpretation step to see what the investigator actually concluded.</p><dl id="media-stats"></dl></article>
+        </div>
+      </section>
+      <section id="audio-focus" class="audio-focus" hidden aria-labelledby="audio-focus-title">
+        <div class="media-heading"><span><small>AUDIO EVIDENCE WORKBENCH</small><b id="audio-focus-title">Select an audio evidence moment</b></span><em id="audio-interval">No interval selected</em><button type="button" class="collapse-toggle" data-collapse aria-expanded="true" aria-label="Collapse audio evidence">−</button></div>
+        <div class="evidence-ownership" data-ownership aria-live="polite"><span>Select a tool or evidence moment to see which agent owns it.</span></div>
+        <div class="audio-grid">
+          <article class="audio-source-card"><header><small>ORIGINAL AUDIO · WAVEFORM</small><span id="audio-time-label">00:00.000</span></header><canvas id="audio-waveform" height="150" aria-label="Waveform with selected evidence interval"></canvas><audio id="evidence-audio" controls preload="metadata"></audio><div class="audio-segment-controls"><button id="play-audio-interval" type="button">Play selected interval</button><button id="show-complete-audio" type="button">Return to complete audio</button></div><p id="audio-media-status">Waveform is computed from the source signal. The highlighted interval is the exact detector request.</p></article>
+          <article class="spectrogram-card"><header><small>COMPUTED SPECTROGRAM</small><span>not a detector heatmap</span></header><img id="audio-spectrogram" alt="Waveform-derived spectrogram"><div class="spectrogram-axis"><span>0 Hz</span><span>frequency ↑</span><span id="nyquist-label">Nyquist</span></div></article>
+          <article class="audio-result-card"><header><small id="audio-result-heading">ACTUAL DETECTOR RESULT</small><span id="audio-result-status">—</span></header><dl id="audio-result-facts"></dl><p id="audio-result-summary">Select an audio tool result or interpretation.</p></article>
+          <article id="stem-card" class="stem-card" hidden><header><small>DEMUCS PROCESSING ARTIFACTS</small><span>not synthesis evidence</span></header><label>Vocals<audio id="vocals-audio" controls preload="none"></audio></label><label>Background<audio id="background-audio" controls preload="none"></audio></label></article>
+        </div>
+        <div id="audio-verification-workspace" class="audio-verification-workspace" hidden>
+          <div class="verification-heading"><div><small>HUMAN-INSPIRED SUPPLEMENTARY VERIFICATION</small><b>Reference, delivery, continuity, and source evidence</b></div><span id="forensic-assessment">Not run</span></div>
+          <div class="verification-grid">
+            <article class="reference-voice-panel"><header><small>AUTHORIZED REFERENCE VOICES</small><span>resemblance ≠ authenticity</span></header><div class="reference-pair"><div><b>Suspect recording</b><audio id="suspect-reference-audio" controls preload="metadata"></audio></div><div id="reference-audio-list"><p>No case-scoped reference was recorded.</p></div></div><div id="speaker-comparison-output" class="measurement-copy">Speaker comparison was not executed.</div></article>
+            <article class="prosody-panel"><header><small>MEASURED PROSODY</small><span>Hz · RMS · seconds</span></header><canvas id="prosody-plot" height="180" aria-label="Recorded pitch and energy contours"></canvas><div id="prosody-output" class="measurement-copy">Prosody analysis was not executed.</div></article>
+            <article class="continuity-panel"><header><small>EDIT & ACOUSTIC CONTINUITY</small><span>candidate boundaries</span></header><div id="boundary-list" class="boundary-list"><p>No boundary analysis was executed.</p></div><div id="continuity-output" class="measurement-copy">A candidate is not proof of a deepfake.</div></article>
+            <article class="transcript-panel"><header><small>SPEECH / SOURCE VERIFICATION</small><span>exact recorded text</span></header><div class="transcript-pair"><div><b>Suspect transcript</b><pre id="suspect-transcript">Unavailable</pre></div><div><b>Reference transcript</b><pre id="reference-transcript">Unavailable</pre></div></div><div id="transcript-diff" class="measurement-copy">Transcript comparison was not executed.</div></article>
+          </div>
+        </div>
+      </section>
+      </div>
+      <section id="post-tool-panel" class="post-tool-panel" aria-labelledby="post-tool-heading">
+        <div class="post-tool-heading"><div><span class="kicker">INVESTIGATOR'S POST-TOOL ASSESSMENT</span><h3 id="post-tool-heading">Evidence is separate from the investigator's conclusion</h3></div><span id="post-tool-status" class="assessment-pill">Not recorded</span></div>
+        <div class="post-tool-grid">
+          <article><small>WHAT THE TOOL FOUND</small><p id="post-tool-found">Select a forensic operation.</p></article>
+          <article><small>HOW THE INVESTIGATOR INTERPRETED IT</small><p id="post-tool-interpretation">Not recorded</p></article>
+          <article><small>HYPOTHESIS UPDATE</small><p id="post-tool-hypothesis">Not recorded</p></article>
+          <article><small>WHAT REMAINS UNCERTAIN</small><p id="post-tool-uncertainty">Not recorded</p></article>
+          <article><small>NEXT PLANNED ACTION</small><p id="post-tool-plan">Not recorded</p></article>
+          <article><small>NEXT ACTUAL ACTION</small><p id="post-tool-actual">Not executed / not recorded</p></article>
+          <article><small>MEMORY UPDATE</small><p id="post-tool-memory">Not recorded</p></article>
+        </div>
+      </section>
+            <section class="observability-panel" aria-labelledby="observability-heading">
+        <div class="observability-heading"><div><span class="kicker">FORENSIC TOOL OBSERVABILITY</span><h3 id="observability-heading">Decision → request → result → interpretation → next action</h3></div><span id="observability-count" class="sequence-badge">0 operations</span></div>
+        <div class="observability-filters">
+          <label class="search"><span>⌕</span><input id="operation-search" type="search" placeholder="Search tool operations…"></label>
+          <select id="operation-agent" aria-label="Filter operations by investigator"><option value="">All agents</option><option value="visual_investigator_1">Visual Agent 1</option><option value="visual_investigator_2">Visual Agent 2</option><option value="visual_investigator_3">Visual Agent 3</option><option value="visual_investigator_4">Visual Agent 4</option><option value="audio_investigator">Audio Agent 5</option><option value="judge">Judge Agent 6</option><option value="infrastructure">Infrastructure / runtime</option></select>
+          <select id="operation-tool" aria-label="Filter operations by tool"><option value="">All tools</option></select>
+          <select id="operation-family" aria-label="Filter operations by family"><option value="">All families</option></select>
+          <select id="operation-assessment" aria-label="Filter operations by assessment"><option value="">All assessments</option><option value="supports_suspicion">Supports hypothesis</option><option value="contradicts_suspicion">Weakens / rejects</option><option value="inconclusive">Inconclusive</option><option value="insufficient_data">Insufficient evidence</option><option value="tool_failed">Tool failed</option></select>
+          <input id="operation-hypothesis" type="search" placeholder="Hypothesis ID" aria-label="Filter operations by hypothesis">
+          <label class="toggle"><input id="operation-failures" type="checkbox"><span></span>Failures</label>
+          <label class="operation-step-range">Steps <input id="operation-step-from" type="number" min="1" placeholder="from" aria-label="First operation step"><input id="operation-step-to" type="number" min="1" placeholder="to" aria-label="Last operation step"></label>
+          <label class="operation-time-range">Time <input id="operation-time-from" type="datetime-local" aria-label="Operations after time"><input id="operation-time-to" type="datetime-local" aria-label="Operations before time"></label>
+        </div>
+        <div class="observability-table-wrap"><table class="observability-table"><thead><tr><th>Step</th><th>Modality</th><th>Investigator</th><th>Tool</th><th>Actual input</th><th>Measured result</th><th>Assessment</th><th>Next planned / actual</th></tr></thead><tbody id="observability-rows"></tbody></table></div>
+        <div id="operation-detail" class="operation-detail" hidden></div>
+      </section>
+            <section id="case-findings" class="case-findings" aria-labelledby="case-findings-heading">
+        <div class="area-heading"><span class="kicker">D · INVESTIGATION FINDINGS → JUDGE AGENT 6</span><h3 id="case-findings-heading">Each investigator's report, then the judge's separate results</h3><button type="button" class="collapse-toggle" data-collapse aria-expanded="true" aria-label="Collapse findings">−</button></div>
+        <div class="collapsible-body">
+          <div id="investigator-reports" class="report-grid"></div>
+          <div class="judge-review">
+            <article id="judge-received" class="judge-column"></article>
+            <article id="judge-reinspection" class="judge-column"></article>
+            <article id="judge-differences" class="judge-column"></article>
+          </div>
+          <div class="results-heading"><small>DISTINCT RESULTS · never averaged or merged</small><span id="case-rule-note"></span></div>
+          <div id="verdict-comparison" class="verdict-comparison"><article><small>ORIGINAL TRAINED ARGUS JUDGE</small><b id="original-verdict">Pending</b><p id="original-verdict-copy">Uses the original four trained observations.</p></article><article><small>VISUAL INVESTIGATION ASSESSMENT</small><b id="visual-assessment">Inconclusive</b><p id="visual-assessment-copy">Separate from the binary ARGUS prediction.</p></article><article id="audio-verdict-card" hidden><small>ORIGINAL TOOLDF AUDIO VERDICT</small><b id="audio-verdict">Pending</b><p id="audio-verdict-copy">Preserved separately from the broader audio assessment.</p></article><article id="case-verdict-card" hidden><small>CASE-LEVEL REVIEW</small><b id="case-verdict">Unavailable</b><p id="case-verdict-copy">Shown only when an actual cross-modal review was recorded.</p></article><article><small>EXPERIMENTAL AUGMENTED INVESTIGATION</small><b id="augmented-verdict">Pending</b><p id="augmented-verdict-copy">Kept separate from the baseline control.</p></article></div>
+        </div>
+      </section>
+      <details class="instrument-details"><summary>Registered instruments (catalog, not executed calls)</summary><div id="instrument-rack" class="instrument-rack" aria-label="Registered forensic instruments"></div></details>
+
+    </section>
+
+    <section class="panel trajectory-panel" aria-labelledby="trajectory-heading">
+      <div class="panel-heading trajectory-heading"><div><span class="kicker">INVESTIGATION STORY</span><h2 id="trajectory-heading">Causally connected forensic moments</h2></div><div class="view-tabs" role="tablist"><button class="active" data-view="story" role="tab">Story</button><button data-view="hypotheses" role="tab">Hypotheses</button><button data-view="sources" role="tab">Sources</button><button data-view="memory" role="tab">Notebook</button><button data-view="matrix" role="tab">Evidence</button><button data-view="raw" role="tab">Raw audit</button></div></div>
+      <div class="filter-row"><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Search story, hypotheses, evidence…"></label><select id="timeline-filter" aria-label="Filter investigation timeline"><option value="all">All events</option><option value="visual">Visual</option><option value="audio">Audio</option><option value="tools">Tools</option><option value="evidence">Evidence</option><option value="hypotheses">Hypotheses</option><option value="errors">Errors</option></select><select id="agent-filter" aria-label="Filter by agent"><option value="">All agents</option><option value="visual_investigator_1">Visual Agent 1</option><option value="visual_investigator_2">Visual Agent 2</option><option value="visual_investigator_3">Visual Agent 3</option><option value="visual_investigator_4">Visual Agent 4</option><option value="audio_investigator">Audio Agent 5</option><option value="judge">Judge Agent 6</option><option value="infrastructure">Infrastructure / runtime</option></select><select id="tool-family-filter" aria-label="Filter by tool family"><option value="">All instrument families</option></select><select id="display-mode" aria-label="Story detail"><option value="summary">Summary</option><option value="detailed">Detailed</option></select><label class="toggle"><input id="errors-only" type="checkbox"><span></span>Failure/fallback</label></div>
+      <div id="story-view" class="view-pane active"><ol id="timeline" class="timeline"></ol></div><div id="hypotheses-view" class="view-pane"><div id="hypothesis-board" class="hypothesis-board"></div></div><div id="sources-view" class="view-pane"><div id="source-board" class="source-board"></div></div><div id="memory-view" class="view-pane"><div class="memory-controls"><select id="memory-agent"><option value="">All agents</option><option value="visual_investigator_1">Visual Agent 1</option><option value="visual_investigator_2">Visual Agent 2</option><option value="visual_investigator_3">Visual Agent 3</option><option value="visual_investigator_4">Visual Agent 4</option><option value="audio_investigator">Audio Agent 5</option><option value="judge">Judge Agent 6</option><option value="infrastructure">Infrastructure / runtime</option></select><label><input id="show-own-memory" type="checkbox" checked> Own memory</label><label><input id="show-shared-memory" type="checkbox" checked> Shared findings</label><label><input id="show-memory-writes" type="checkbox" checked> Writes in story</label><label><input id="show-memory-reads" type="checkbox"> Reads in story</label></div><div id="memory-list" class="memory-list"></div><p class="memory-note">These switches change only this viewer. Agent read permissions are enforced by the backend policy shown in the header.</p></div><div id="raw-view" class="view-pane"><ol id="raw-timeline" class="timeline raw"></ol></div><div id="matrix-view" class="view-pane"><div id="tool-matrix" class="tool-matrix"></div></div>
+      <div id="empty-state" class="empty-state" hidden><span>∅</span><b>No matching key moments</b><p>Clear the filters or move farther through the replay.</p></div>
+    </section>
+
+    <aside class="panel inspector-panel" aria-labelledby="inspector-heading">
+      <div class="panel-heading"><div><span class="kicker">STEP INSPECTOR</span><h2 id="inspector-heading">Selected transaction</h2></div><span id="selected-sequence" class="sequence-badge">#—</span></div>
+      <div id="inspector-empty" class="inspector-empty"><span>◎</span><b>Select a key moment</b><p>See the original request, textual response, grounded video frame, and exact audit event.</p></div>
+      <div id="inspector-content" hidden><div class="inspector-hero"><span id="inspector-icon" class="event-icon">•</span><div><span id="inspector-phase" class="kicker"></span><h3 id="inspector-title"></h3></div></div><p id="inspector-description" class="inspector-description"></p><div id="investigation-sections" class="investigation-sections"></div><div class="io-inspector"><div><small>ACTUAL INPUT / MESSAGE</small><p id="inspector-input"></p></div><div><small>ACTUAL OUTPUT / OBSERVATION</small><p id="inspector-output"></p></div></div><dl class="fact-grid"><div class="wide"><dt>Owner agent</dt><dd id="fact-owner">—</dd></div><div class="wide"><dt>Native runtime identity</dt><dd id="fact-native">—</dd></div><div><dt>From → To</dt><dd id="fact-route"></dd></div><div><dt>Time</dt><dd id="fact-time"></dd></div><div><dt>Status</dt><dd id="fact-status"></dd></div><div><dt>Instrument</dt><dd id="fact-tool"></dd></div><div><dt>Decision</dt><dd id="fact-decision"></dd></div><div><dt>Tool call</dt><dd id="fact-call"></dd></div></dl><div id="artifact-card" class="artifact-card" hidden><div class="subheading"><span>EVIDENCE ARTIFACT</span><b id="artifact-id"></b></div><div id="visual-artifact-tabs" class="visual-artifact-tabs" hidden></div><img id="artifact-image" alt="Forensic diagnostic evidence visualization"><div id="reusable-artifacts" class="reusable-artifacts"></div></div><div id="provenance-card" class="provenance-card" hidden><div class="subheading"><span>PROVENANCE — EXECUTION, NOT SCIENTIFIC PROOF</span></div><ul id="provenance-list"></ul></div><details class="payload"><summary>Exact normalized event</summary><pre id="payload-json"></pre></details></div>
+    </aside>
+  </main>
+  <p id="import-status" role="status" hidden></p>
+  <footer><span>Read-only local visualization</span><span>•</span><span>Animations come from normalized trace events</span><span>•</span><span id="trace-path">Waiting for trace metadata</span></footer>
+  <aside id="agent-drawer" class="agent-drawer" role="dialog" aria-modal="false" aria-labelledby="agent-drawer-title" hidden>
+    <header><div><span id="agent-drawer-kicker" class="kicker">AGENT</span><h2 id="agent-drawer-title">Agent</h2></div><div class="drawer-actions"><button type="button" id="agent-drawer-filter" class="button">Filter timeline</button><button type="button" id="agent-drawer-close" class="icon-button" aria-label="Close agent view">×</button></div></header>
+    <div id="agent-drawer-body" class="agent-drawer-body"></div>
+  </aside>
+  <script src="/app.js"></script>
+  <script src="/crossmodal.js"></script>
+</body>
+</html>

@@ -74,6 +74,7 @@ const evaluate = async (expression) => {
 };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const frames = () => evaluate("new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(r, 120))))");
+async function waitFor(expression, timeout = 10000) { const end = Date.now() + timeout; while (Date.now() < end) { if (await evaluate(expression).catch(() => false)) return true; await sleep(150); } return false; }
 
 await send("Page.enable"); await send("Runtime.enable"); await send("Log.enable");
 await send("Emulation.setDeviceMetricsOverride", {width: 1600, height: 1250, deviceScaleFactor: 1, mobile: false});
@@ -250,8 +251,11 @@ await shot("04-tool-result-return-path", ".architecture-panel");
 // 9. ROI evidence for the same selection.
 await evaluate(`localStorage.setItem("studio.theme", "light"); StudioTheme.apply("light"); true`);
 await frames(); await sleep(500);
-const roi = await evaluate(`({rects: document.querySelectorAll('#image-stage .overlay rect').length, warn: document.querySelector('.overlay-warning')?.textContent || null, label: document.querySelector('#coordinate-label').textContent})`);
-check("ROI boxes drawn with authoritative dimensions", roi.rects > 0 && roi.label.includes("source pixels"), JSON.stringify(roi));
+// Runs that record the processed image use the tool-action workspace; others the original viewer.
+await waitFor(`!document.querySelector('#tool-action').classList.contains('hidden') ? [...document.querySelectorAll('#tool-action img')].every((i) => i.complete && i.naturalWidth > 0) : true`, 10000);
+const roi = await evaluate(`({rects: document.querySelectorAll('#image-stage .overlay rect').length + document.querySelectorAll('#tool-action .ta-shape.det rect').length,
+  label: document.querySelector('#tool-action').classList.contains('hidden') ? document.querySelector('#coordinate-label').textContent : document.querySelector('#tool-action .ta-panel figcaption')?.textContent || ''})`);
+check("ROI boxes drawn with authoritative dimensions", roi.rects > 0 && (roi.label.includes("source pixels") || /\d+×\d+/.test(roi.label)), JSON.stringify(roi));
 await evaluate("document.querySelector('.workspace').scrollIntoView(); true");
 await shot("09-selected-event-roi-evidence");
 await evaluate("scrollTo(0, 0); true");
@@ -295,9 +299,10 @@ check("question queued for recipient", await evaluate(`document.querySelector('[
 await shot("05-worker-to-worker-question", ".architecture-panel");
 sel = await selectAt(`(e) => e.event_type === "MESSAGE_SENT" && e.activity && e.activity.kind === "reply"`);
 await frames();
-const caption = await evaluate("document.querySelector('#activity-label').textContent");
+// The caption shows the story step; the raw flow label is in the caption detail.
+const caption = await evaluate("document.querySelector('#activity-label').textContent + ' | ' + document.querySelector('#activity-detail').textContent");
 flows = await selectedFlows();
-check("reply recognised from correlation id", caption.includes("Worker 3 → Worker 1") && flows[0]?.includes("flow-message-return"), caption);
+check("reply recognised from correlation id", caption.includes("Worker 3 replied to Worker 1") && caption.includes("Worker 3 → Worker 1") && flows[0]?.includes("flow-message-return"), caption);
 await evaluate(`localStorage.setItem("studio.theme", "dark"); StudioTheme.apply("dark"); true`);
 await shot("06-worker-to-worker-reply", ".architecture-panel");
 await evaluate(`localStorage.setItem("studio.theme", "light"); StudioTheme.apply("light"); true`);
@@ -400,7 +405,7 @@ await evaluate(`setTab("log"); true`); await frames();
 const runTopo = await evaluate("({nodes: state.topology.nodes.length, edges: state.topology.edges.length, workers: state.topology.agents.filter((a) => a.startsWith('worker_')).length})");
 check("C real run: run topology drawn", stats.scope === "run" && stats.nodes === runTopo.nodes && stats.edges === runTopo.edges && runTopo.workers === 2 && stats.finite && viewValid(stats), JSON.stringify(runTopo));
 check("C real run: task, timeline, final answer, evidence", stats.task.includes("seagull") && (await evaluate("document.querySelectorAll('.event-card').length")) > 50
-  && !(await evaluate("document.querySelector('#final-answer').classList.contains('empty-state')")) && (await evaluate("Boolean(document.querySelector('#image-stage img'))")));
+  && !(await evaluate("document.querySelector('#final-answer').classList.contains('empty-state')")) && (await evaluate("Boolean(document.querySelector('#image-stage img') || document.querySelector('#tool-action img'))")));
 check("C real run: run kept in URL without credentials", (await evaluate("location.hash")) === "#run=real_fsc147_row0_studio");
 await shot("16-completed-real-run-full-architecture", ".architecture-panel");
 

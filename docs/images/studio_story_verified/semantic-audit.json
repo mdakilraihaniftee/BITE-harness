@@ -1,0 +1,1294 @@
+[
+  {
+    "run_id": "real_fsc147_row0_studio",
+    "raw_events": 95,
+    "previous_story_main": 16,
+    "story_main": 16,
+    "technical_only": 36,
+    "tools": [
+      4,
+      4
+    ],
+    "messages": [
+      8,
+      8
+    ],
+    "hypothesis_events": [
+      4,
+      4
+    ],
+    "hypothesis_revisions": 0,
+    "estimate_events": [
+      0,
+      0
+    ],
+    "failed_events": [
+      0,
+      0
+    ],
+    "prefix_checks": 96,
+    "raw_excerpt": [
+      {
+        "sequence": 20,
+        "agent": "worker_01",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 21,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 22,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 24,
+        "agent": "worker_02",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 25,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 26,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 28,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_COMPLETED"
+      },
+      {
+        "sequence": 29,
+        "agent": "worker_01",
+        "type": "EVIDENCE_OBSERVED"
+      }
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "title": "Task received",
+        "summary": "How many seagull are there in the image? Your final answer should be a single integer.",
+        "source_event_ids": [
+          "evt_ab46a451b84e40c5a8bff91b24de1a04"
+        ]
+      },
+      {
+        "number": 2,
+        "title": "Coordinator assigned the investigation to 2 workers",
+        "summary": "Each worker received its own scope.",
+        "source_event_ids": [
+          "evt_ba21a476273b462d8ced5a28fb652ed1",
+          "evt_aaec8910d2ca4acb82f489bc6db4c6c1",
+          "evt_7bfada3baecc408caf2abc6da6a1ab51",
+          "evt_b6a01bf71a454bd299dfda65c51a581f",
+          "evt_fabc786ec0fa4678aca35756c3e835ef",
+          "evt_b356434f81be4d9287714f16a3190dfd",
+          "evt_8396077d53a94abc9e7ac5a9c21adb82"
+        ]
+      },
+      {
+        "number": 3,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 14 regions, an image.",
+        "source_event_ids": [
+          "evt_7431c797e6804a13bc0dcf106d6c1230",
+          "evt_6aae3063fe9d434f9aa535b54569ce71",
+          "evt_4d47eecbb64b44c395e2978215653d59",
+          "evt_0055d14046dd4123b1b234c91ba4b2c0",
+          "evt_e4bf680b6bad48bdb2e6bf1056186b57",
+          "evt_2be35680a8524dbe848e4cd7693e2278"
+        ]
+      },
+      {
+        "number": 4,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 14 regions, an image.",
+        "source_event_ids": [
+          "evt_e1e1f04761c3426bb59de94ce1a37750",
+          "evt_f7708875a6054b6cadbdc421a67e8127",
+          "evt_8ddd1250d5ce41b083b5b31806c25d46",
+          "evt_6e06becd07904c22ba83c3a562f58476",
+          "evt_3d956ec65e484b32b14996d33b26d2e8",
+          "evt_68f394e20f2d493ba88cc1c721bdc8bb"
+        ]
+      },
+      {
+        "number": 5,
+        "title": "Worker 1 shared its finding with Worker 2",
+        "summary": "Claim: 14",
+        "source_event_ids": [
+          "evt_add580c1bf91474e8ecba98ca49b11a4",
+          "evt_3c383c71db4d4172afd7953df9dddbb5"
+        ]
+      },
+      {
+        "number": 6,
+        "title": "Worker 1 reported its answer: 14",
+        "summary": "Candidate answer 14 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_c1acd79937f74e939ea0367bb0215983",
+          "evt_9a1eeb179352433a9088a058aa9f0edc"
+        ]
+      },
+      {
+        "number": 7,
+        "title": "Worker 2 shared its finding with Worker 1",
+        "summary": "Claim: 14",
+        "source_event_ids": [
+          "evt_0b197dd38c2947b8aac5146f1a3ea948",
+          "evt_c83aa24646f54ef981988d68e2ea3a31"
+        ]
+      },
+      {
+        "number": 8,
+        "title": "Worker 2 reported its answer: 14",
+        "summary": "Candidate answer 14 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_617941dace75422b9d8e90e7cc25cae2",
+          "evt_aeba2818d8914f2396481f4444b9ea71"
+        ]
+      },
+      {
+        "number": 9,
+        "title": "Coordinator asked workers to verify each other's findings",
+        "summary": "Verification requested from Worker 1, Worker 2.",
+        "source_event_ids": [
+          "evt_04acd0c0013a4148b267b5ee6022c483",
+          "evt_9a59a140cab74aa1ae1fc90fc69bfa41",
+          "evt_6f322bd6e1bf4e608ab04e8601a8d9ec",
+          "evt_c7f399b8586e469ab4c06ba98519ff94",
+          "evt_57bd5e0478884f558fba19bba0cad9ff",
+          "evt_10719a6260274e689850e177c2d95189"
+        ]
+      },
+      {
+        "number": 10,
+        "title": "Worker 1 reviewed 1 peer claim",
+        "summary": "Checks other workers' reports as untrusted claims.",
+        "source_event_ids": [
+          "evt_401e841e062441b485acf275fc28ea50",
+          "evt_7f056ed52ab947d280a4b75d5e2bc757"
+        ]
+      },
+      {
+        "number": 11,
+        "title": "Worker 2 reviewed 1 peer claim",
+        "summary": "Checks other workers' reports as untrusted claims.",
+        "source_event_ids": [
+          "evt_d57ffa4122734aa6a19f28892fb74dcf",
+          "evt_c7d23036c3864e3c9835c921cc2dface"
+        ]
+      },
+      {
+        "number": 12,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 14 regions, an image.",
+        "source_event_ids": [
+          "evt_9b28c75579ee405ea2153de99439c823",
+          "evt_865d8fd5ec7149598d10fe478dd1f6bd",
+          "evt_e38df0e5f6604e7e8abaa9aa2b9fc706",
+          "evt_ef15664bb21f4a9dab14b6944a70ed0b",
+          "evt_ea5c71adf0d44c41b644c36f5ca8b376",
+          "evt_d32a51e6175f4734b33f2e1c1e03d945"
+        ]
+      },
+      {
+        "number": 13,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 14 regions, an image.",
+        "source_event_ids": [
+          "evt_8c146fecb26e4018a41d7a79fcaf16f4",
+          "evt_7fa7371a80d244988d7f427c97651687",
+          "evt_beede63193be40cf958e8142efdf9c1b",
+          "evt_3a7f0ad70f514582b5ecb8175a90edb1",
+          "evt_1e790ac13b954d5c8eb0e9259b759dd9",
+          "evt_8e395378b9f94b5f8a207cdf4e4f3cf2"
+        ]
+      },
+      {
+        "number": 14,
+        "title": "Worker 1 kept its answer 14",
+        "summary": "Candidate answer 14 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_ac449d8c801b4872bf79091c98b5e4c4"
+        ]
+      },
+      {
+        "number": 15,
+        "title": "Worker 2 kept its answer 14",
+        "summary": "Candidate answer 14 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_18498a084c41487cb3166d017e6582bf"
+        ]
+      },
+      {
+        "number": 16,
+        "title": "Coordinator finalized the answer: 14",
+        "summary": "Worker candidates considered: 14.",
+        "source_event_ids": [
+          "evt_e033cc81f5204f18addcf7cdb6d77409",
+          "evt_88ffad78514b472e83ba2635f92630e5",
+          "evt_f0658af3f6eb41b5ad6951abcd774a0a"
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "example_fsc147_row25",
+    "raw_events": 185,
+    "previous_story_main": 21,
+    "story_main": 19,
+    "technical_only": 96,
+    "tools": [
+      6,
+      6
+    ],
+    "messages": [
+      10,
+      10
+    ],
+    "hypothesis_events": [
+      4,
+      4
+    ],
+    "hypothesis_revisions": 1,
+    "estimate_events": [
+      2,
+      2
+    ],
+    "failed_events": [
+      0,
+      0
+    ],
+    "prefix_checks": 186,
+    "raw_excerpt": [
+      {
+        "sequence": 32,
+        "agent": "worker_02",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 33,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 35,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 37,
+        "agent": "worker_01",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 38,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 40,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 41,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_COMPLETED"
+      },
+      {
+        "sequence": 42,
+        "agent": "worker_01",
+        "type": "EVIDENCE_OBSERVED"
+      }
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "title": "Task received",
+        "summary": "How many grape are there in the image? Your final answer should be a single integer.",
+        "source_event_ids": [
+          "evt_7f44a8afeb8c46158c9de12bcdafc091",
+          "evt_f6ef033f293a4ccf851a761d205510cd"
+        ]
+      },
+      {
+        "number": 2,
+        "title": "Coordinator assigned the investigation to 2 workers",
+        "summary": "Each worker received its own scope.",
+        "source_event_ids": [
+          "evt_e67566b9c1984e3784e438aeaba380ef",
+          "evt_e4fed8cd2f9040a88bce198c8f256394",
+          "evt_66a51921db1d43dbbab65485aab8f73e",
+          "evt_c47452714714481f925af74c32a0642d",
+          "evt_bbeb1c01db38425e9fa207180f890c38",
+          "evt_5c0cc953707846a1a3a67ed81cfcabe8",
+          "evt_19c567cbb81342bd8580300ec30ea5bb"
+        ]
+      },
+      {
+        "number": 3,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_ada2ff1c0c364d9bac9c3065f99e8e9f",
+          "evt_01cfcde1d0144e8088cc3fa2752dbb51",
+          "evt_f68a9d2c62a24f4eb201b6a9846981e6",
+          "evt_9d150010ee2c4895b196123b1a9e9bc2",
+          "evt_eb0b6b7a3ec04e88b70cfab79e0bd5a5",
+          "evt_db7d59ad4370458280ed3e234edb7b17"
+        ]
+      },
+      {
+        "number": 4,
+        "title": "Worker 1 used Zoom In",
+        "summary": "Zoom In returned a cropped image (tool_generated_image_1).",
+        "source_event_ids": [
+          "evt_ea2f6d7ce207433ab693a12b8890d8a4",
+          "evt_0a3a646dc24849eea3333323cc4de33c",
+          "evt_ffcb9b806e6641dfa0767af8eb586275",
+          "evt_82d03ce689394e2d84184d6975aaf4ab",
+          "evt_e348db7d22ad451ca2f26ce72667ed13",
+          "evt_a9840284955344bb8da189fcc6193e88"
+        ]
+      },
+      {
+        "number": 5,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 50 regions, an image.",
+        "source_event_ids": [
+          "evt_7a07cb10961941f2bc4c7dc2d2414ef7",
+          "evt_b6b2d11fa4cf4824858d8b04bbc12a35",
+          "evt_62b4e4b032ff49bdb8e71c18bbb63ac0",
+          "evt_f51d521a03d647aa876d173aae68a269",
+          "evt_5175a49138da43e7bda3c65afd55efed",
+          "evt_6bc9003235124b90b0debc0344b62b9f"
+        ]
+      },
+      {
+        "number": 6,
+        "title": "Worker 2 reported its answer: 46",
+        "summary": "Candidate answer 46 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_cf106720cc144ea19f418cb66094fd8d",
+          "evt_ab2f8feb1f7148fa8a86bf1b00e30ada",
+          "evt_c293067120c4472ea34c13044d180a44",
+          "evt_f3ed00081f4e4ec1b710413b44433232",
+          "evt_c5f8f14c9962485eb59884d34437416e"
+        ]
+      },
+      {
+        "number": 7,
+        "title": "Worker 2 shared its finding with Worker 1",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_3920439f505a45db9e390a04ce284e96",
+          "evt_fb8a3cd7c6d6420db8db73bdc71e14af"
+        ]
+      },
+      {
+        "number": 8,
+        "title": "Worker 1 reported its answer: 50",
+        "summary": "Candidate answer 50 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_c855cfdb7e8c49da9f355e1216eb0ce9",
+          "evt_c99aa88d38ab48a4b376bf9ee6b938ec",
+          "evt_1660812d54434b31adefa8a3f99b0d9d",
+          "evt_4013df9a06f9436cb15c48ef5bb1ecc9",
+          "evt_d12517e2ddef471aba8a4bbb5873308e"
+        ]
+      },
+      {
+        "number": 9,
+        "title": "Worker 1 shared its finding with Worker 2",
+        "summary": "Claim: 50",
+        "source_event_ids": [
+          "evt_ffe3f1e5a373472ba845ff549f189b17",
+          "evt_9422966d2c3f41de8673a8eac48e7a7f"
+        ]
+      },
+      {
+        "number": 10,
+        "title": "Coordinator could not yet form an estimate",
+        "summary": "Reviewed 2 worker report(s); no value is supported yet.",
+        "source_event_ids": [
+          "evt_52d42803e58240ad8e443b7eab9fd66c"
+        ]
+      },
+      {
+        "number": 11,
+        "title": "Coordinator asked workers to verify each other's findings",
+        "summary": "Verification requested from Worker 1, Worker 2.",
+        "source_event_ids": [
+          "evt_0403f9063d42422ea5f727d67420ff28",
+          "evt_186b6e9d105b41fba7a400b96b0ded67",
+          "evt_e539eacbd1234254b37287913e7fb489",
+          "evt_c7fec001abdc4ca58876a364ccf8c035",
+          "evt_a2b004be6a9541ee9637c2a2a55389c6",
+          "evt_975cbbc1e68648e1b237d95443704b74"
+        ]
+      },
+      {
+        "number": 12,
+        "title": "Worker 1 reviewed 1 peer claim",
+        "summary": "Revised its answer from 50 to 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_fc449726415f4defa84082eae74b1a0c",
+          "evt_3c4a615938404eec8747720ae5a589b9",
+          "evt_e04c7927298a4250b77b22eb37e43c45",
+          "evt_ff87e221396549a7828d24d6dd5ed68d"
+        ]
+      },
+      {
+        "number": 13,
+        "title": "Worker 2 reviewed 1 peer claim",
+        "summary": "Kept candidate 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_ba6a391ee980460a875b562535ad7445",
+          "evt_008cda63f81042f5b4a06ae3d43add72",
+          "evt_8379ab1d67264ceba723db2296fe082a",
+          "evt_cdd8e479eaed49f397eeaaf4c3c86899",
+          "evt_5bb77b611f66466faec72942c2e26d21",
+          "evt_9c8a300d6eeb4a5a9701bb56cf47a4b4",
+          "evt_de1990bc2cc6428a9dd1ba45f22b80f7"
+        ]
+      },
+      {
+        "number": 14,
+        "title": "Worker 1 used Zoom In",
+        "summary": "Zoom In returned a cropped image (tool_generated_image_1).",
+        "source_event_ids": [
+          "evt_5fe6f415b3624b21b9592f0f1b60ab49",
+          "evt_bdf0c0d860ee49318bb63821dd00e2ef",
+          "evt_72b934d00938448ea0dc2fd16b726aab",
+          "evt_cb680785a9d644aea41353607419945f",
+          "evt_8f9180b8860d477a9ddecb696599bc63",
+          "evt_5ac9b083ffe540b8b714fd333d4960bf"
+        ]
+      },
+      {
+        "number": 15,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_8bb958363ce34e6489e410b162bd8136",
+          "evt_6655b30f25e345139a13ce48414d611c",
+          "evt_4a0bb6acbbe245c49d84a5bdc6d235d5",
+          "evt_90dac5a0cf264c80a4f95aa71b1ae91f",
+          "evt_23b328cbaf54462d8eb4270e9a54e83e",
+          "evt_90f985a7abd24764ad549c586b4aef4f"
+        ]
+      },
+      {
+        "number": 16,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_5513b62436694efc992353106e20e99b",
+          "evt_ece9569911404b5f8b13312202075f9c",
+          "evt_255937baa0ab4f069f10e49a964fae19",
+          "evt_0e7b0c745030491b9b1a79181db3ad34",
+          "evt_b205282d8aec43c6b69ce94aed004488",
+          "evt_9abfd9ec3e314749a2e500715ac0960c"
+        ]
+      },
+      {
+        "number": 17,
+        "title": "Worker 1 revised its answer from 50 to 46",
+        "summary": "After peer review, the earlier answer 50 is no longer held.",
+        "source_event_ids": [
+          "evt_dfa62b5d38064e3aacddfdc1fb531a05",
+          "evt_33673bacecd248459f301161d510ab50",
+          "evt_46eb2f00372f484b9e4898336ab06c71"
+        ]
+      },
+      {
+        "number": 18,
+        "title": "Coordinator formed a provisional estimate: 46",
+        "summary": "Coordinator's assessment: Both workers independently confirmed the count as 46 with no reported uncertainty or failure.",
+        "source_event_ids": [
+          "evt_67783b8513e746149242def8b677418c"
+        ]
+      },
+      {
+        "number": 19,
+        "title": "Coordinator finalized the answer: 46",
+        "summary": "This confirms its provisional estimate 46. Worker candidates considered: 46.",
+        "source_event_ids": [
+          "evt_d6d154ead4b248a9a170595ebba55896",
+          "evt_45b17f91f9e04cf1afd81f8e75b8a015",
+          "evt_3713d6b41a504b46b2dae76dff1518f7",
+          "evt_1542781f03424963a65b9eac04ba23db"
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "fsc147_val_row_25_20261118_164340",
+    "raw_events": 301,
+    "previous_story_main": 31,
+    "story_main": 33,
+    "technical_only": 144,
+    "tools": [
+      8,
+      8
+    ],
+    "messages": [
+      28,
+      28
+    ],
+    "hypothesis_events": [
+      8,
+      8
+    ],
+    "hypothesis_revisions": 0,
+    "estimate_events": [
+      2,
+      2
+    ],
+    "failed_events": [
+      0,
+      0
+    ],
+    "prefix_checks": 302,
+    "raw_excerpt": [
+      {
+        "sequence": 36,
+        "agent": "worker_01",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 37,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 39,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 41,
+        "agent": "worker_02",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 42,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 44,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 45,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_COMPLETED"
+      },
+      {
+        "sequence": 46,
+        "agent": "worker_01",
+        "type": "EVIDENCE_OBSERVED"
+      }
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "title": "Task received",
+        "summary": "How many grape are there in the image? Your final answer should be a single integer.",
+        "source_event_ids": [
+          "evt_ba76da9185ff443dbe71208031b627a8",
+          "evt_b62279e3d9684d04bf7c41cafa856da0"
+        ]
+      },
+      {
+        "number": 2,
+        "title": "Coordinator assigned the investigation to 4 workers",
+        "summary": "Each worker received its own scope.",
+        "source_event_ids": [
+          "evt_af36b14a8e4d42d58515302372af0543",
+          "evt_bc20189c3c5d493bb64ecc5ab6b1c4f5",
+          "evt_8f2d3c296d0947c5b0064caf153bd51f",
+          "evt_666d6688ca5743e5a4ce82e8dcb287fc",
+          "evt_6d4841f732704147baa3bcd97192e2de",
+          "evt_d0e6871ce48a4f948362e935f6ecab79",
+          "evt_fd807c500bc24c99b7d4868e5f9847be",
+          "evt_89bd1ea658db458dbb61a850fa1130d4",
+          "evt_1076bb3c736a431e9fe2e92b05a39199",
+          "evt_e80465d299a34d3e8e9ad764bd7cfef8",
+          "evt_3fe831dd3954419584fa925dcb84fa04",
+          "evt_334e3082a82f4627a0a06f98c4132388",
+          "evt_5adabee283814634a543180461de8c6c"
+        ]
+      },
+      {
+        "number": 3,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_b7819711bea34c25833df6a903b86340",
+          "evt_34a2a324843e4413b7e1f46a18be2e1c",
+          "evt_0d3db75749d14855b41b2a1507766338",
+          "evt_05517dbd86e245a1af5673b60f341d12",
+          "evt_30d9e901d82a4fae9d77a76d2b31db0c",
+          "evt_53fccebed38f4025b3c44b6435c17312"
+        ]
+      },
+      {
+        "number": 4,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_ad1bb3d6c9cc495284b827a8fa1ff848",
+          "evt_dc06336e0f6f4072b69527d8f8d6707c",
+          "evt_8b65ef533af842e49cbcb0684d880c36",
+          "evt_b5631742058c43ba90b3e1a2010a6787",
+          "evt_b6f23c8e54a14acb9a13a28c5eee510f",
+          "evt_1354a5b8bc034689918034f77c8b1f50"
+        ]
+      },
+      {
+        "number": 5,
+        "title": "Worker 1 reported its answer: 46",
+        "summary": "Candidate answer 46 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_928b6fb9b6e24d81b2c4cb2e06fd4e92",
+          "evt_f7e0b83b805b4d58bb7b05038d5d5819",
+          "evt_8149c52dcaf34dacb3ac7e880fedd539",
+          "evt_32304a7ab2ee40c2a7b5e35aee3e72bb",
+          "evt_16590b99797d4303a8a4adf417188070"
+        ]
+      },
+      {
+        "number": 6,
+        "title": "Worker 1 shared its finding with Worker 2",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_97f152dcb36049d58d2a7d04ffdea841",
+          "evt_d0b9299adddf4ab48c337eb3df7f7495"
+        ]
+      },
+      {
+        "number": 7,
+        "title": "Worker 1 shared its finding with Worker 3",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_bd4395ee861344aa83fee1ca3224041d",
+          "evt_9b7fb293c3aa47afa550ab900e5c9d68"
+        ]
+      },
+      {
+        "number": 8,
+        "title": "Worker 1 shared its finding with Worker 4",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_2b7475b59de54ecf974d62c8a9c5caed",
+          "evt_e3adc0d28f8641539f5d4a78e50fe6f0"
+        ]
+      },
+      {
+        "number": 9,
+        "title": "Worker 2 reported its answer: 46",
+        "summary": "Candidate answer 46 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_5df0bbb023cd4ab98f01321622d39fe7",
+          "evt_ce456628449240a6bbf2940578d05e3d",
+          "evt_ca91923ce12b470ba5c0d25f9f96dbf0",
+          "evt_08ce2923672545e3a90662e8e4bd461b",
+          "evt_f839cfaabf1846fcb78971f27868187d"
+        ]
+      },
+      {
+        "number": 10,
+        "title": "Worker 2 shared its finding with Worker 1",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_8e9e062b449742649ecc555679f1dfa7",
+          "evt_d1643eb740f547cf9df585430dd3ab3a"
+        ]
+      },
+      {
+        "number": 11,
+        "title": "Worker 2 shared its finding with Worker 3",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_7a503b95902f4a14b15267107ec87dfe",
+          "evt_d867e62ea8f441e1a1eec89effb214b9"
+        ]
+      },
+      {
+        "number": 12,
+        "title": "Worker 2 shared its finding with Worker 4",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_d3dd3c663095446883a8093052449f52",
+          "evt_7e84e26ac5de46a28d6dcecaa0121751"
+        ]
+      },
+      {
+        "number": 13,
+        "title": "Worker 3 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_2f73d249801a43aa8770809849ad0afa",
+          "evt_876d1c248f26437a8fd6a22a2cc17490",
+          "evt_e90f05e2c7b1474c8fc9498446f7d449",
+          "evt_8ce71d9f6d354339959595ca9975f94d",
+          "evt_6477be4f9c1a4c28b00e03707cf5fe0c",
+          "evt_5707f9f3f8b5498bad8947091fbd60b2"
+        ]
+      },
+      {
+        "number": 14,
+        "title": "Worker 4 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_63718d032f524baa9f9396ff30d1fc9f",
+          "evt_62f49e9512944ba49e9e6804eb95d1d6",
+          "evt_382573c55e024af1a3ccd91c83073000",
+          "evt_daa8866abf5c4e4585cab032a5a8155c",
+          "evt_188b64edf2fa4745ada8c8bb81b0e22c",
+          "evt_0c654c515dbf4051a1cb3951422d0bfe"
+        ]
+      },
+      {
+        "number": 15,
+        "title": "Worker 3 reported its answer: 46",
+        "summary": "Candidate answer 46 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_53cbe8a7323242f0a242cfdca5908f2f",
+          "evt_dd6cdc2cae0c49a0954923bc3da3c9d4",
+          "evt_1c941ea066e049da8a0f4fc793e75a26",
+          "evt_f7f391919f3e4bd1bf12f3c2d6c8a87a",
+          "evt_47f375c416ad4caaa8f0c1a4d09c9703"
+        ]
+      },
+      {
+        "number": 16,
+        "title": "Worker 3 shared its finding with Worker 1",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_a40387cee8c245faa8528c61bc4b83bd",
+          "evt_f9fa051b1120431c928db1ca27c8dae1"
+        ]
+      },
+      {
+        "number": 17,
+        "title": "Worker 3 shared its finding with Worker 2",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_097474e1fc5f4fad8633af7e9fdf2aeb",
+          "evt_3d9e612684784bd99c2754335e3c4ca0"
+        ]
+      },
+      {
+        "number": 18,
+        "title": "Worker 3 shared its finding with Worker 4",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_2bcb99550c58443c858f70d00c76307e",
+          "evt_a67e5a75660e40208dbc3d4553a8d043"
+        ]
+      },
+      {
+        "number": 19,
+        "title": "Worker 4 reported its answer: 46",
+        "summary": "Candidate answer 46 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_547ec6498432443fbaf3408c37fc4ad0",
+          "evt_2866bbd5228f4e08b05a0f2110e5b2e3",
+          "evt_da83c968df804304acb9e0d5a026a17a",
+          "evt_4088babbdc364fc9980a82efe5daac88",
+          "evt_348b3648aa33405fb1e8f0a2162b1e2f"
+        ]
+      },
+      {
+        "number": 20,
+        "title": "Worker 4 shared its finding with Worker 1",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_8b8b2ae1bcd64692ab9cc7591578d492",
+          "evt_6911b78757ec48d8bc7b954511e4c84c"
+        ]
+      },
+      {
+        "number": 21,
+        "title": "Worker 4 shared its finding with Worker 2",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_13dac77ad820475ca49ec819ffe7722e",
+          "evt_f5b0c97106a445baab42f6d44c263a8f"
+        ]
+      },
+      {
+        "number": 22,
+        "title": "Worker 4 shared its finding with Worker 3",
+        "summary": "Claim: 46",
+        "source_event_ids": [
+          "evt_b76954920b87463a935375900dd2f807",
+          "evt_7c6b325dfe994d62aac2a0f1231b193c"
+        ]
+      },
+      {
+        "number": 23,
+        "title": "Coordinator formed a provisional estimate: 46",
+        "summary": "Coordinator's assessment: All workers independently confirmed the count as 46 with no reported discrepancies.",
+        "source_event_ids": [
+          "evt_d26e7f3089674258b2a8eacc41d33c10"
+        ]
+      },
+      {
+        "number": 24,
+        "title": "Coordinator asked workers to verify each other's findings",
+        "summary": "Verification requested from Worker 1, Worker 2, Worker 3, Worker 4.",
+        "source_event_ids": [
+          "evt_1dd3c35c092943ae8763f68034f5eea0",
+          "evt_c4170ce03d5c425a88c0e02e9353d2c0",
+          "evt_f263a619c7714264927ef8cab6f00025",
+          "evt_3f766e1e0cae44e69913372d2bd97d4b",
+          "evt_f178b42233764d6a994fa817914b3aee",
+          "evt_8caa32760f2940a2bb2f074feefd169a",
+          "evt_bc4a9fa65193489c9cb3440042c6c152",
+          "evt_aab2c06cfbad489da9cd24e336011647",
+          "evt_f284f4c1082c4b4c99d0379cb620b424",
+          "evt_21f7b6f0bffc4f08b9ae29acb6f2acb3",
+          "evt_b30fab54d03b45319a43dd1b9e7681ad",
+          "evt_fd30d99bf9894f37b99d98e1f0f96528"
+        ]
+      },
+      {
+        "number": 25,
+        "title": "Worker 2 reviewed 3 peer claims",
+        "summary": "Kept candidate 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_b030db5ba9284f808b38eb0f0436a2a4",
+          "evt_c4b2cb92d8b84d7d9a0c7e645e95f77f",
+          "evt_c79351b5f4104c1e94450c5a50fd8a4b",
+          "evt_9d50775893124d44b14b6bb1c75f64ff",
+          "evt_a85803f9a2c14f5dbfcc4e162b5d2063",
+          "evt_5d560dcca14048f78acb516f6c4bb76b",
+          "evt_0d02c58fd4dc4f5f88dcf7280ef72ef6"
+        ]
+      },
+      {
+        "number": 26,
+        "title": "Worker 1 reviewed 3 peer claims",
+        "summary": "Kept candidate 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_2284b6541bb04b438e9aab10f00ac07d",
+          "evt_d7e4d07ee32e49c4942ae82c7f5b8511",
+          "evt_62aa72ebaec94d66993409281a919b5a",
+          "evt_914d830051ec414fa70c30181d63fc8d",
+          "evt_2548c52268a9427f870a329f3b919766",
+          "evt_0f6b408814b8430ba20c125afe82722f",
+          "evt_843ab8972c5d46de9a91778829caa524"
+        ]
+      },
+      {
+        "number": 27,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_fdd8129ab84149288609ee2013fa419e",
+          "evt_3b829575579e411a82ea953f273f1ad7",
+          "evt_ae0c1b2092da462e9819c7d37f57270d",
+          "evt_e9d5e148eafb4661a088bd8b81a8e5b1",
+          "evt_d20f46b8cf7e4fd4bb2c1bd6042b955d",
+          "evt_aaaa62e576a64e708d23d3ed9739d7e5"
+        ]
+      },
+      {
+        "number": 28,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_b77ee540a6f348d39e5caff0c7e89306",
+          "evt_6fe154cacd0e4a73a7cd599b0686a4af",
+          "evt_ad8de01c137243618868d7310c67ec4b",
+          "evt_1594899781934b2387fe05d424ed670c",
+          "evt_2b18583d267b454b96274071625dc45a",
+          "evt_28a716401940466e9006d1e7036dcfaa"
+        ]
+      },
+      {
+        "number": 29,
+        "title": "Worker 3 reviewed 3 peer claims",
+        "summary": "Kept candidate 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_01179f99916540dc943a9e3f293f9195",
+          "evt_8f03d33544c84f4dbd4341ad18c43579",
+          "evt_549aed08825b4cebb1e63e0187e0fa23",
+          "evt_375992d8617a4bb186eed260347ab878",
+          "evt_2ce7fd3a2ad64d14b996f0c81b1a6ef5",
+          "evt_b2a9a307da6846df86a662d5720d00aa",
+          "evt_f522197f0a544367838c6f929622c98f"
+        ]
+      },
+      {
+        "number": 30,
+        "title": "Worker 4 reviewed 3 peer claims",
+        "summary": "Kept candidate 46 after checking peer claims as untrusted reports.",
+        "source_event_ids": [
+          "evt_f2ba0c06d6044416921067b8d96d35bd",
+          "evt_223e5641884d4a6a989c66c9e3fb2997",
+          "evt_bd14cfeea4434b1094d5274d0010506d",
+          "evt_86d66ef290cd4e88934a7b6e613d0efd",
+          "evt_21f15373551c4c06873fdb85b15ee8f5",
+          "evt_1c7cabe288df4f3594f5b249b9ef6dbb",
+          "evt_e7a75b6aee814508b33704cd6136b323"
+        ]
+      },
+      {
+        "number": 31,
+        "title": "Worker 3 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_739cc6309865454fbdf4004cdfc48fb9",
+          "evt_ba1f1eba67714000bfceb2b31846c45c",
+          "evt_74f747991f664a1c93704c4ead527e07",
+          "evt_60b5ce53300042c59f79ec24d6621c20",
+          "evt_bf04944ce1704a9db813c4bf4aa27c6f",
+          "evt_e3a97ade5eb14b44a4b4ee338bec898e"
+        ]
+      },
+      {
+        "number": 32,
+        "title": "Worker 4 used Visual Grounding",
+        "summary": "Visual Grounding returned 46 regions, an image.",
+        "source_event_ids": [
+          "evt_76e96c6b54eb42d9ad0c6525df652d69",
+          "evt_835bfec2bf264538b76a69c0cde8a230",
+          "evt_d43fc8ec00b047a2af211047780056c5",
+          "evt_26e2f44e229e4454a5556ef1b213c201",
+          "evt_612e6724e011443f8d3019bd79544ab6",
+          "evt_5c428efc7c2c47cfb1af72f403db3ccb"
+        ]
+      },
+      {
+        "number": 33,
+        "title": "Coordinator finalized the answer: 46",
+        "summary": "This confirms its provisional estimate 46. Worker candidates considered: 46.",
+        "source_event_ids": [
+          "evt_56309a0933b54390b0de187b8e507582",
+          "evt_d742712a45684220b32a3a3a11bed1c8",
+          "evt_df9ded32e8dd409d8c8eefb559335df2",
+          "evt_ae1237e0661a4125bfd29213684e018d"
+        ]
+      }
+    ]
+  },
+  {
+    "run_id": "fsc147_val_row_10_20261116_210721",
+    "raw_events": 136,
+    "previous_story_main": 21,
+    "story_main": 21,
+    "technical_only": 47,
+    "tools": [
+      9,
+      9
+    ],
+    "messages": [
+      8,
+      8
+    ],
+    "hypothesis_events": [
+      4,
+      4
+    ],
+    "hypothesis_revisions": 0,
+    "estimate_events": [
+      0,
+      0
+    ],
+    "failed_events": [
+      0,
+      0
+    ],
+    "prefix_checks": 137,
+    "raw_excerpt": [
+      {
+        "sequence": 20,
+        "agent": "worker_02",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 21,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 22,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 24,
+        "agent": "worker_01",
+        "type": "DECISION_SUMMARY_RECORDED"
+      },
+      {
+        "sequence": 25,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_REQUESTED"
+      },
+      {
+        "sequence": 26,
+        "agent": "worker_01",
+        "type": "TOOL_CALL_STARTED"
+      },
+      {
+        "sequence": 28,
+        "agent": "worker_02",
+        "type": "TOOL_CALL_COMPLETED"
+      },
+      {
+        "sequence": 29,
+        "agent": "worker_02",
+        "type": "EVIDENCE_OBSERVED"
+      }
+    ],
+    "steps": [
+      {
+        "number": 1,
+        "title": "Task received",
+        "summary": "How many grape are there in the image? Your final answer should be a single integer.",
+        "source_event_ids": [
+          "evt_cab8448bfab54db68ff1e49ffb74e8e7"
+        ]
+      },
+      {
+        "number": 2,
+        "title": "Coordinator assigned the investigation to 2 workers",
+        "summary": "Each worker received its own scope.",
+        "source_event_ids": [
+          "evt_f9e05de49a5745559b426e6f0b6b58df",
+          "evt_ca9e950ae2a24f0e88b9d371c7b84c15",
+          "evt_76487389ad034e44ae40dc78004dd5ca",
+          "evt_6a1b1e2918a94749b32512653200d69b",
+          "evt_6d7b6a57f2eb4f239b2afd141166e0d1",
+          "evt_bc7e598d617242e7b127c61ad411cccb",
+          "evt_0c8ed230f2c84f1ea729a915de02a27d"
+        ]
+      },
+      {
+        "number": 3,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 39 regions, an image.",
+        "source_event_ids": [
+          "evt_23dd4ed2b02c4bb794826600f56f1b05",
+          "evt_b038c8a4d34f4500b061df83a63eab49",
+          "evt_9fec2e2318c14c27a249eae689e8204c",
+          "evt_3a543e88506a4100987523a6a0b40c38",
+          "evt_f016166e2c4046bda3dff5a716f10ce1",
+          "evt_5c5a82a685744b1698dc38924e71a088"
+        ]
+      },
+      {
+        "number": 4,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 39 regions, an image.",
+        "source_event_ids": [
+          "evt_4f7b1cb828b94bf69e1404af5cca18c1",
+          "evt_b78ef1886eb34903b561f79a978d0a1c",
+          "evt_144954ffcf7e40fdae3ad0d08445bcdd",
+          "evt_d99124d704064e99a229d79c9943f884",
+          "evt_e60bc6002b0a4ae1b268e29e9f88ea62",
+          "evt_91a842fea0b848919b5f20774f9b1a42"
+        ]
+      },
+      {
+        "number": 5,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 2 regions, an image.",
+        "source_event_ids": [
+          "evt_8a948ece85cc43a68e3155f06389ceb7",
+          "evt_e978af9ed72445fc835cb8144a778a2f",
+          "evt_bf7960dcfdd8443a8887c6dc44b9b77c",
+          "evt_4d09c5525fff45de82bada96debae076",
+          "evt_7c8f3b96bbc84408bf668c7385a77e69",
+          "evt_32e75c71b6e146ba9815aff77d5ee852"
+        ]
+      },
+      {
+        "number": 6,
+        "title": "Worker 1 used Zoom In",
+        "summary": "Zoom In returned a cropped image (tool_generated_image_2).",
+        "source_event_ids": [
+          "evt_dd82490e983a4c0e9f91673dcafee4d8",
+          "evt_3fdcca5cd6bb44b0a0aa8f6ad6b14623",
+          "evt_8f8e7733e593412b80634724dedd72ed",
+          "evt_0107ac636221466ca8fe253c971d7026",
+          "evt_267220261aa749d9b2b66b63c6d5f4cd",
+          "evt_829d61c836824c89970effe68b6bfb93"
+        ]
+      },
+      {
+        "number": 7,
+        "title": "Worker 2 shared its finding with Worker 1",
+        "summary": "Claim: 2",
+        "source_event_ids": [
+          "evt_57ee0daf14374cc1941dc5ab90a4f3e3",
+          "evt_ffb25ca34b57486b8f7999ba5c94f479"
+        ]
+      },
+      {
+        "number": 8,
+        "title": "Worker 2 reported its answer: 2",
+        "summary": "Candidate answer 2 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_451e01f226ee485aadf1cb29b5de3346",
+          "evt_8890e9ccc8d14784a32881159d64d151"
+        ]
+      },
+      {
+        "number": 9,
+        "title": "Worker 1 used Python Coding Agent",
+        "summary": "Python Coding Agent returned a structured result.",
+        "source_event_ids": [
+          "evt_307fe69890594d56ad0b0cb9c466e6ca",
+          "evt_b93fbfb136bb489fb11be9a8c8acb64f",
+          "evt_e98f32b534844955b10b9aa522033e72",
+          "evt_be110ab677f24ba4a2daf3797b8208a3",
+          "evt_8b42dd34cc1543dbaf4095bf5c29e2b3",
+          "evt_d3f3cede38674dbfa77a9c2b5129c0a8"
+        ]
+      },
+      {
+        "number": 10,
+        "title": "Worker 1 shared its finding with Worker 2",
+        "summary": "Claim: 35",
+        "source_event_ids": [
+          "evt_9617f8520b9f4f7c927b064b7686dc2e",
+          "evt_c1c7b65ac2c84b459588ff00a67f2bfa"
+        ]
+      },
+      {
+        "number": 11,
+        "title": "Worker 1 reported its answer: 35",
+        "summary": "Candidate answer 35 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_4bf5fc1653024dfabfafc3df721fd953",
+          "evt_a0094c0a27a84f40967516c10e0a0897"
+        ]
+      },
+      {
+        "number": 12,
+        "title": "Coordinator asked workers to verify each other's findings",
+        "summary": "Verification requested from Worker 1, Worker 2.",
+        "source_event_ids": [
+          "evt_0a42d1f7ac82409d80fb18a107dd89cd",
+          "evt_a590e2d562a14facba18f8e7ad29fe95",
+          "evt_abb85894546d4233b34b670682856583",
+          "evt_dda16d32da6141458772bdf797f24e65",
+          "evt_5f128d8b41e34946bd80b6839cb362bc",
+          "evt_6f4db847dadb48b9b141c39232309996"
+        ]
+      },
+      {
+        "number": 13,
+        "title": "Worker 1 reviewed 1 peer claim",
+        "summary": "Checks other workers' reports as untrusted claims.",
+        "source_event_ids": [
+          "evt_cf3bd736d6f34f1e916688ad8fea238c",
+          "evt_2beb395603c2493093a8811d96d12401"
+        ]
+      },
+      {
+        "number": 14,
+        "title": "Worker 2 reviewed 1 peer claim",
+        "summary": "Checks other workers' reports as untrusted claims.",
+        "source_event_ids": [
+          "evt_b97c9627a8d7475e8479b75efa84dfcc",
+          "evt_adf50ea4ea034d72b0bb44182e894712"
+        ]
+      },
+      {
+        "number": 15,
+        "title": "Worker 1 used Visual Grounding",
+        "summary": "Visual Grounding returned 39 regions, an image.",
+        "source_event_ids": [
+          "evt_61b4c9712ab9481e922625cb81aa2b25",
+          "evt_fd8fcb4ad0d54d498b873ec361a92d03",
+          "evt_72bc0b5fc0904621aa184362f030f72a",
+          "evt_aa5b70dbeb7c40b89d5ff01c17be2f82",
+          "evt_520e33aff9a94c5189fe13476820da13",
+          "evt_cfe745352fa1428e81fd4d19f97e5966"
+        ]
+      },
+      {
+        "number": 16,
+        "title": "Worker 2 used Visual Grounding",
+        "summary": "Visual Grounding returned 39 regions, an image.",
+        "source_event_ids": [
+          "evt_c053662794b54993b87198d62664bed8",
+          "evt_e16f6877af9c46f388318d815371cf12",
+          "evt_dc5137c9e00f4f2992316da39c6ea5b2",
+          "evt_bf9e8493ec73488b8c8425b8a9090b77",
+          "evt_0038e5f274144b42979f7983178800ec",
+          "evt_ce159b98009e4c3cb384f1b800229651"
+        ]
+      },
+      {
+        "number": 17,
+        "title": "Worker 2 used Python Coding Agent",
+        "summary": "Python Coding Agent returned a structured result.",
+        "source_event_ids": [
+          "evt_97a2a3bbcdab45a4930844021bcb46d0",
+          "evt_0653436d2f5d4102a002efc363cb7737",
+          "evt_d2fb895ee4c54fd59e9f1b7ac0191c88",
+          "evt_a3b47a5454724abaaa7c9f1cc8b67d83",
+          "evt_64c89a2cb55740daa0114746947ef13e",
+          "evt_e0b06ed869be45cda205e1508df23c85"
+        ]
+      },
+      {
+        "number": 18,
+        "title": "Worker 1 kept its answer 35",
+        "summary": "Candidate answer 35 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_a91ff576cb494d8b8f2da71d676441ae"
+        ]
+      },
+      {
+        "number": 19,
+        "title": "Worker 2 used Zoom In",
+        "summary": "Zoom In returned a cropped image (tool_generated_image_2).",
+        "source_event_ids": [
+          "evt_28f7099eba2f451e8dc82a4b10df3e8b",
+          "evt_21083ffc8042453f82779f07306f630c",
+          "evt_27d93c905eb943059effe0ec23f3e926",
+          "evt_e46ee4196d194e418a795419b5a0a515",
+          "evt_a2b0423466224527b27654085d88bd92",
+          "evt_87916d58000a493ca2ef920ec65f6192"
+        ]
+      },
+      {
+        "number": 20,
+        "title": "Worker 2 kept its answer 2",
+        "summary": "Candidate answer 2 (a worker claim, not the coordinator's estimate).",
+        "source_event_ids": [
+          "evt_686c9f6b7c584c96afde62907eed135f"
+        ]
+      },
+      {
+        "number": 21,
+        "title": "Coordinator finalized the answer: 2",
+        "summary": "Worker candidates considered: 2, 35.",
+        "source_event_ids": [
+          "evt_3c8b668b76594c459766bd0f4608aff8",
+          "evt_689ed2c5f27149b9a8ba000b177a1a13",
+          "evt_04aeeb9cb1a04be5b3f6dfc6c716ce0b"
+        ]
+      }
+    ]
+  }
+]

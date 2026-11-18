@@ -203,6 +203,7 @@
     tool: "T", memory: "Mem", communication: "Bus", budget: "$", event_log: "Log", artifact_store: "Art",
     orchestrator: "O", task: "In", result: "Out",
   };
+  const TECHNICAL_OPEN = new Set(["model_request"]);
   const FLOW_STYLES = ["idle", "request", "response", "failure", "cancelled", "memory", "model", "model-return",
     "budget", "control", "message", "message-return", "delivery", "lifecycle", "pending", "selected"];
 
@@ -217,7 +218,7 @@
     constructor(host, handlers = {}) {
       this.host = host;
       this.handlers = handlers;
-      this.options = {collapsed: new Set(), showMemory: true, showMemoryFlows: true, showInfra: false, mode: "full", animate: true};
+      this.options = {collapsed: new Set(), showMemory: true, showMemoryFlows: true, showInfra: false, mode: "full", animate: true, technical: false};
       this.topology = null;
       this.layout = null;
       this.view = null;
@@ -422,7 +423,9 @@
     update(state, focus, labels) {
       if (!this.svg || !state) return;
       const A = root.StudioActivity;
-      const running = A.runningByNode(state);
+      // Internal machinery (model requests in flight) is drawn only in technical mode.
+      const shown = (open) => this.options.technical || !TECHNICAL_OPEN.has(open.kind);
+      const running = new Map([...A.runningByNode(state)].map(([id, list]) => [id, list.filter(shown)]).filter(([, list]) => list.length));
       const overlayStyle = new Map();
       const setOverlay = (hop, style, level) => {
         const key = `${hop.edgeId}|${hop.direction}`;
@@ -431,6 +434,7 @@
         if (!current || current.rank <= rank) overlayStyle.set(key, {style, level, rank, hop});
       };
       for (const open of state.open.values()) {
+        if (!shown(open)) continue;
         const pending = ["assignment", "verification_request", "question", "peer_message", "message", "report", "reply", "failure_report", "cancellation"].includes(open.kind);
         for (const hop of open.hops) setOverlay(hop, pending ? "pending" : (open.style || "request"), pending ? "pending" : "running");
       }

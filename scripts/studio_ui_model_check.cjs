@@ -48,7 +48,9 @@ function check({snapshot, expected}) {
   if (String(full.final?.value) !== String(snapshot.final.final_answer)) problems.push(`final ${full.final?.value} != ${snapshot.final.final_answer}`);
   if (full.mode !== "recorded") problems.push(`estimate mode ${full.mode}`);
   const steps = Story.buildStory(events);
-  const estimateSteps = steps.filter((s) => s.kind === "estimate").length;
+  // Finalization is folded into the final-answer step; every other change is its own step.
+  const estimateSteps = steps.filter((s) => s.kind === "estimate").length + steps.filter((s) => s.kind === "final"
+    && s.source_event_ids.some((id) => events.find((e) => e.event_id === id)?.event_type === "COORDINATOR_ESTIMATE_UPDATED")).length;
   const estimateEvents = events.filter((e) => e.event_type === "COORDINATOR_ESTIMATE_UPDATED").length;
   if (estimateSteps !== estimateEvents) problems.push(`story estimate steps ${estimateSteps} != ${estimateEvents}`);
   const toolSteps = steps.filter((s) => s.kind === "tool").length;

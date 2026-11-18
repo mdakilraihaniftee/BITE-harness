@@ -236,6 +236,27 @@ class Capability(BaseCapability):
         if self.backend == "grounding_dino":
             self.process_output = self._dino_evidence
 
+    @staticmethod
+    def visual_transform(arguments, inputs, outputs, result):
+        """Frames of the detections and the rendered image (Studio only)."""
+        data = result.data or {}
+        size = data.get("size")  # [height, width] of the processed image
+        source = inputs[0] if inputs else None
+        frame = [size[1], size[0]] if isinstance(size, list) and len(size) == 2 and all(size) else None
+        matches = bool(source and frame and [source.get("width"), source.get("height")] == frame)
+        record = {
+            "type": "detection",
+            "input_registry_id": source.get("registry_id") if source else None,
+            "boxes_frame": "input_pixels" if matches else ("resized_pixels" if frame else "unknown"),
+            "boxes_frame_size": frame,
+            "verified": matches or bool(frame and source and source.get("width")),
+        }
+        rendered = next((item for item in outputs if item.get("registry_id") == data.get("rendered_image")), None)
+        if rendered:
+            record["rendered_registry_id"] = rendered.get("registry_id")
+            record["rendered_same_frame"] = bool(source and [rendered.get("width"), rendered.get("height")] == [source.get("width"), source.get("height")])
+        return record
+
     def validate_result(self, payload):
         """Require finite, aligned boxes/scores and positive dimensions for detections."""
         result = payload.get("result")

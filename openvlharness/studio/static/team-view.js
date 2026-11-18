@@ -153,7 +153,7 @@
           chip.dataset.tool = id;
           chip.append(h("span", "dir", ""), h("span", "chip-name", name), h("span", "count", ""));
           chip.title = `${name} — click to inspect this tool`;
-          chip.addEventListener("click", (event) => { event.stopPropagation(); this.handlers.onSelectNode?.(id); });
+          chip.addEventListener("click", (event) => { event.stopPropagation(); this.handlers.onSelectNode?.(id, agent.id); });
           parts.tools.set(id, chip); chips.append(chip);
         }
         card.append(chips);
@@ -323,7 +323,7 @@
         const parts = this.cards.get(open.agentId);
         if (!parts) continue;
         if (open.toolNode && parts.tools.has(open.toolNode)) { parts.tools.get(open.toolNode).classList.add("running"); this.sharedTools.get(open.toolNode)?.classList.add("running"); }
-        if (open.kind === "model_request") parts.model.classList.add("active", "dir-out");
+        if (open.kind === "model_request" && ctx.technical) parts.model.classList.add("active", "dir-out");
       }
       // Latest and selected flows, selected drawn last so it wins.
       for (const event of [ctx.latest, ctx.selected]) {

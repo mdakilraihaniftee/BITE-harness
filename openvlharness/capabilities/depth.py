@@ -209,3 +209,13 @@ class Capability(BaseCapability):
             "device": result.get("device"),
             "image": next(iter(prepared["image_refs"]), None),
         }
+
+    @staticmethod
+    def visual_transform(arguments, inputs, outputs, result):
+        """The depth visualization is a same-frame map only when sizes match."""
+        source = inputs[0] if inputs else None
+        visual = outputs[0] if outputs else None
+        same = bool(source and visual and [source.get("width"), source.get("height")] == [visual.get("width"), visual.get("height")])
+        return {"type": "derived_map", "input_registry_id": source.get("registry_id") if source else None,
+                "output_registry_id": visual.get("registry_id") if visual else None,
+                "same_frame": same, "verified": same}

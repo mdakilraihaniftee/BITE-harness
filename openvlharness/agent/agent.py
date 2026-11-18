@@ -106,6 +106,10 @@ class MainAgent:
         original = copy.deepcopy(message)
         question, system = normalize_input(message, self.system_prompt)
         memory = self.memory_factory()
+        # Each question has its own image registry; this ID scopes registry
+        # names such as tool_generated_image_1 for Studio visual lineage.
+        self._image_scope = f"q_{uuid4().hex[:12]}"
+        self._image_sizes = {}
         history = [
             self.adapter.encode_message(m)
             for m in input_messages(question, system, self.user_prefix)
@@ -120,6 +124,7 @@ class MainAgent:
                     "memory_kind": "working_context",
                     "read_kind": "initial_inventory",
                     "modules": list(getattr(memory, "modules", []) or []),
+                    "image_scope": self._image_scope,
                 },
                 summary="Initial memory inventory entered the model context.",
             )
@@ -324,6 +329,7 @@ class MainAgent:
                             "invocation_id": invocation_id,
                             "arguments": call.get("args", {}),
                             "parse_error": call.get("parse_error"),
+                            **self._visual_request(call.get("args"), memory),
                         },
                         summary=f"Requested {call['name']}.",
                         status="planned",
@@ -332,6 +338,7 @@ class MainAgent:
                     )
                     started_event = None
                     tool_latency = None
+                    images_before = None
                     if observer is not None:
                         observer.proposal(call, self.capabilities.get(call["name"]))
                     virtual = VirtualCall(call["id"], call["name"], call["args"])
@@ -378,6 +385,7 @@ class MainAgent:
                                 parent_event_id=(request_event or {}).get("event_id"),
                                 tool_name=call["name"],
                             )
+                            images_before = self._registry_ids(memory)
                             tool_started = time.monotonic()
                             result = (
                                 observer.invoke(capability, virtual, memory)
@@ -400,6 +408,9 @@ class MainAgent:
                             "canonical_result": result.data,
                             "error": result.error,
                             "meta": result.payload.get("meta", {}),
+                            **self._visual_result(
+                                call, self.capabilities.get(call["name"]), result, memory, images_before
+                            ),
                         },
                         summary=(
                             f"{call['name']} returned evidence."
@@ -633,6 +644,110 @@ class MainAgent:
                 "Studio event emission failed for %s: %s", event_type, exc
             )
             return None
+
+    # ---- Studio visual lineage (observability only; never changes inference) ----
+    def _registry_ids(self, memory):
+        if self.event_sink is None:
+            return None
+        try:
+            return set(memory.state.images.registry)
+        except AttributeError:
+            return None
+
+    def _image_size(self, registry_id, entry):
+        """Pixel size of a registered data-URL image (cached per question)."""
+        key = (self._image_scope, registry_id)
+        if key in self._image_sizes:
+            return self._image_sizes[key]
+        size = None
+        data_url = entry.get("data_url") if isinstance(entry, dict) else None
+        if isinstance(data_url, str) and data_url.startswith("data:image/") and "," in data_url:
+            try:
+                import base64
+                from io import BytesIO
+
+                from PIL import Image
+
+                with Image.open(BytesIO(base64.b64decode(data_url.split(",", 1)[1]))) as image:
+                    size = [int(image.size[0]), int(image.size[1])]
+            except Exception:  # noqa: BLE001 - unknown size stays unknown
+                size = None
+        self._image_sizes[key] = size
+        return size
+
+    def _visual_request(self, args, memory):
+        """Images a call names, resolved by registry alias only (no downloads)."""
+        if self.event_sink is None or not isinstance(args, dict):
+            return {}
+        record = {"image_scope": getattr(self, "_image_scope", None)}
+        try:
+            from ..memory.images import _normalize_image_alias
+
+            images = memory.state.images
+            inputs = []
+            for key, value in args.items():
+                lowered = str(key).lower()
+                if not (lowered.endswith("_id") and "image" in lowered and isinstance(value, str)):
+                    continue
+                ref = images.alias_to_ref.get(_normalize_image_alias(value))
+                entry = images.registry.get(ref) if ref else None
+                size = self._image_size(ref, entry) if entry else None
+                inputs.append({"argument": key, "requested": value, "registry_id": ref,
+                               "width": size[0] if size else None, "height": size[1] if size else None,
+                               "resolved_by": "registry_alias_preview"})
+            if inputs:
+                record["visual_inputs"] = inputs
+        except Exception:  # noqa: BLE001 - observability must never stop inference
+            pass
+        return record
+
+    def _visual_result(self, call, capability, result, memory, images_before):
+        """Input/output images of a finished call and capability-described geometry.
+
+        Inputs come from the capability's own image-resolution record; outputs are
+        the registry entries this call created. Output pixels are included as data
+        URLs, which the Studio event log moves into its content-addressed artifact
+        store before persisting or streaming the event.
+        """
+        if self.event_sink is None:
+            return {}
+        record = {"image_scope": getattr(self, "_image_scope", None)}
+        try:
+            images = memory.state.images
+            meta = (result.payload or {}).get("meta") or {}
+            inputs = []
+            for rewrite in (meta.get("image_resolution") or {}).get("rewrites") or []:
+                ref = rewrite.get("image_ref")
+                entry = images.registry.get(ref) if ref else None
+                size = self._image_size(ref, entry) if entry else None
+                inputs.append({"argument": str(rewrite.get("field", "")).replace("args.", ""),
+                               "requested": rewrite.get("original"), "registry_id": ref,
+                               "fallback_mode": rewrite.get("fallback_mode"),
+                               "width": size[0] if size else None, "height": size[1] if size else None,
+                               "resolved_by": "capability"})
+            outputs = []
+            if images_before is not None:
+                for ref in [key for key in images.registry if key not in images_before]:
+                    entry = images.registry[ref]
+                    size = self._image_size(ref, entry)
+                    data_url = entry.get("data_url")
+                    outputs.append({"registry_id": ref, "source": entry.get("source"),
+                                    "width": size[0] if size else None, "height": size[1] if size else None,
+                                    "image": data_url if isinstance(data_url, str) and data_url.startswith("data:image/") else None})
+            visual = {"inputs": inputs, "outputs": outputs}
+            describe = getattr(capability, "visual_transform", None)
+            if callable(describe) and result.ok:
+                try:
+                    transform = describe(call.get("args") or {}, inputs, outputs, result)
+                except Exception as exc:  # noqa: BLE001 - geometry is optional
+                    transform = {"error": f"{type(exc).__name__}: {exc}"}
+                if transform:
+                    visual["transform"] = transform
+            if inputs or outputs or visual.get("transform"):
+                record["visual"] = visual
+        except Exception:  # noqa: BLE001 - observability must never stop inference
+            pass
+        return record
 
     @staticmethod
     def _turn(index, text, calls):

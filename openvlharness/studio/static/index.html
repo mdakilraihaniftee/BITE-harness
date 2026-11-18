@@ -29,20 +29,6 @@
   </header>
 
   <main>
-    <section class="task-strip" aria-labelledby="task-title">
-      <div class="task-copy">
-        <p class="eyebrow">Current investigation</p>
-        <h1 id="task-title">Connect to inspect a run</h1>
-        <div id="config-chips" class="config-chips" aria-label="Effective run configuration"></div>
-      </div>
-      <div class="task-metrics">
-        <div><span>Status</span><strong id="run-status">—</strong></div>
-        <div><span>Mode</span><strong id="run-mode">—</strong></div>
-        <div><span>Agents</span><strong id="agent-count">—</strong></div>
-        <div><span>Elapsed</span><strong id="elapsed">—</strong></div>
-        <div><span>Tool budget</span><strong id="tool-budget">—</strong></div>
-      </div>
-    </section>
 
     <!-- Persistent answer status: ground truth, coordinator estimate, and final answer are separate fields. -->
     <section id="answer-strip" class="answer-strip" aria-label="Answer status">
@@ -76,6 +62,110 @@
       <div class="as-meta"><span id="as-round">Investigation: —</span><span id="as-evidence">Evidence received: —</span><span id="as-status">Status: —</span></div>
     </section>
 
+    <!-- Simple view: one picture of who is working, with the tools each agent used. -->
+    <section class="panel simple-team-panel" aria-labelledby="simple-team-title">
+      <div class="panel-heading">
+        <div><p class="eyebrow">The team</p><h2 id="simple-team-title">Who is working on it</h2></div>
+        <div class="simple-legend" aria-label="Arrow legend"><span class="lg assign">↓ assigns work</span><span class="lg report">↑ reports back</span><span class="lg peer">⇄ shares with a peer</span><span class="lg tool">● uses a tool</span></div>
+      </div>
+      <div id="simple-team" class="simple-team"><div class="empty-state">Select a run to see the team.</div></div>
+    </section>
+
+
+
+    <section class="workspace">
+      <section class="panel story-panel">
+        <div class="panel-heading">
+          <div><p class="eyebrow">What happened</p><h2>Investigation story</h2></div>
+          <div class="segmented" role="tablist" aria-label="Investigation story or technical trace">
+            <button type="button" role="tab" data-tab="story" aria-selected="true" aria-checked="true">Investigation Story</button>
+            <button type="button" role="tab" data-tab="log" aria-selected="false" aria-checked="false">Technical Trace</button>
+          </div>
+        </div>
+        <div id="story-view" class="story-view">
+          <div class="story-filters"><select id="story-agent" aria-label="Filter story by agent"><option value="">All agents</option></select>
+            <label class="check" title="Routine report deliveries and unchanged coordinator reassessments"><input id="story-minor" type="checkbox"> Show routine steps</label><span id="story-count" class="muted"></span></div>
+          <ol id="story-list" class="story-list empty-state"><li>No run selected.</li></ol>
+        </div>
+        <div id="log-view" class="log-view hidden">
+          <div class="filters">
+            <select id="agent-filter" aria-label="Filter by agent"><option value="">All agents</option></select>
+            <select id="category-filter" aria-label="Filter by activity category">
+              <option value="">All categories</option>
+              <option value="tool">Tool calls</option>
+              <option value="message">Messages</option>
+              <option value="memory">Memory</option>
+              <option value="model">Model requests</option>
+              <option value="budget">Budget</option>
+              <option value="estimate">Coordinator answer state</option>
+              <option value="technical">Technical only (not in the story)</option>
+              <option value="lifecycle">Lifecycle</option>
+            </select>
+            <select id="type-filter" aria-label="Filter by event type"><option value="">All event types</option></select>
+            <label class="check"><input id="failure-filter" type="checkbox"> Failures</label>
+          </div>
+          <div id="trace-filter" class="trace-filter hidden"><span id="trace-filter-label"></span><button type="button" id="trace-filter-clear" class="quiet">Show all events</button></div>
+          <div class="log-head"><span id="event-count" class="muted">0 events</span></div>
+          <div id="timeline" class="timeline empty-state">No events loaded.</div>
+        </div>
+      </section>
+
+      <section class="evidence-column">
+        <section class="panel focus-panel" aria-labelledby="focus-title">
+          <div class="panel-heading"><div><p class="eyebrow">Selected step</p><h2 id="focus-title">Nothing selected yet</h2></div><div class="focus-actions"><span id="focus-mode" class="muted"></span><button id="clear-event" class="quiet">Follow latest</button></div></div>
+          <ol id="focus-flow" class="focus-flow"><li class="empty-state">Pick a step on the left. The latest step is shown while a run is live.</li></ol>
+        </section>
+        <section class="panel evidence-panel">
+          <div class="panel-heading">
+            <div><p class="eyebrow">Grounded observations</p><h2>Visual evidence</h2></div>
+            <div id="evidence-kind" class="status-chip idle">No evidence selected</div>
+          </div>
+          <div id="tool-action" class="tool-action hidden" aria-live="polite"></div>
+          <div class="viewer-grid" id="legacy-viewer">
+            <div class="source-viewer">
+              <div class="viewer-label"><span>Original image</span><span id="coordinate-label">source pixels</span></div>
+              <div id="image-stage" class="image-stage empty-state">
+                <span>Image artifacts will appear here.</span>
+              </div>
+            </div>
+            <div class="derived-viewer">
+              <div class="viewer-label"><span>Tool output</span><span id="artifact-meta"></span></div>
+              <div id="derived-stage" class="derived-stage empty-state">Select a tool or evidence event.</div>
+              <div id="evidence-facts" class="evidence-facts"></div>
+            </div>
+          </div>
+        </section>
+
+      </section>
+    </section>
+
+
+    <section class="panel results-panel" aria-labelledby="results-title">
+      <div class="panel-heading"><div><p class="eyebrow">Answers</p><h2 id="results-title">What each agent concluded</h2></div><span id="final-status" class="status-chip idle">Pending</span></div>
+      <div class="results-grid">
+        <div><h3 class="results-sub">Workers' answers <span class="muted">(claims sent to the coordinator)</span></h3><div id="candidate-row" class="candidate-row"></div></div>
+        <div id="estimate-history-panel"><h3 class="results-sub">Coordinator's decision</h3>
+          <ol id="estimate-history" class="estimate-history empty-state"><li>No run selected.</li></ol>
+          <div id="final-answer" class="final-answer empty-state">The coordinator has not recorded a final answer.</div></div>
+      </div>
+    </section>
+
+    <details class="technical-details" id="technical-details">
+      <summary><span class="eyebrow">Technical details</span><span class="muted">Architecture graph, run configuration, raw step audit, component inspector, and private memory</span></summary>
+    <section class="task-strip" aria-labelledby="task-title">
+      <div class="task-copy">
+        <p class="eyebrow">Current investigation</p>
+        <h1 id="task-title">Connect to inspect a run</h1>
+        <div id="config-chips" class="config-chips" aria-label="Effective run configuration"></div>
+      </div>
+      <div class="task-metrics">
+        <div><span>Status</span><strong id="run-status">—</strong></div>
+        <div><span>Mode</span><strong id="run-mode">—</strong></div>
+        <div><span>Agents</span><strong id="agent-count">—</strong></div>
+        <div><span>Elapsed</span><strong id="elapsed">—</strong></div>
+        <div><span>Tool budget</span><strong id="tool-budget">—</strong></div>
+      </div>
+    </section>
     <details class="panel config-panel" id="config-panel">
       <summary><span class="eyebrow">Run configuration</span><span id="config-summary" class="muted">Effective settings of the selected run and a launcher for new runs</span></summary>
       <div class="config-body">
@@ -104,7 +194,6 @@
         </section>
       </div>
     </details>
-
     <section class="panel architecture-panel" aria-labelledby="architecture-title">
       <div class="panel-heading architecture-heading">
         <div><p class="eyebrow">System architecture</p><h2 id="architecture-title">Information flow</h2></div>
@@ -125,13 +214,14 @@
             <button type="button" id="graph-expand" title="Expand all agent groups">Expand all</button>
             <button type="button" id="graph-collapse" title="Collapse all agent groups">Collapse all</button>
           </div>
-          <details class="view-menu svg-only">
+          <details class="view-menu">
             <summary>View</summary>
             <div class="view-menu-body">
               <label class="check"><input id="toggle-memory-nodes" type="checkbox" checked> Memory nodes</label>
               <label class="check"><input id="toggle-memory-flows" type="checkbox" checked> Memory flows</label>
               <label class="check"><input id="toggle-infra" type="checkbox"> Budget &amp; recorder links</label>
               <label class="check"><input id="toggle-animation" type="checkbox" checked> Animate flows</label>
+              <label class="check"><input id="toggle-technical" type="checkbox"> Technical activity (model calls, memory, budget)</label>
               <p class="muted">Ctrl/⌘ + scroll zooms; drag the background to pan.</p>
             </div>
           </details>
@@ -167,90 +257,22 @@
         <span class="muted legend-note svg-only-inline">Dashed outline = observed or inferred · dotted = generic preview</span>
       </div>
     </section>
-
-    <section class="workspace">
-      <section class="panel story-panel">
-        <div class="panel-heading">
-          <div><p class="eyebrow">What happened</p><h2>Investigation story</h2></div>
-          <div class="segmented" role="tablist" aria-label="Story or raw event log">
-            <button type="button" role="tab" data-tab="story" aria-selected="true" aria-checked="true">Story</button>
-            <button type="button" role="tab" data-tab="log" aria-selected="false" aria-checked="false">Event log</button>
-          </div>
-        </div>
-        <div id="story-view" class="story-view">
-          <div class="story-filters"><select id="story-agent" aria-label="Filter story by agent"><option value="">All agents</option></select>
-            <label class="check"><input id="story-minor" type="checkbox"> Show minor steps</label><span id="story-count" class="muted"></span></div>
-          <ol id="story-list" class="story-list empty-state"><li>No run selected.</li></ol>
-        </div>
-        <div id="log-view" class="log-view hidden">
-          <div class="filters">
-            <select id="agent-filter" aria-label="Filter by agent"><option value="">All agents</option></select>
-            <select id="category-filter" aria-label="Filter by activity category">
-              <option value="">All categories</option>
-              <option value="tool">Tool calls</option>
-              <option value="message">Messages</option>
-              <option value="memory">Memory</option>
-              <option value="model">Model requests</option>
-              <option value="budget">Budget</option>
-              <option value="estimate">Coordinator answer state</option>
-              <option value="lifecycle">Lifecycle</option>
-            </select>
-            <select id="type-filter" aria-label="Filter by event type"><option value="">All event types</option></select>
-            <label class="check"><input id="failure-filter" type="checkbox"> Failures</label>
-          </div>
-          <div class="log-head"><span id="event-count" class="muted">0 events</span></div>
-          <div id="timeline" class="timeline empty-state">No events loaded.</div>
-        </div>
-      </section>
-
-      <section class="evidence-column">
-        <section class="panel evidence-panel">
-          <div class="panel-heading">
-            <div><p class="eyebrow">Grounded observations</p><h2>Visual evidence</h2></div>
-            <div id="evidence-kind" class="status-chip idle">No evidence selected</div>
-          </div>
-          <div class="viewer-grid">
-            <div class="source-viewer">
-              <div class="viewer-label"><span>Original image</span><span id="coordinate-label">source pixels</span></div>
-              <div id="image-stage" class="image-stage empty-state">
-                <span>Image artifacts will appear here.</span>
-              </div>
-            </div>
-            <div class="derived-viewer">
-              <div class="viewer-label"><span>Tool output</span><span id="artifact-meta"></span></div>
-              <div id="derived-stage" class="derived-stage empty-state">Select a tool or evidence event.</div>
-              <div id="evidence-facts" class="evidence-facts"></div>
-            </div>
-          </div>
-        </section>
-
-        <section class="panel details-panel">
-          <div class="panel-heading"><div><p class="eyebrow">Selected step</p><h2>Step details</h2></div><button id="clear-event" class="quiet">Clear selection</button></div>
+    <section class="panel details-panel">
+          <div class="panel-heading"><div><p class="eyebrow">Selected step</p><h2>Step details</h2></div></div>
           <div id="step-details" class="detail-grid empty-state">Select a story step or event to see what it did, what it returned, and what changed.</div>
         </section>
-      </section>
-    </section>
-
     <section class="lower-grid">
       <section class="panel inspector-panel">
         <div class="panel-heading"><div><p class="eyebrow">Selection</p><h2>Component inspector</h2></div><span id="agent-filter-label" class="muted">All agents</span></div>
         <div id="inspector" class="inspector empty-state">Click a harness, tool, or connection.</div>
       </section>
-
       <section class="panel memory-panel">
         <div class="panel-heading"><div><p class="eyebrow">Authorized view</p><h2>Memory inspector</h2></div><span class="lock">Private</span></div>
         <div id="memory-tabs" class="tab-row"></div>
         <div id="memory-content" class="memory-content empty-state">Select an agent to request its permitted memory view.</div>
       </section>
-
-      <section class="panel final-panel" id="estimate-history-panel">
-        <div class="panel-heading"><div><p class="eyebrow">Coordinator answer state</p><h2>Estimate history</h2></div><span id="final-status" class="status-chip idle">Pending</span></div>
-        <ol id="estimate-history" class="estimate-history empty-state"><li>No run selected.</li></ol>
-        <div id="final-answer" class="final-answer empty-state">The coordinator has not recorded a final answer.</div>
-        <div class="candidate-head muted">Worker candidates (worker claims, not the coordinator's estimate)</div>
-        <div id="candidate-row" class="candidate-row"></div>
-      </section>
     </section>
+    </details>
   </main>
 
   <footer class="replay-bar">
@@ -266,9 +288,12 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <script src="/static/activity-state.js" defer></script>
+  <script src="/static/geometry.js" defer></script>
+  <script src="/static/visual-lineage.js" defer></script>
   <script src="/static/answer-state.js" defer></script>
   <script src="/static/story.js" defer></script>
   <script src="/static/team-view.js" defer></script>
+  <script src="/static/simple-team.js" defer></script>
   <script src="/static/architecture-graph.js" defer></script>
   <script src="/static/app.js" defer></script>
 </body>

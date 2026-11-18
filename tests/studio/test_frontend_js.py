@@ -127,3 +127,29 @@ def test_answer_story_and_team_modules(tmp_path: Path) -> None:
         env={"STUDIO_ANSWER_DATA": str(data), "PATH": str(Path(NODE).parent)},
     )
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]
+
+
+def test_story_semantics() -> None:
+    """Semantic step grouping, causality, replay safety, and legacy handling."""
+    result = subprocess.run(
+        [NODE, "--test", str(ROOT / "tests/studio/js/story_semantics.test.cjs")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env={"PATH": str(Path(NODE).parent)},
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]
+
+
+def test_simple_team() -> None:
+    """Simple team picture: traffic counts and highlighted flows come from recorded events."""
+    result = subprocess.run(
+        [NODE, "--test", str(ROOT / "tests/studio/js/simple_team.test.cjs")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env={"PATH": str(Path(NODE).parent)},
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]

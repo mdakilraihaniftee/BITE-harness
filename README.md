@@ -406,6 +406,31 @@ left untouched. Run a dataset task with one command:
 ./scripts/run_studio_dataset_task.sh FSC147_val 0
 ```
 
+To run one or two real inferences with live visualization, after starting the
+model/tool services and preparing the dataset:
+
+```bash
+bash scripts/run_studio_inferences.sh 0       # one task, two workers + coordinator
+bash scripts/run_studio_inferences.sh 0 10    # two tasks in sequence
+bash scripts/run_studio_inferences.sh --dry-run 0 10  # print commands only
+```
+
+For a custom team per run (worker count, memory, peer messages, message bus,
+coordinator estimates, mode) and any task indexes, use the flag-based runner:
+
+```bash
+bash scripts/run_custom_inference.sh -w 4 --memory off --peer on 25      # one task
+bash scripts/run_custom_inference.sh -w 1 -m off -p off -e off 0-2 7     # several tasks
+bash scripts/run_custom_inference.sh --check 0-4                         # inspect inputs, no model calls
+bash scripts/run_custom_inference.sh --help
+```
+
+Each task opens its **Investigation Story**; switch to **Technical Trace** for
+every original event or expand a step and select **View underlying events**.
+`STUDIO_NUM_AGENTS=1` selects one worker plus coordinator; `STUDIO_DATASET` selects
+another prepared dataset. The launcher honors the existing Studio environment
+options. See the [implementation report and verified screenshots](docs/STUDIO_STORY_REPORT.md).
+
 If the environment cannot open a browser, open the printed link. Links carry a
 short-lived ticket, not the viewer token. Manage instances with
 `scripts/studio_ctl.py`: `status` lists Studios and their compatibility, `url --run
@@ -449,11 +474,20 @@ while inference runs, with dataset/row provenance), the **coordinator's current
 estimate** (starts as *No estimate yet*; changes only when the coordinator records a
 new provisional, revised, unresolved, or final answer state, with an expandable
 history linked to the evidence it cited), and the **final answer**, plus an
-evaluation label when a deterministic rule exists. The default **Compact team** view
+evaluation label when a deterministic rule exists. The page opens in a **Simple view**:
+one picture of the team (coordinator on top, a card per worker with the tools it used
+and its answer, arrows with recorded assignment/report/peer counts), the numbered
+story beside a *Selected step* card that reads Why → Request → Result →
+Interpretation → Next, and each agent's conclusion; everything below is kept under a
+collapsed **Technical details** section. There, the **Compact team** view
 draws each agent as one harness card with model, memory, peer-communication, and
 tool-chip indicators and directional request/result arrows; *Full architecture*
-keeps the detailed graph. An **Investigation story** explains each step from recorded
-events, with the raw log one tab away. Worker count (1–4), the optional worker
+keeps the detailed graph. The default **Investigation Story** shows a short numbered
+sequence of meaningful steps (assignments, tool investigations with their inputs and
+results, answers and revisions, communication, coordinator estimates, failures, and the
+final answer) built deterministically from the recorded events — e.g. 185 raw events
+become 17 steps — while the **Technical Trace** keeps every raw event, and each step
+links to its underlying events. Worker count (1–4), the optional worker
 memory notebook, peer communication, and coordinator estimates are real runtime
 switches recorded with every run:
 
@@ -470,6 +504,22 @@ Labels never reach agents, prompts, tools, messages, memory, or event payloads; 
 and the [v3 validation report](docs/STUDIO_V3_VALIDATION.md).
 
 ![Compact team view with ground truth, coordinator estimate, and final answer](docs/images/studio_v3/04-w4-memory-off-peer-on.png)
+
+**Visual tool actions.** Selecting a tool step shows the image the tool actually
+processed and what it returned: the selected region and executed crop on the input,
+the actual zoomed crop, detection boxes drawn on the image the detector saw (including
+crops of crops), and the same boxes mapped back to the original through verified
+transforms. Lineage comes from recorded image IDs, artifacts, and geometry; unknown
+frames are never guessed. Try the deterministic chain (original → ROI → Zoom →
+detection on the crop → nested crop):
+
+```bash
+python scripts/studio_config_matrix.py run --scenario visual --workers 2 --mode concurrent \
+  --output-dir outputs/multi_agent --run-id visual_chain_demo
+python scripts/studio_ctl.py url --run visual_chain_demo --open
+```
+
+![Detections on a zoomed crop and mapped back to the original](docs/images/studio_visual/visual-03-detections-on-zoomed-crop.png)
 
 ![Investigation Studio tool result returning to its worker](docs/images/studio/04-tool-result-return-path.png)
 

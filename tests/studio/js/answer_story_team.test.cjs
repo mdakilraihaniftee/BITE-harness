@@ -40,7 +40,9 @@ test("C: evidence without change creates no revision", () => {
   const full = fold(run, run.events.length);
   assert.deepEqual(full.history.map((h) => h.changeKind), ["initial", "finalized"]);
   const steps = Story.buildStory(run.events);
-  assert.ok(steps.some((s) => s.kind === "assessment" && s.title === "Coordinator — Estimate unchanged"));
+  // An unchanged estimate is a routine (minor) step, never a revision.
+  assert.ok(steps.some((s) => s.kind === "assessment" && s.outcome === "retained" && s.level === "minor"));
+  assert.equal(steps.filter((s) => s.kind === "estimate").length, 1);
 });
 
 test("D: revision records old and new values with supporting evidence", () => {
@@ -97,13 +99,14 @@ test("legacy runs: estimates reported as not recorded, never invented from worke
 
 test("story never reveals later steps and links estimates through recorded references", () => {
   const steps = Story.buildStory(revision.events);
-  const estimate = steps.find((s) => s.title === "Coordinator — Answer revised");
+  const estimate = steps.find((s) => s.kind === "estimate" && s.outcome === "estimate_revised");
+  assert.match(estimate.title, /4 → 5/);
   const linked = Story.linkedSteps(estimate, steps);
   assert.ok([...linked].some((id) => steps.find((s) => s.id === id).kind === "tool"));
   assert.ok([...linked].every((id) => steps.find((s) => s.id === id).kind !== "estimate"));
   const prefix = Story.buildStory(revision.events.slice(0, indexOf(revision, "TOOL_CALL_COMPLETED") + 1));
   const tool = prefix.find((s) => s.kind === "tool");
-  assert.equal(tool.next, undefined, "next action must not appear before it happens");
+  assert.ok(!tool.next, "next action must not appear before it happens");
   assert.equal(prefix.filter((s) => s.kind === "estimate").length, 0);
   const failures = Story.buildStory(runs.w4.events).filter((s) => s.kind === "tool" && s.outcome !== "success");
   assert.ok(failures.some((s) => s.outcome === "execution_failure"), "tool failure is an execution failure");
@@ -123,4 +126,22 @@ test("compact team model: one card per agent with policy indicators for 1-4 work
     assert.ok(model.services[0].fixture);
   }
   assert.equal(Team.teamModel(runs.single_peer.topology, runs.single_peer.effective_config).workers[0].peer, "on_single");
+});
+
+test("real fixture runs: the story is much shorter than the raw log but keeps every decision", () => {
+  for (const [name, run] of Object.entries(runs)) {
+    const steps = Story.buildStory(run.events);
+    const main = Story.mainSteps(steps);
+    const count = (type) => run.events.filter((e) => e.event_type === type).length;
+    assert.ok(main.length * 3 < run.events.length, `${name}: ${main.length} steps for ${run.events.length} events`);
+    assert.equal(steps.filter((s) => s.kind === "tool").length, count("TOOL_CALL_REQUESTED"), `${name}: one card per tool call`);
+    const revisions = run.events.filter((e) => e.event_type === "HYPOTHESIS_UPDATED" && e.payload.revision_kind === "revised").length;
+    assert.equal(main.filter((s) => s.kind === "hypothesis" && s.outcome === "revised").length, revisions, `${name}: revisions`);
+    const changes = run.events.filter((e) => e.event_type === "COORDINATOR_ESTIMATE_UPDATED" && e.payload.change_kind !== "finalized").length;
+    assert.equal(main.filter((s) => s.kind === "estimate").length, changes, `${name}: estimate changes`);
+    const failed = run.events.filter((e) => e.event_type === "TOOL_CALL_FAILED").length;
+    assert.equal(main.filter((s) => s.kind === "tool" && s.status === "failed").length, failed, `${name}: failures`);
+    const covered = new Set(steps.flatMap((s) => s.source_event_ids));
+    assert.equal(covered.size + steps.technicalEventIds.length, run.events.length, `${name}: every event attached or technical`);
+  }
 });

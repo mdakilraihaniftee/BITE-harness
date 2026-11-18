@@ -115,3 +115,106 @@ def map_box_to_source(
     if x2 <= x1 or y2 <= y1:
         return MappedBox(None, "Box is empty after mapping and clipping")
     return MappedBox((x1, y1, x2, y2))
+
+
+# ---------------------------------------------------------------------------
+# Unified transforms for visual lineage (original image -> crop -> crop ...).
+#
+# Every derived image frame is related to its parent frame by an axis-aligned
+# affine map from child pixels to parent pixels: parent = offset + child * scale.
+# Crops, resizes, letterbox padding and normalized coordinate frames are all of
+# this form, so nested operations compose exactly. The frontend implements the
+# same rules (static/geometry.js); tests/studio/geometry_vectors.json holds the
+# shared reference cases.
+
+
+@dataclass(frozen=True)
+class Affine:
+    """Child-frame pixels -> parent-frame pixels."""
+
+    scale_x: float = 1.0
+    scale_y: float = 1.0
+    offset_x: float = 0.0
+    offset_y: float = 0.0
+
+    def apply_point(self, x: float, y: float) -> tuple[float, float]:
+        return self.offset_x + x * self.scale_x, self.offset_y + y * self.scale_y
+
+    def apply_box(self, box: Sequence[float]) -> tuple[float, float, float, float]:
+        x1, y1 = self.apply_point(float(box[0]), float(box[1]))
+        x2, y2 = self.apply_point(float(box[2]), float(box[3]))
+        return min(x1, x2), min(y1, y2), max(x1, x2), max(y1, y2)
+
+    def then(self, parent: Affine) -> Affine:
+        """Compose: map with self (child -> this frame), then parent (-> its parent)."""
+        return Affine(
+            self.scale_x * parent.scale_x,
+            self.scale_y * parent.scale_y,
+            parent.offset_x + self.offset_x * parent.scale_x,
+            parent.offset_y + self.offset_y * parent.scale_y,
+        )
+
+    def inverse(self) -> Affine:
+        if self.scale_x == 0 or self.scale_y == 0:
+            raise ValueError("Singular transform")
+        return Affine(
+            1 / self.scale_x,
+            1 / self.scale_y,
+            -self.offset_x / self.scale_x,
+            -self.offset_y / self.scale_y,
+        )
+
+
+def crop_transform(crop_box: Sequence[float], output_size: Sequence[float]) -> Affine:
+    """A crop of parent pixels ``crop_box`` stored at ``output_size`` (w, h) pixels."""
+    left, top, right, bottom = (float(value) for value in crop_box[:4])
+    width, height = float(output_size[0]), float(output_size[1])
+    if right <= left or bottom <= top or width <= 0 or height <= 0:
+        raise ValueError("Crop box and output size must be positive")
+    return Affine((right - left) / width, (bottom - top) / height, left, top)
+
+
+def resize_transform(child_size: Sequence[float], parent_size: Sequence[float]) -> Affine:
+    """A whole-image resize from parent (w, h) to child (w, h)."""
+    if min(map(float, (*child_size[:2], *parent_size[:2]))) <= 0:
+        raise ValueError("Sizes must be positive")
+    return Affine(
+        float(parent_size[0]) / float(child_size[0]),
+        float(parent_size[1]) / float(child_size[1]),
+    )
+
+
+def letterbox_transform(
+    content_size: Sequence[float],
+    padding: Sequence[float],
+    parent_size: Sequence[float],
+) -> Affine:
+    """Model-input pixels with (left, top) padding around resized content -> parent pixels."""
+    left, top = float(padding[0]), float(padding[1])
+    scale = resize_transform(content_size, parent_size)
+    return Affine(scale.scale_x, scale.scale_y, -left * scale.scale_x, -top * scale.scale_y)
+
+
+def normalized_transform(scale: float, frame_size: Sequence[float]) -> Affine:
+    """Normalized coordinates (0..scale) -> pixels of a (w, h) frame."""
+    if scale <= 0 or min(float(frame_size[0]), float(frame_size[1])) <= 0:
+        raise ValueError("Scale and frame size must be positive")
+    return Affine(float(frame_size[0]) / scale, float(frame_size[1]) / scale)
+
+
+def compose(chain: Sequence[Affine]) -> Affine:
+    """Compose child->parent transforms ordered from the innermost frame outward."""
+    result = Affine()
+    for step in chain:
+        result = result.then(step)
+    return result
+
+
+def clip_box(
+    box: Sequence[float], width: float, height: float
+) -> tuple[float, float, float, float] | None:
+    x1 = max(0.0, min(float(width), float(box[0])))
+    y1 = max(0.0, min(float(height), float(box[1])))
+    x2 = max(0.0, min(float(width), float(box[2])))
+    y2 = max(0.0, min(float(height), float(box[3])))
+    return (x1, y1, x2, y2) if x2 > x1 and y2 > y1 else None

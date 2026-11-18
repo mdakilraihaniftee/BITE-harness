@@ -44,7 +44,7 @@ tools.
 The page is organized top-down as: task and effective configuration → a sticky
 **answer strip** → the collapsible **Run configuration** panel → the **architecture
 panel** (Compact team by default; Full architecture and Live activity unchanged) →
-**Investigation story / Event log** beside **Visual evidence** and **Step details** →
+**Investigation Story / Technical Trace** beside **Visual evidence** and **Step details** →
 component inspector, memory inspector, and **Estimate history**.
 
 ### Three separate answer fields
@@ -145,9 +145,49 @@ Selecting an estimate in the story or history highlights the cited steps (“cit
 selected assessment”) and shows the cited tool's crop and original-image ROI,
 using only recorded references.
 
+### Simple view (default layout)
+
+The page reads top to bottom as one story; everything technical is one click away
+but closed by default.
+
+1. **Answer strip** — the task, the ground truth (sealed until the run completes),
+   the coordinator's current estimate, and the final answer.
+2. **Who is working on it** — one card per agent. The coordinator sits on top,
+   workers below. Each card shows the agent's job, its state (`Using Zoom In`,
+   `Thinking`, `Done`, …), its latest step, its answer, and a chip for every tool it
+   used with the call count (`● Zoom In ×2`). Arrows carry recorded traffic only:
+   `↓n` assignments and `↑n` reports between the coordinator and each worker, and
+   `⇄` peer messages (one arc for one pair, one shared line when several workers
+   talk). A dashed strip lists what all agents share (model service, tool services,
+   message bus, tool budget). Click a card to show only that agent's steps (click
+   again to clear); click a tool chip to open that worker's latest step with that
+   tool. The step being shown is highlighted on the cards and chips.
+3. **What happened / Selected step** — the numbered Investigation Story on the
+   left (unselected steps are kept to two lines), and on the right one card that
+   explains the selected step as **Why → Request → Result → Interpretation →
+   Next**, in plain words (“Zoom into a selected region of the zoomed crop made in
+   step 06”). “Not recorded” is shown when the agent recorded no reason or
+   interpretation; nothing is inferred. While a run is live the card follows the
+   latest step; selecting a step pins it, and **Follow latest** releases it. The
+   tool-action workspace (actual input, output, original context) sits below.
+4. **What each agent concluded** — one card per worker (its answer, whether it
+   changed after checking, any stated limitation) next to the coordinator's
+   estimate history and final answer.
+5. **Technical details** (collapsed) — run configuration, the compact and full
+   architecture graphs, the raw step audit, the component inspector, and private
+   memory. Nothing was removed; the Technical Trace still lists every raw event.
+
+`static/simple-team.js` builds the team picture from the visible event prefix only
+(`traffic()` counts `MESSAGE_SENT` by direction and falls back to recorded answers
+when there is no message bus; `activeFlow()` reads the event's activity annotation),
+so replay and live runs draw the same picture at the same position. Browser checks:
+`node scripts/studio_browser_matrix.mjs … --simple <run>,<run>,…`
+(screenshots in `docs/images/studio_simple/`).
+
 ### Compact team view
 
-Each agent is **one harness card**: role and assigned subtask, live status, a model
+The compact team view is now inside **Technical details** (the Simple view's team
+picture above replaces it on the main page). Each agent is **one harness card**: role and assigned subtask, live status, a model
 badge, a memory indicator, a peer-communication indicator, tool chips with per-tool
 call counts, the latest activity, the worker's candidate (a worker claim, not the
 coordinator's estimate), and tool-call count; actor budgets are in the card tooltip
@@ -214,22 +254,205 @@ and estimate toggles that generate a copyable command for the approved runner (t
 dataset runner or the deterministic demo). The browser never starts inference; there
 is no launch endpoint.
 
-### Investigation story
+### Investigation Story and Technical Trace
 
-The default left panel is a concise story built from recorded fields: plan and
-assignments, one step per tool invocation (recorded intent or “no explicit public
-rationale was recorded”, the request, a factual summary of the result such as “4
-regions, 1 low-confidence region” or “a crop of 50×50 px, 1 additional candidate”, and
-the next recorded action once it has happened), candidate reports and revisions,
-peer sharing, verification, follow-up delegation, notebook writes/reads (minor steps),
-coordinator assessments, estimate revisions, and the final answer. Outcome tags
-distinguish *Execution failure* (a tool failed), *Budget stop* (a reservation was
-denied), *Hypothesis revised* (a worker dropped its earlier candidate), *Contradiction*
-or *Inconclusive* (only when recorded), *Estimate revised*, and *Withdrawn*. **Step
-details** shows what happened, recorded intent, the tool request as key/value lines,
-what it returned, the original-image region, assessment and uncertainty, memory
-update, what happened next, and which coordinator assessment cites the step; raw JSON
-is under *Technical record (advanced)*. The raw event log remains one tab away.
+The left panel has two views of the same events:
+
+* **Investigation Story** (default) — a short, numbered sequence of meaningful steps:
+  task → assignment → tool investigation → evidence returned → worker report →
+  communication or further investigation → coordinator assessment or estimate →
+  final answer. Four audited real FSC-147 runs contain 95–301 raw events and
+  16–33 main steps (185 → 19 for `example_fsc147_row25`). Independent messages
+  without explicit report links remain separate even when their text matches.
+* **Technical Trace** — every raw event, with event ID, type, timestamp, agent,
+  status, tool and tool-call ID, parent and causal references, artifact count, which
+  story step (if any) the event belongs to, and the complete public event on demand
+  (including full arrays and timestamps; hidden-reasoning fields remain excluded). The category
+  filter *Technical only (not in the story)* lists the events the story omits.
+
+Nothing is removed from the backend: every event is still persisted, streamed,
+replayed, and shown in the trace. The story is a presentation layer.
+
+**What counts as a step.** Shown as numbered steps: the task, coordinator assignments,
+each tool invocation, worker answers and answer revisions, worker-to-worker messages,
+coordinator verification requests and follow-up delegation, peer reviews, coordinator
+assessments that explain a missing estimate, every estimate change, the final answer,
+and every failure that affects the investigation (failed tools, budget stops, model
+failures, rejected messages, undelivered verification requests, run failures).
+*Routine steps* (hidden unless **Show routine steps** is ticked): an unchanged
+coordinator reassessment, or a worker report that lacks a recorded link to its answer.
+Round headers (`Round 2 · peer review`) separate phases and are not counted. Never a
+step on their own: model request/response pairs, budget grants, working-memory
+reads and writes, message deliveries, run-state transitions, and agent-answer
+bookkeeping. Any event whose status is `failed` becomes a step even if its type is
+technical, so failures cannot be hidden.
+
+**How events are grouped.** `openvlharness/studio/static/story.js` is one
+deterministic function of the visible event prefix, used for live streaming, replay,
+and tests. Each event is attached to exactly one step through a recorded link, or
+left as technical:
+
+| Link | Grouped into one step |
+| --- | --- |
+| Tool correlation qualified by agent (invocation ID, same-owner parent/causal references, activity correlation, legacy tool-call ID) | decision summary, request, start, result or failure, evidence, working-memory write; a reused legacy call ID opens a fresh step on the next turn |
+| Assignment ID in the plan / follow-up payload and message content | plan or follow-up, its `TASK_ASSIGNMENT` messages, deliveries, and `WORKER_STARTED` |
+| Same-owner `report_event_id` in message metadata | worker answer, report to the coordinator, peer broadcast, deliveries; legacy messages without that link stay separate |
+| Message ID; `correlation_id` whose sender/recipient reverse the original | message and its delivery; a reply (otherwise not treated as a reply) |
+| Agent + phase (`peer_review`, `follow_up`) | review or follow-up, notebook reads/writes, an answer kept unchanged, the finish event |
+| Coordinator answer state | synthesis, finalization, final answer, and run completion form one final step |
+
+Timestamps and adjacency are never used, so concurrent workers calling the same tool
+stay separate and one worker's result is never attached to another worker's step.
+Step IDs are `step-<first event ID>` and steps are only appended, so numbering and
+IDs stay stable while a run streams and at every replay position. A tool step
+appears as soon as it is requested (*Worker 2 is using Zoom In*, running) and is
+updated in place when the result arrives; nothing after the replay position is used.
+
+**What a step says.** Titles are sentences (“Worker 1 used Visual Grounding”,
+“Worker 1 revised its answer from 50 to 46”, “Coordinator revised its estimate: 12 →
+13”); raw event-type names appear only in the trace. The summary is factual (“returned
+46 regions”, “returned a cropped image (tool_generated_image_1)”). **Details**
+lists *Why* (the recorded action intent, or “Action rationale was not recorded.”),
+the tool, its input, the result, the *Agent's assessment* (only post-observation
+findings the runtime recorded; otherwise “No interpretation of this result was
+recorded.”), memory use, the next recorded action, related steps, and **View
+underlying events (N)**, which opens the Technical Trace filtered to that step.
+Worker answers are labelled as worker claims, not the coordinator's estimate.
+Unchanged estimates are routine steps; the ground truth stays in its fixed panel and
+never enters the story.
+
+**Graph synchronization.** The compact team view, the architecture graph, the
+activity caption, and flow pulses follow the latest *story* step: a tool step shows
+`harness → tool` while running and `tool → harness` once the result returns. Model
+calls in flight, budget accounting, and working-memory writes are not animated unless
+**View → Technical activity** is enabled. Selecting a story step highlights its exact
+graph path and shows its original-image ROI and crop; clicking a tool chip or agent
+opens that agent's latest step for it.
+
+**Compare a run's story with its trace.**
+
+```bash
+source scripts/env.sh
+python scripts/studio_ctl.py ensure --run example_fsc147_row25 --open
+# In the page: Investigation Story (default) → expand a step → “View underlying events”;
+# or switch to Technical Trace and choose “Technical only (not in the story)”.
+```
+
+Older runs open with the same story, grouped as far as their recorded fields allow
+(see Limitations).
+
+**Run one or two inferences with visualization.** Start the model and tool services
+and prepare FSC-147 as described in the README, then run:
+
+```bash
+bash scripts/run_studio_inferences.sh 0
+bash scripts/run_studio_inferences.sh 0 10
+# Check the exact commands without starting services or inference:
+bash scripts/run_studio_inferences.sh --dry-run 0 10
+```
+
+Rows are zero-based dataset positions. The script validates the entire argument
+list before launching a task, caps the batch at two tasks, and runs them in
+sequence through the existing authenticated live launcher. Each task gets a
+unique run ID and browser link, reusing a compatible Studio for
+`outputs/multi_agent`. It stops on a failed task. `STUDIO_DATASET` defaults to
+`FSC147_val`; all environment options in the configuration table still apply.
+`STUDIO_OPEN_BROWSER=0` prints links for a remote/headless session. Reference labels
+remain sealed during inference.
+
+The [engineering report](STUDIO_STORY_REPORT.md) includes actual counts, original
+timeline excerpts, validation results, limitations, and screenshots from persisted
+records. An uncorrelated budget denial can remain a separate failure step alongside
+the failed tool call; it is not merged by time or agent proximity.
+
+### Visual tool actions
+
+Selecting a tool step (or watching one live) turns the evidence panel into a
+**tool-action workspace** that shows what the tool actually processed and produced:
+
+* **Actual input** — the image the call consumed (the original, or a crop produced by an
+  earlier step, named as such: “Zoom crop · tool_generated_image_2 · 202×170 — produced
+  by step 05”). For Zoom, the agent's selected region (dashed) and the executed crop
+  boundary with padding (solid) are drawn on it.
+* **Actual output** — Zoom: the returned crop. Detection/grounding: the boxes drawn on
+  the image the detector processed (or, via *Output view*, the tool's own rendered
+  image). Depth: the returned visualization. Tools without image output show their
+  structured result.
+* **Original context** — when the input is a derived image, the original with the
+  derived image's footprint (dotted), this call's crop, and its detections mapped back
+  through every verified transform.
+* Facts that keep **input, operation, output, and the agent's interpretation** distinct;
+  the interpretation is shown only if recorded.
+
+Controls: boxes, labels (numbers; on by default up to 30 boxes), and model scores
+(not calibrated probabilities); click a box to select it in both the processed image
+and the original; *Open full resolution*; double-click to zoom and drag to pan;
+*← Producing step* and *Used by step →* navigate the image lineage. Story cards show
+small `[input + ROI] → [output]` thumbnails, and expanded details name the input and
+output images. A call appears as soon as it is requested (input and selected region,
+“Running — the tool has not returned yet”) and the same step fills in when the result
+arrives; at any replay position only results recorded up to that position are shown.
+
+**Visual lineage** (`static/visual-lineage.js`, a pure function of the visible events)
+links images only through recorded data:
+
+| Link | Recorded by |
+| --- | --- |
+| Image a call consumed | The capability's image-resolution record (`meta.image_resolution.rewrites[].image_ref`); for live display, `visual_inputs` on `TOOL_CALL_REQUESTED` |
+| Image a call produced | Registry entries the call created (`visual.outputs`), or the result's image handle; pixels from the artifact extracted in the same event |
+| Which memory a registry ID belongs to | `image_scope` (one per agent question); for older runs, the recorded phase-start / initial-inventory events. A registry ID that is produced again never inherits the earlier image. |
+| Original images | The run's input-image aliases (`input_image_N`) |
+| Crop geometry | `visual.transform` from the Zoom capability (pixel box recomputed with the tool's own `coerce_xyxy`), or, for older runs, the same rule replayed from the recorded arguments — accepted only when it reproduces the returned crop's pixel size exactly |
+| Detection frame | The processed image's size reported by the tool (`canonical_result.size`) |
+
+**Coordinates.** Every derived frame relates to its parent by an axis-aligned map from
+child pixels to parent pixels (`parent = offset + child × scale`); crops, resizes,
+letterbox padding, and normalized (0–1 / 0–1000) frames all have this form, so nested
+crops compose exactly (`openvlharness/studio/geometry.py` and `static/geometry.js`,
+checked against shared vectors in `tests/studio/geometry_vectors.json`). Example: a
+1000×800 image, ROI `[200,100,600,500]` cropped to 400×400 and resized to 800×800; the
+crop-local box `[100,200,300,400]` maps to `[250,200,350,300]` in the original. Nothing
+is drawn with a guessed frame: unknown sizes, unverified crops, or missing metadata
+show “Box alignment unavailable: missing transform metadata.” (or the specific reason)
+and keep the raw coordinates in the facts. Failed calls show the input and the error,
+empty detections say “No detections returned.”, and missing pixels say “Visual
+artifact unavailable.”
+
+**What runtime records.** With a Studio event sink attached, `MainAgent` adds to tool
+events: `image_scope`; `visual_inputs` (request); and `visual` (result) with the
+consumed and produced registry images, their pixel sizes, the produced pixels (moved
+by the event log into the content-addressed artifact store, never kept inline), and
+an optional capability geometry record (`visual_transform` on Zoom, grounding, depth).
+None of this enters model requests or changes tool arguments or results; a test
+compares the exact model requests with and without the sink.
+
+**Supported outputs.** Zoom crops; grounding/detection boxes (SAM3 and Grounding DINO
+canonical boxes) on the processed image, including crops of crops; the SAM3 rendered
+image; depth visualizations. Not visualized as overlays: SAM3 masks (persisted only as
+RLE, which the event log summarizes — the tool's rendered image shows them), OCR text
+geometry (the tool returns text only, so text is shown beside its input), and tools
+with no image output (structured results).
+
+**Extend for a new tool.** Give its capability a static `visual_transform(arguments,
+inputs, outputs, result)` that returns a record such as `{"type": "crop", "crop_box":
+[...], "output_size": [w, h], "verified": ...}`, `{"type": "detection", ...}`, or
+`{"type": "derived_map", "same_frame": true}`; boxes in `canonical_result.boxes` with
+`canonical_result.size` are drawn automatically. Add the transform kind to
+`visual-lineage.js` only if it is a new geometric relation.
+
+**Try it.**
+
+```bash
+source scripts/env.sh
+# Deterministic fixture (real Zoom/grounding capabilities, local transports, no models):
+python scripts/studio_config_matrix.py run --scenario visual --workers 2 --mode concurrent \
+  --output-dir outputs/multi_agent --run-id visual_chain_demo
+python scripts/studio_ctl.py url --run visual_chain_demo --open
+# Live, paced so each Zoom/detection can be watched while it runs:
+python scripts/run_with_live_studio.py --run-id visual_live_demo --runs-dir outputs/multi_agent -- \
+  python scripts/studio_config_matrix.py run --scenario visual --workers 1 --mode cooperative \
+  --output-dir outputs/multi_agent --run-id visual_live_demo --step-delay 0.5 --tool-delay 2
+```
 
 ### New event types
 
@@ -252,6 +475,13 @@ peer review instead of being discarded (previously, in cooperative mode, a worke
 only reviewed claims from workers that ran after it).
 
 ### Older runs
+
+Story grouping for runs recorded before `report_event_id`, phase, and invocation fields
+existed is less compact: answers kept after review, reports delivered to the
+coordinator, and some peer broadcasts can appear as separate entries because no
+recorded field links them (e.g. 95 raw events → 16 steps for
+`real_fsc147_row0_studio`). Such entries are never merged by time.
+
 
 Runs recorded before `studio.ui.v3` still open. They have no effective
 configuration, answer-state events, rounds, or notebook policy, so the UI shows

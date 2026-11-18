@@ -411,6 +411,10 @@ class WorkerAgent:
                         },
                         ensure_ascii=False,
                     ),
+                    metadata={
+                        "report_event_id": (self.last_report or {}).get("report_event_id"),
+                        "phase": "initial",
+                    },
                 )
         worker_result.messages_sent = self.messages_sent
         self.status = status
@@ -715,31 +719,31 @@ class CoordinatorAgent:
     def request_verification(self, worker_ids: list[str]) -> None:
         """Ask workers to independently review public peer claims."""
         for index, worker_id in enumerate(worker_ids):
-            status = self.bus.send(
-                Message.create(
-                    run_id=self.run_id,
-                    task_id=self.task_id,
-                    sender_id="coordinator",
-                    recipient_id=worker_id,
-                    message_type=MessageType.VERIFICATION_REQUEST.value,
-                    content=(
-                        "Review the peer hypothesis in your inbox as an untrusted claim. "
-                        "Independently verify or contradict it within your remaining budget."
-                    ),
-                    sequence=index,
-                )
+            message = Message.create(
+                run_id=self.run_id,
+                task_id=self.task_id,
+                sender_id="coordinator",
+                recipient_id=worker_id,
+                message_type=MessageType.VERIFICATION_REQUEST.value,
+                content=(
+                    "Review the peer hypothesis in your inbox as an untrusted claim. "
+                    "Independently verify or contradict it within your remaining budget."
+                ),
+                sequence=index,
             )
+            status = self.bus.send(message)
             if status != "delivered":
                 self.events.emit(
                     "coordinator",
                     "VERIFICATION_REQUEST_REJECTED",
-                    {"worker_id": worker_id, "delivery_status": status},
+                    {"worker_id": worker_id, "delivery_status": status, "message_id": message.message_id},
+                    status="failed",
                 )
             else:
                 self.events.emit(
                     "coordinator",
                     "VERIFICATION_REQUESTED",
-                    {"worker_id": worker_id},
+                    {"worker_id": worker_id, "message_id": message.message_id},
                     summary=f"Coordinator requested independent verification from {worker_id}.",
                 )
 
@@ -849,18 +853,17 @@ class CoordinatorAgent:
         return assessment
 
     def send_follow_up(self, assignment: Assignment, index: int) -> str:
-        status = self.bus.send(
-            Message.create(
-                run_id=self.run_id,
-                task_id=self.task_id,
-                sender_id="coordinator",
-                recipient_id=assignment.worker_id,
-                message_type=MessageType.TASK_ASSIGNMENT.value,
-                content=json.dumps(assignment.to_dict(), ensure_ascii=False),
-                sequence=index,
-                metadata={"follow_up": True},
-            )
+        message = Message.create(
+            run_id=self.run_id,
+            task_id=self.task_id,
+            sender_id="coordinator",
+            recipient_id=assignment.worker_id,
+            message_type=MessageType.TASK_ASSIGNMENT.value,
+            content=json.dumps(assignment.to_dict(), ensure_ascii=False),
+            sequence=index,
+            metadata={"follow_up": True},
         )
+        status = self.bus.send(message)
         self.events.emit(
             "coordinator",
             "FOLLOW_UP_ASSIGNED",
@@ -868,6 +871,7 @@ class CoordinatorAgent:
                 "assignment": assignment.to_dict(),
                 "worker_id": assignment.worker_id,
                 "delivery_status": status,
+                "message_id": message.message_id,
             },
             summary=f"Coordinator delegated follow-up work to {assignment.worker_id}: {assignment.scope}",
             status="completed" if status == "delivered" else "failed",

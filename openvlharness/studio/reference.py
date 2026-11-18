@@ -103,6 +103,14 @@ class ReferenceResolver:
             if name not in self._datasets:
                 loader = self._loader
                 if loader is None:
+                    # Like the dataset runners, read the repository .env so a
+                    # Studio started without LMUData can still locate datasets.
+                    try:
+                        from dotenv import load_dotenv
+
+                        load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
+                    except ImportError:
+                        pass
                     from evaluation_kit.dataset import build_dataset as loader
                 self._datasets[name] = loader(name)
             return self._datasets[name]

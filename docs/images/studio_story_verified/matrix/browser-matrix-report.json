@@ -1,0 +1,445 @@
+{
+  "checks": [
+    {
+      "name": "fixture_w1_memoff_peeroff: 1 worker cards + 1 coordinator",
+      "ok": true,
+      "detail": "{\"cards\":2}"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: one card per agent (no duplicate harness/agent blocks)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: memory indicators",
+      "ok": true,
+      "detail": "Memory off"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: peer indicators",
+      "ok": true,
+      "detail": "Peer off"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: tool chips inside every worker card",
+      "ok": true,
+      "detail": "3"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: compact cards (worker height ≤ 300 px)",
+      "ok": true,
+      "detail": "226 px"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: no overlapping cards, no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"overlaps\":[],\"overflow\":0}"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: all workers in one row at 1600 px",
+      "ok": true,
+      "detail": "rows 1"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: team view fits a desktop screen",
+      "ok": true,
+      "detail": "535 px"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: ground truth released to evaluator after completion",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 3 · updated at step #98\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 2 (follow up, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: separate final answer and evaluation label",
+      "ok": true,
+      "detail": "Evaluation: Correct"
+    },
+    {
+      "name": "fixture_w1_memoff_peeroff: effective configuration chips",
+      "ok": true,
+      "detail": "Workers1 | Memory○ Off | Peer comm.○ Off | Coord. reporting● On | Estimates● On"
+    },
+    {
+      "name": "screenshot 01-w1-memory-off-peer-off is a nonblank PNG",
+      "ok": true,
+      "detail": "155989 bytes"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: 2 worker cards + 1 coordinator",
+      "ok": true,
+      "detail": "{\"cards\":3}"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: one card per agent (no duplicate harness/agent blocks)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "fixture_w2_memon_peeron: memory indicators",
+      "ok": true,
+      "detail": "Memory on,Memory on"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: peer indicators",
+      "ok": true,
+      "detail": "Peer on,Peer on"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: tool chips inside every worker card",
+      "ok": true,
+      "detail": "3,3"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: compact cards (worker height ≤ 300 px)",
+      "ok": true,
+      "detail": "195 px"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: no overlapping cards, no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"overlaps\":[],\"overflow\":0}"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: all workers in one row at 1600 px",
+      "ok": true,
+      "detail": "rows 1"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: team view fits a desktop screen",
+      "ok": true,
+      "detail": "504 px"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: ground truth released to evaluator after completion",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 2 · updated at step #175\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 3 (peer review, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: separate final answer and evaluation label",
+      "ok": true,
+      "detail": "Evaluation: Correct"
+    },
+    {
+      "name": "fixture_w2_memon_peeron: effective configuration chips",
+      "ok": true,
+      "detail": "Workers2 | Memory● On | Peer comm.● On | Coord. reporting● On | Estimates● On"
+    },
+    {
+      "name": "screenshot 02-w2-memory-on-peer-on is a nonblank PNG",
+      "ok": true,
+      "detail": "173680 bytes"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: 3 worker cards + 1 coordinator",
+      "ok": true,
+      "detail": "{\"cards\":4}"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: one card per agent (no duplicate harness/agent blocks)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: memory indicators",
+      "ok": true,
+      "detail": "Memory on,Memory on,Memory on"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: peer indicators",
+      "ok": true,
+      "detail": "Peer off,Peer off,Peer off"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: tool chips inside every worker card",
+      "ok": true,
+      "detail": "3,3,3"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: compact cards (worker height ≤ 300 px)",
+      "ok": true,
+      "detail": "195 px"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: no overlapping cards, no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"overlaps\":[],\"overflow\":0}"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: all workers in one row at 1600 px",
+      "ok": true,
+      "detail": "rows 1"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: team view fits a desktop screen",
+      "ok": true,
+      "detail": "510 px"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: ground truth released to evaluator after completion",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 2 · updated at step #162\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 2 (follow up, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: separate final answer and evaluation label",
+      "ok": true,
+      "detail": "Evaluation: Correct"
+    },
+    {
+      "name": "fixture_w3_memon_peeroff: effective configuration chips",
+      "ok": true,
+      "detail": "Workers3 | Memory● On | Peer comm.○ Off | Coord. reporting● On | Estimates● On"
+    },
+    {
+      "name": "screenshot 03-w3-memory-on-peer-off is a nonblank PNG",
+      "ok": true,
+      "detail": "193290 bytes"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: 4 worker cards + 1 coordinator",
+      "ok": true,
+      "detail": "{\"cards\":5}"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: one card per agent (no duplicate harness/agent blocks)",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: memory indicators",
+      "ok": true,
+      "detail": "Memory off,Memory off,Memory off,Memory off"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: peer indicators",
+      "ok": true,
+      "detail": "Peer on,Peer on,Peer on,Peer on"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: tool chips inside every worker card",
+      "ok": true,
+      "detail": "3,3,3,3"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: compact cards (worker height ≤ 300 px)",
+      "ok": true,
+      "detail": "226 px"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: no overlapping cards, no horizontal page scroll",
+      "ok": true,
+      "detail": "{\"overlaps\":[],\"overflow\":0}"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: all workers in one row at 1600 px",
+      "ok": true,
+      "detail": "rows 1"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: team view fits a desktop screen",
+      "ok": true,
+      "detail": "541 px"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: ground truth released to evaluator after completion",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 2 · updated at step #376\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 3 (peer review, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: separate final answer and evaluation label",
+      "ok": true,
+      "detail": "Evaluation: Correct"
+    },
+    {
+      "name": "fixture_w4_memoff_peeron: effective configuration chips",
+      "ok": true,
+      "detail": "Workers4 | Memory○ Off | Peer comm.● On | Coord. reporting● On | Estimates● On"
+    },
+    {
+      "name": "screenshot 04-w4-memory-off-peer-on is a nonblank PNG",
+      "ok": true,
+      "detail": "167914 bytes"
+    },
+    {
+      "name": "screenshot 11-compact-architecture-light is a nonblank PNG",
+      "ok": true,
+      "detail": "105009 bytes"
+    },
+    {
+      "name": "dark theme applied",
+      "ok": true,
+      "detail": "rgb(14, 19, 26)"
+    },
+    {
+      "name": "dark theme card text uses theme tokens",
+      "ok": true,
+      "detail": "rgb(240, 180, 90) on rgb(20, 26, 34)"
+    },
+    {
+      "name": "screenshot 12-compact-architecture-dark is a nonblank PNG",
+      "ok": true,
+      "detail": "106200 bytes"
+    },
+    {
+      "name": "expanded harness shows model, memory, peer, tools, and budget",
+      "ok": true,
+      "detail": "8 rows"
+    },
+    {
+      "name": "screenshot 13-expanded-harness-detail is a nonblank PNG",
+      "ok": true,
+      "detail": "129537 bytes"
+    },
+    {
+      "name": "full architecture view still renders the technical graph",
+      "ok": true,
+      "detail": "25 SVG nodes"
+    },
+    {
+      "name": "replay before first estimate shows no estimate and no final answer",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"No estimate yet\",\"estStatus\":\"none\",\"estNote\":\"The coordinator has not formed an estimate\",\"final\":\"—\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":true,\"round\":\"Investigation: Round 1 (initial, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "screenshot 07-before-first-estimate is a nonblank PNG",
+      "ok": true,
+      "detail": "171384 bytes"
+    },
+    {
+      "name": "replay at first estimate shows provisional 4 and no final",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"4\",\"estStatus\":\"provisional\",\"estNote\":\"Provisional · revision 1 · updated at step #45\",\"final\":\"—\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":true,\"round\":\"Investigation: Round 1 (initial, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "screenshot 08-first-provisional-estimate is a nonblank PNG",
+      "ok": true,
+      "detail": "164264 bytes"
+    },
+    {
+      "name": "replay at revision shows revised 5 (never the later final early)",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"revised\",\"estNote\":\"Revised · revision 2 · updated at step #90\",\"final\":\"—\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":true,\"round\":\"Investigation: Round 2 (follow up, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "screenshot 09-revised-estimate is a nonblank PNG",
+      "ok": true,
+      "detail": "165783 bytes"
+    },
+    {
+      "name": "replay one step before final answer keeps the final field empty",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 3 · updated at step #98\",\"final\":\"—\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":true,\"round\":\"Investigation: Round 2 (follow up, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "final answer appears with its own event",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 3 · updated at step #98\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 2 (follow up, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "estimate history lists provisional, revision, and confirming final",
+      "ok": true,
+      "detail": "First provisional estimate: 4 | Revised 4 → 5 | Final answer 5 (confirms the provisional estimate)"
+    },
+    {
+      "name": "screenshot 10-final-answer is a nonblank PNG",
+      "ok": true,
+      "detail": "173186 bytes"
+    },
+    {
+      "name": "estimate revision links recorded evidence steps",
+      "ok": true,
+      "detail": "4 linked steps"
+    },
+    {
+      "name": "estimate revision shows the cited tool's ROI and crop",
+      "ok": true,
+      "detail": "{\"linked\":4,\"roi\":1,\"crop\":true,\"shown\":\"Agentworker_01 | ToolZoom_In_Tool | Statuscompleted | Shown forCoordinator revised its estimate from 4 to 5. (#90), via recorded report references | FlowZoom_In_Tool → Worker 1: result | Regions1 | Latency0.00 s | Correlationinv:inv_e03d113ba0a543caa21e0225436ebc8d | Parent eventevt_69057385259a4e808431b266a58ad430\"}"
+    },
+    {
+      "name": "screenshot 14-roi-synchronized-with-estimate-revision is a nonblank PNG",
+      "ok": true,
+      "detail": "252576 bytes"
+    },
+    {
+      "name": "viewer without evaluator scope sees 'Reference access not permitted'",
+      "ok": true,
+      "detail": "{\"gt\":\"Withheld\",\"gtState\":\"ACCESS_DENIED\",\"gtNote\":\"Reference access not permitted\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 2 · updated at step #175\",\"final\":\"5\",\"evaluation\":\"\",\"evalHidden\":true,\"round\":\"Investigation: Round 3 (peer review, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "viewer-only reference payload carries no value",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ground truth sealed during active inference",
+      "ok": true,
+      "detail": "{\"gt\":\"Sealed\",\"gtState\":\"SEALED\",\"gtNote\":\"Ground truth sealed until completion\",\"est\":\"No estimate yet\",\"estStatus\":\"none\",\"estNote\":\"The coordinator has not formed an estimate\",\"final\":\"—\",\"evaluation\":\"\",\"evalHidden\":true,\"round\":\"Investigation: Round 1 (initial)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "coordinator shows no estimate before its first assessment",
+      "ok": true,
+      "detail": "No estimate yet"
+    },
+    {
+      "name": "answer strip is sticky",
+      "ok": true,
+      "detail": "sticky"
+    },
+    {
+      "name": "screenshot 05-ground-truth-sealed-during-inference is a nonblank PNG",
+      "ok": true,
+      "detail": "182018 bytes"
+    },
+    {
+      "name": "live SSE shows completed investigation steps before the run finishes",
+      "ok": true,
+      "detail": "1 completed tool steps at 34 raw events"
+    },
+    {
+      "name": "live story step identities remain stable as SSE appends results",
+      "ok": true,
+      "detail": ""
+    },
+    {
+      "name": "ground truth released after completion (evaluator)",
+      "ok": true,
+      "detail": "{\"gt\":\"5\",\"gtState\":\"AVAILABLE\",\"gtNote\":\"Synthetic scene construction (test fixture label)\",\"est\":\"5\",\"estStatus\":\"final\",\"estNote\":\"Final · revision 2 · updated at step #175\",\"final\":\"5\",\"evaluation\":\"Evaluation: Correct\",\"evalHidden\":false,\"round\":\"Investigation: Round 3 (peer review, finished)\",\"sticky\":\"sticky\"}"
+    },
+    {
+      "name": "released reference shows provenance",
+      "ok": true,
+      "detail": "datasetdeterministic_fixturesplittestrowsynthetic_scene_v1reference sourceSynthetic scene construction (test fixture label)noteDeterministic test fixture; not a"
+    },
+    {
+      "name": "screenshot 06-ground-truth-released-after-completion is a nonblank PNG",
+      "ok": true,
+      "detail": "201644 bytes"
+    },
+    {
+      "name": "laptop 1280×800: four workers in ≤ 2 rows, no overlap, no page scroll",
+      "ok": true,
+      "detail": "{\"rows\":1,\"overflow\":0,\"minWidth\":299}"
+    },
+    {
+      "name": "laptop 1280×800: compact card height",
+      "ok": true,
+      "detail": "288 px"
+    },
+    {
+      "name": "screenshot 15-laptop-w4 is a nonblank PNG",
+      "ok": true,
+      "detail": "131712 bytes"
+    },
+    {
+      "name": "phone 390 px: no horizontal page scroll",
+      "ok": true,
+      "detail": "overflow 0"
+    },
+    {
+      "name": "no console errors or exceptions",
+      "ok": true,
+      "detail": ""
+    }
+  ],
+  "problems": []
+}

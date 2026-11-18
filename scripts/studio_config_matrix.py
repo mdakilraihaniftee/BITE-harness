@@ -88,6 +88,34 @@ def run_fixture(
     return orchestrator.run_dir, builder, result
 
 
+def run_visual(output_dir: Path, *, workers: int = 2, mode: str = "concurrent", run_id: str | None = None,
+               step_delay: float = 0.0, reference: bool = True, tool_delay: float = 0.0):
+    """Original -> ROI -> Zoom -> detection on the crop -> nested crop, with real capabilities."""
+    from openvlharness.multi_agent.visual_fixture import (
+        VISUAL_TASK, VisualAgentBuilder, create_visual_scene, write_visual_reference,
+    )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    image = create_visual_scene(output_dir / "visual_chain_scene.png")
+    builder = VisualAgentBuilder(image, delay=step_delay, tool_delay=tool_delay)
+    config = fixture_config(output_dir, workers=workers, memory=True, peer=False, mode=mode,
+                            estimate_updates=True, follow_up_rounds=0)
+    config["workers"]["overrides"] = {}
+    config["workers"]["default"]["tool_calls"] = 8
+    run_id = run_id or f"visual_chain_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}"
+    orchestrator = MultiAgentOrchestrator(config, factory=builder.factory(), run_id=run_id)
+    if reference:
+        (orchestrator.run_dir / "inputs").mkdir(parents=True, exist_ok=True)
+        (orchestrator.run_dir / "inputs" / "dataset_task.json").write_text(json.dumps({
+            "schema_version": "studio.dataset-task.v1", "dataset": "deterministic_fixture", "row_position": 0,
+            "dataset_index": "visual_chain_scene_v1", "question": VISUAL_TASK,
+            "ground_truth_policy": "sealed_not_passed_to_runtime_or_persisted_run"}, indent=2) + "\n", encoding="utf-8")
+    result = orchestrator.run(VISUAL_TASK, [{"type": "image", "value": str(image.resolve())}, {"type": "text", "value": VISUAL_TASK}])
+    if reference:
+        write_visual_reference(output_dir / ".references", run_id)
+    return orchestrator.run_dir, result
+
+
 def _events(run_dir: Path) -> list[dict[str, Any]]:
     return [json.loads(line) for line in (run_dir / "events.jsonl").read_text().splitlines() if line.strip()]
 
@@ -257,10 +285,12 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--peer", choices=("on", "off"), default="on")
     one.add_argument("--mode", choices=("concurrent", "cooperative"), default="cooperative")
     one.add_argument("--estimates", choices=("on", "off"), default="on")
-    one.add_argument("--scenario", choices=("standard", "withdrawal"), default="standard")
+    one.add_argument("--scenario", choices=("standard", "withdrawal", "visual"), default="standard",
+                     help="visual: real Zoom/grounding capabilities on a crop chain (original -> ROI -> zoom -> detection on crop).")
     one.add_argument("--output-dir", type=Path, default=Path("outputs/multi_agent"))
     one.add_argument("--run-id")
     one.add_argument("--step-delay", type=float, default=0.0, help="Seconds per scripted model request (live demos).")
+    one.add_argument("--tool-delay", type=float, default=0.0, help="Seconds per fixture tool call (visual scenario; live demos).")
     one.add_argument("--no-reference", action="store_true", help="Do not write an evaluator reference (NOT_AVAILABLE case).")
     full = sub.add_parser("matrix", help="All 16 worker/memory/peer configurations")
     full.add_argument("--output-dir", type=Path, default=Path("outputs/studio_matrix"))
@@ -268,6 +298,13 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.command == "matrix":
         return matrix(args.output_dir, args.report)
+    if args.scenario == "visual":
+        run_dir, result = run_visual(args.output_dir, workers=min(args.workers, 2), mode=args.mode,
+                                     run_id=args.run_id, step_delay=args.step_delay, reference=not args.no_reference,
+                                     tool_delay=args.tool_delay)
+        print(f"Deterministic visual-chain fixture run (test only): {run_dir}")
+        print(f"Status: {result['extra_records']['status']}  Final answer: {result['prediction']}")
+        return 0 if result["extra_records"]["status"] == "COMPLETED" else 1
     run_dir, builder, result = run_fixture(
         args.output_dir, workers=args.workers, memory=args.memory == "on", peer=args.peer == "on",
         mode=args.mode, estimates=args.estimates == "on", run_id=args.run_id, step_delay=args.step_delay,
