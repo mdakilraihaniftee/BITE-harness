@@ -1,4 +1,4 @@
-"""Phase 2 experiment drivers (called by ``scripts/parsec.py``; small versions run in tests).
+"""Experiment drivers (called by ``scripts/parsec.py``; small versions run in tests).
 
 Labels used in every result: SYNTHETIC (declared outcome/duration models, real
 scheduler and real wall clock), FIXTURE (real agent loop and capabilities with a
@@ -467,12 +467,12 @@ def run_variants(variants: list[tuple[str, str, dict[str, Any]]], workers: list[
 PLANNING_VARIANTS = [
     ("OFF (original)", "off", {}),
     ("E4 fixed speculation", "e4", {}),
-    ("E5 eager pool, always simulate (Phase 2)", "e5", {"planning": {"planning_pool": "eager", "planning_gate": "off"}}),
+    ("E5 eager pool, always simulate", "e5", {"planning": {"planning_pool": "eager", "planning_gate": "off"}}),
     ("E5 lazy pool, always simulate", "e5", {"planning": {"planning_pool": "lazy", "planning_gate": "off"}}),
     ("E5 shared warm pool, always simulate", "e5", {"planning": {"planning_pool": "shared", "planning_gate": "off"}}),
     ("E5 sequential MC (0 processes)", "e5", {"planning_processes": 0, "planning": {"planning_gate": "off"}}),
     ("E5 heuristic only", "e5", {"planning": {"planning_gate": "auto", "min_stakes_s": 1e9}}),
-    ("E5 overhead-aware gate, lazy pool (Phase 3 default)", "e5", {"planning": {"planning_gate": "auto", "planning_pool": "lazy"}}),
+    ("E5 overhead-aware gate, lazy pool (default)", "e5", {"planning": {"planning_gate": "auto", "planning_pool": "lazy"}}),
     ("E5 with legacy model (no plan proposed)", "e5", {"legacy": True}),
 ]
 

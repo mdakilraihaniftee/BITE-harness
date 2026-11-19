@@ -1,17 +1,17 @@
 #!/usr/bin/env python
-"""PARSEC-VL Phase 1 command line: profile recorded runs, probe tool services, benchmark E0-E2.
+"""PARSEC-VL command line: scheduling, planning, speculation, experiments, and visualization.
 
   python scripts/parsec.py profile                 # recorded real runs in outputs/multi_agent
   python scripts/parsec.py probe                   # real tool services, no model calls
   python scripts/parsec.py bench                   # synthetic DAG workloads, E0/E1/E2, worker scaling
   python scripts/parsec.py harness                 # whole multi-agent fixture runs, scheduler off/e0/e1/e2
-  python scripts/parsec.py plan-bench              # Phase 2: multicore Monte Carlo planning
-  python scripts/parsec.py spec-bench              # Phase 2: speculation scenarios A-E (S0/S1/S2)
-  python scripts/parsec.py actions-bench           # Phase 2: declared parallel plan in the harness (E0/E1/E2)
-  python scripts/parsec.py agents-bench            # Phase 2: coordinator + workers, OFF/E2/E3/E4/E5
-  python scripts/parsec.py outcome-model           # Phase 2: empirical outcome model from recorded runs
-  python scripts/parsec.py demo                    # Phase 3: one-command course demonstration (no model)
-  python scripts/parsec.py figures                 # Phase 3: course figures from recorded results
+  python scripts/parsec.py plan-bench              # multicore Monte Carlo planning
+  python scripts/parsec.py spec-bench              # speculation scenarios A-E (S0/S1/S2)
+  python scripts/parsec.py actions-bench           # declared parallel plan in the harness (E0/E1/E2)
+  python scripts/parsec.py agents-bench            # coordinator + workers, OFF/E2/E3/E4/E5
+  python scripts/parsec.py outcome-model           # empirical outcome model from recorded runs
+  python scripts/parsec.py demo                    # one-command course demonstration (no model)
+  python scripts/parsec.py figures                 # course figures from recorded results
 
 Outputs (raw JSON plus a Markdown summary) go to outputs/parsec_vl/<command>/.
 """
@@ -270,7 +270,7 @@ def cmd_harness(args) -> int:
 
 
 # ---- Phase 2 ----------------------------------------------------------------------------------
-P2 = OUT / "phase2"
+P2 = OUT
 
 
 def _table(path: Path, header: list[str], rows: list[list]) -> str:
@@ -318,9 +318,9 @@ def cmd_spec_bench(args) -> int:
     result["environment"] = _environment()
     out = Path(args.out)
     _write(out / "speculation.json", result)
-    print(_table(out / "speculation.md", ["Scenario", "Policy", "Latency s (mean ± sd)", "p90 s", "Tool calls", "Wasted calls",
+    print(_table(out / "speculation.md", ["Scenario", "Policy", "Budget", "Latency s (mean ± sd)", "p90 s", "Tool calls", "Wasted calls",
                                           "Wasted s", "Completion", "Planning s", "Necessary queue wait s"],
-                 [[r["scenario"], r["policy"], f"{r['latency_mean']:.3f} ± {r['latency_sd']:.3f}", f"{r['latency_p90']:.3f}",
+                 [[r["scenario"], r["policy"], r["budget"], f"{r['latency_mean']:.3f} ± {r['latency_sd']:.3f}", f"{r['latency_p90']:.3f}",
                    f"{r['tool_calls_mean']:.2f}", f"{r['wasted_calls_mean']:.2f}", f"{r['wasted_seconds_mean']:.3f}",
                    f"{r['completion_rate']:.2f}", f"{r['planning_seconds_mean']:.3f}", f"{r['necessary_queue_wait_mean']:.3f}"]
                   for r in result["rows"]]))
@@ -407,7 +407,7 @@ def cmd_outcome_model(args) -> int:
 
 
 
-# ---- Phase 3: demo, figures, report data -------------------------------------------------------
+# ---- demo, figures, report data -------------------------------------------------------
 def _intervals(events: list[dict]) -> list[tuple[str, float, float]]:
     """Tool execution intervals: scheduler records when present, else latency-anchored tool events."""
     from datetime import datetime as _dt
@@ -545,7 +545,7 @@ def main(argv=None) -> int:
     p.add_argument("--tool-delay", type=float, default=0.5)
     p.add_argument("--out", default=str(OUT / "harness"))
     p.set_defaults(func=cmd_harness)
-    p = sub.add_parser("plan-bench", help="Phase 2: multicore Monte Carlo planning + decision quality per time budget")
+    p = sub.add_parser("plan-bench", help="multicore Monte Carlo planning + decision quality per time budget")
     p.add_argument("--processes", default="1,2,4,8,16")
     p.add_argument("--rollouts", type=int, default=50000, help="rollouts per candidate (6 candidates)")
     p.add_argument("--trials", type=int, default=3)
@@ -555,7 +555,7 @@ def main(argv=None) -> int:
     p.add_argument("--reference-rollouts", type=int, default=40000)
     p.add_argument("--out", default=str(P2 / "planning"))
     p.set_defaults(func=cmd_plan_bench)
-    p = sub.add_parser("spec-bench", help="Phase 2: speculation scenarios A-E under S0/S1/S2")
+    p = sub.add_parser("spec-bench", help="speculation scenarios A-E under S0/S1/S2")
     p.add_argument("--trials", type=int, default=30)
     p.add_argument("--processes", type=int, default=4)
     p.add_argument("--scenarios", default="")
@@ -563,13 +563,13 @@ def main(argv=None) -> int:
     p.add_argument("--capacities", default="", help="pool capacities, e.g. gpu=2 (resource contention)")
     p.add_argument("--out", default=str(P2 / "speculation"))
     p.set_defaults(func=cmd_spec_bench)
-    p = sub.add_parser("actions-bench", help="Phase 2: one declared parallel plan in the real harness under E0/E1/E2")
+    p = sub.add_parser("actions-bench", help="one declared parallel plan in the real harness under E0/E1/E2")
     p.add_argument("--policies", default="e0,e1,e2")
     p.add_argument("--trials", type=int, default=5)
     p.add_argument("--tool-delay", type=float, default=0.3)
     p.add_argument("--out", default=str(P2 / "actions"))
     p.set_defaults(func=cmd_actions_bench)
-    p = sub.add_parser("agents-bench", help="Phase 2: coordinator + N workers, OFF/E2/E3/E4/E5 (fixture)")
+    p = sub.add_parser("agents-bench", help="coordinator + N workers, OFF/E2/E3/E4/E5 (fixture)")
     p.add_argument("--workers", default="1,2,3,4")
     p.add_argument("--policies", default="off,e2,e3,e4,e5")
     p.add_argument("--trials", type=int, default=3)
@@ -581,31 +581,31 @@ def main(argv=None) -> int:
     p.add_argument("--cpu-capacity", type=int, default=0)
     p.add_argument("--out", default=str(P2 / "agents"))
     p.set_defaults(func=cmd_agents_bench)
-    p = sub.add_parser("outcome-model", help="Phase 2: empirical tool outcome model from earlier recorded real runs")
+    p = sub.add_parser("outcome-model", help="empirical tool outcome model from earlier recorded real runs")
     p.add_argument("--runs-dir", default="outputs/multi_agent")
     p.add_argument("--exclude", nargs="*", help="run ids to leave out (e.g. the task being evaluated)")
     p.add_argument("--out", default=str(P2 / "outcome_model.json"))
     p.set_defaults(func=cmd_outcome_model)
-    p = sub.add_parser("demo", help="Phase 3: deterministic course demo (same plan sequential vs parallel; no model)")
+    p = sub.add_parser("demo", help="deterministic course demo (same plan sequential vs parallel; no model)")
     p.add_argument("--tool-delay", type=float, default=0.3)
     p.add_argument("--fast", action="store_true", help="low-resource mode: 0.1 s injected tool latency")
     p.add_argument("--studio", action="store_true", help="start or reuse an Investigation Studio for the demo runs")
     p.add_argument("--out", default=str(OUT / "demo"))
     p.set_defaults(func=cmd_demo)
-    p = sub.add_parser("compare", help="Phase 3: whole-run variants (whole = OFF/E0-E5, overhead = planner pool/gate, contention)")
+    p = sub.add_parser("compare", help="whole-run variants (whole = OFF/E0-E5, overhead = planner pool/gate, contention)")
     p.add_argument("--set", choices=("whole", "overhead", "contention"), default="whole")
     p.add_argument("--workers", default="1,2,4")
     p.add_argument("--trials", type=int, default=5)
     p.add_argument("--tool-delay", type=float, default=0.2)
     p.add_argument("--plan", default="fallback", choices=("fallback", "parallel"))
-    p.add_argument("--out", default=str(OUT / "phase3"))
+    p.add_argument("--out", default=str(OUT))
     p.set_defaults(func=cmd_compare)
-    p = sub.add_parser("matrix", help="Phase 3: 16-configuration deterministic validation (workers x memory x peer)")
+    p = sub.add_parser("matrix", help="16-configuration deterministic validation (workers x memory x peer)")
     p.add_argument("--policy", default="e5")
-    p.add_argument("--out", default=str(OUT / "phase3" / "config_matrix"))
+    p.add_argument("--out", default=str(OUT / "config_matrix"))
     p.set_defaults(func=cmd_matrix)
-    p = sub.add_parser("figures", help="Phase 3: course figures from recorded results")
-    p.add_argument("--results", default=str(OUT))
+    p = sub.add_parser("figures", help="course figures from recorded results")
+    p.add_argument("--results", default=str(ROOT / "results/reference"))
     p.add_argument("--out", default="docs/figures")
     p.set_defaults(func=cmd_figures)
     args = parser.parse_args(argv)

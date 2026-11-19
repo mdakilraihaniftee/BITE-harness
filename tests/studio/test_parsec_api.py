@@ -54,3 +54,16 @@ def test_every_recorded_experiment_has_an_evidence_label():
         assert experiment["evidence"] in ("REAL", "FIXTURE", "SYNTHETIC")
         assert experiment["rows"] and experiment["primary_metric"] in experiment["metrics"]
         assert not experiment["source"].startswith("/")
+
+
+def test_submission_comparisons_do_not_require_local_outputs(tmp_path):
+    reference = Path(__file__).resolve().parents[2] / "results/reference"
+    experiments = load_comparisons(reference)
+    assert {"fixed_plan", "multicore_mc", "whole_harness_n4", "planning_overhead_n4",
+            "real_tool_grounding", "real_tool_ocr", "real_tool_depth", "real_tool_zoom"} <= {e["id"] for e in experiments}
+    assert {e["evidence"] for e in experiments} == {"REAL", "FIXTURE", "SYNTHETIC"}
+    assert all(e["source"].startswith("results/reference/") for e in experiments)
+    assert all("Phase " not in row["label"] for e in experiments for row in e["rows"])
+    app = create_app(tmp_path / "empty_runs", viewer_token="secret")
+    body = asyncio.run(route_for(app, "/api/parsec/experiments").endpoint())
+    assert body["experiments"] == experiments

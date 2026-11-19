@@ -52,7 +52,8 @@ Output and UI
       --dry-run            print the commands and exit
   -h, --help
 
-Model and tool services must already be running (see docs/local_setup.md). If a
+Model and tool services must already be running unless --start-services is used
+(see README.md). If a
 required service is down, Studio still opens for saved runs, but no task starts.
 
 Examples
@@ -194,7 +195,7 @@ if ! "$dry_run" && ! "$check" && [[ "${SKIP_SERVICE_CHECK:-0}" != 1 ]]; then
     if (( ${#missing[@]} )); then
         echo "error: required services are not running, so no run was started:" >&2
         printf '%s\n' "${missing[@]}" >&2
-        echo "Start each in its own terminal (see docs/local_setup.md), wait until it answers, then rerun." >&2
+        echo "Use --start-services to start missing local services and wait, or see README.md for manual startup." >&2
         echo "Opening Studio for saved runs now; the requested task has NOT started." >&2
         open_studio || echo "Studio could not open. Retry with: bash scripts/run_custom_inference.sh --ui-only" >&2
         exit 3

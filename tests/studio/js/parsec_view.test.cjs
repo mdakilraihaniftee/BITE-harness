@@ -31,7 +31,21 @@ test("parallel plan: independent actions overlap, dependents wait (recorded inte
   assert.deepEqual(graph.edges.filter((e) => e.from !== "input").map((e) => [e.from.split(":")[1], e.to.split(":")[1]]),
     [["g", "z"], ["z", "ocr_crop"]]);
   const critical = Parsec.criticalPath(plan, model.tasks);
-  assert.ok([...critical].some((id) => id.endsWith(":g")) && [...critical].some((id) => id.endsWith(":ocr_crop")));
+  // Pixel conversion and first-use initialization can make full-image OCR
+  // longer than the crop chain. The highlight must follow measured durations.
+  const duration = (action) => byAction[action].end - byAction[action].start;
+  const chain = ["g", "z", "ocr_crop"];
+  const expected = chain.reduce((sum, action) => sum + duration(action), 0) > duration("ocr_full") ? chain : ["ocr_full"];
+  assert.deepEqual([...critical].map((id) => id.slice(id.lastIndexOf(":") + 1)), expected);
+});
+
+test("critical path follows the longest measured path, including a slow independent action", () => {
+  const model = Parsec.buildModel(runs.parallel);
+  for (const [fullDuration, expected] of [[1, ["g", "z", "ocr_crop"]], [10, ["ocr_full"]]]) {
+    const tasks = model.tasks.map((task) => ({...task, start: 0, end: task.action === "ocr_full" ? fullDuration : 1}));
+    const critical = Parsec.criticalPath(model.plans[0], tasks);
+    assert.deepEqual([...critical].map((id) => id.slice(id.lastIndexOf(":") + 1)), expected);
+  }
 });
 
 test("lanes never overlap inside a row and respect pool capacity", () => {

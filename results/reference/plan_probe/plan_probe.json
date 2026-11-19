@@ -1,0 +1,947 @@
+{
+  "label": "REAL model (first decision only; nothing executed)",
+  "recorded_at": "2026-11-18T23:30:26.451440+00:00",
+  "agent_config": "examples/local_grounding_tools.yaml",
+  "summary": {
+    "current/sign_natural": {
+      "samples": 5,
+      "plan_proposed": 0,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {
+        "OCR_Tool": 4
+      }
+    },
+    "current/sign_explicit": {
+      "samples": 5,
+      "plan_proposed": 5,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {}
+    },
+    "current/count_natural": {
+      "samples": 5,
+      "plan_proposed": 0,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {
+        "Zoom_In_Tool": 1,
+        "Visual_Grounding_Tool": 4
+      }
+    },
+    "simple/sign_natural": {
+      "samples": 5,
+      "plan_proposed": 0,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {
+        "OCR_Tool": 5
+      }
+    },
+    "simple/sign_explicit": {
+      "samples": 5,
+      "plan_proposed": 5,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {}
+    },
+    "simple/count_natural": {
+      "samples": 5,
+      "plan_proposed": 0,
+      "plan_valid": 0,
+      "independent": 0,
+      "other_calls": {
+        "Visual_Grounding_Tool": 2,
+        "Zoom_In_Tool": 3
+      }
+    }
+  },
+  "rows": [
+    {
+      "schema": "current",
+      "condition": "sign_natural",
+      "sample": 0,
+      "seconds": 1.124,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "sign_natural",
+      "sample": 1,
+      "seconds": 0.404,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "sign_natural",
+      "sample": 2,
+      "seconds": 0.86,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "sign_natural",
+      "sample": 3,
+      "seconds": 0.201,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "sign_natural",
+      "sample": 4,
+      "seconds": 0.376,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "sign_explicit",
+      "sample": 0,
+      "seconds": 3.414,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "unbound_reference: action o_z: $z must be listed in depends_on",
+      "independent_actions": null,
+      "plan": {
+        "objective": "Read the text on the sign in the image and confirm it by grounding the sign, zooming into it, and reading the zoomed crop.",
+        "actions": [
+          {
+            "id": "o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "g",
+            "tool": "Visual_Grounding_Tool",
+            "arguments": {
+              "query": "sign",
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "z",
+            "tool": "Zoom_In_Tool",
+            "arguments": {
+              "image_id": "input_image_1",
+              "coords": [
+                62,
+                100,
+                308,
+                275
+              ],
+              "padding": 100
+            }
+          },
+          {
+            "id": "o_z",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "$z.image"
+            }
+          }
+        ],
+        "rationale": "To accurately extract the text on the sign, OCR is used on the whole image, while also grounding the sign to confirm its location, zooming in for a closer look, and applying OCR again on the zoomed crop for verification."
+      }
+    },
+    {
+      "schema": "current",
+      "condition": "sign_explicit",
+      "sample": 1,
+      "seconds": 3.083,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "unbound_reference: action o_z: $z must be listed in depends_on",
+      "independent_actions": null,
+      "plan": {
+        "objective": "Read the text on the sign and confirm it with a zoomed-in OCR.",
+        "actions": [
+          {
+            "id": "o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "g",
+            "tool": "Visual_Grounding_Tool",
+            "arguments": {
+              "query": "sign",
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "z",
+            "tool": "Zoom_In_Tool",
+            "arguments": {
+              "image_id": "input_image_1",
+              "coords": [
+                62,
+                103,
+                305,
+                274
+              ],
+              "padding": 100
+            }
+          },
+          {
+            "id": "o_z",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "$z.image"
+            }
+          }
+        ],
+        "rationale": "Use OCR to read the whole image, ground the sign to locate it, zoom into it for a clearer view, and then OCR the zoomed crop to confirm the text."
+      }
+    },
+    {
+      "schema": "current",
+      "condition": "sign_explicit",
+      "sample": 2,
+      "seconds": 3.247,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "unbound_reference: action o_z: $z must be listed in depends_on",
+      "independent_actions": null,
+      "plan": {
+        "objective": "Read the text on the sign and confirm it by grounding, zooming, and OCR-ing the cropped region.",
+        "actions": [
+          {
+            "id": "o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "g",
+            "tool": "Visual_Grounding_Tool",
+            "arguments": {
+              "query": "sign",
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "z",
+            "tool": "Zoom_In_Tool",
+            "arguments": {
+              "image_id": "input_image_1",
+              "coords": [
+                62,
+                103,
+                307,
+                285
+              ],
+              "padding": 100
+            }
+          },
+          {
+            "id": "o_z",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "$z.image"
+            }
+          }
+        ],
+        "rationale": "To ensure accurate extraction of the sign's text, we will use OCR on the whole image, ground the sign to locate it, zoom into it for a clearer view, and then OCR the zoomed crop."
+      }
+    },
+    {
+      "schema": "current",
+      "condition": "sign_explicit",
+      "sample": 3,
+      "seconds": 3.324,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "unbound_reference: action z_o: $z must be listed in depends_on",
+      "independent_actions": null,
+      "plan": {
+        "objective": "Read the text on the sign and confirm it by grounding the sign, zooming in, and reading the zoomed crop.",
+        "actions": [
+          {
+            "id": "o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "g",
+            "tool": "Visual_Grounding_Tool",
+            "arguments": {
+              "query": "sign",
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "z",
+            "tool": "Zoom_In_Tool",
+            "arguments": {
+              "image_id": "input_image_1",
+              "coords": [
+                58,
+                98,
+                304,
+                275
+              ],
+              "padding": 100
+            }
+          },
+          {
+            "id": "z_o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "$z.image"
+            }
+          }
+        ],
+        "rationale": "To accurately read the text on the sign, OCR is used on the whole image, while also grounding the sign to locate it, zooming in for a closer look, and performing OCR on the zoomed crop for confirmation."
+      }
+    },
+    {
+      "schema": "current",
+      "condition": "sign_explicit",
+      "sample": 4,
+      "seconds": 3.363,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "unbound_reference: action z_o: $z must be listed in depends_on",
+      "independent_actions": null,
+      "plan": {
+        "objective": "Read the text on the sign and confirm it by grounding the sign, zooming into it, and reading the zoomed crop.",
+        "actions": [
+          {
+            "id": "o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "g",
+            "tool": "Visual_Grounding_Tool",
+            "arguments": {
+              "query": "sign",
+              "image_id": "input_image_1"
+            }
+          },
+          {
+            "id": "z",
+            "tool": "Zoom_In_Tool",
+            "arguments": {
+              "image_id": "input_image_1",
+              "coords": [
+                62,
+                100,
+                307,
+                284
+              ],
+              "padding": 100
+            }
+          },
+          {
+            "id": "z_o",
+            "tool": "OCR_Tool",
+            "arguments": {
+              "image_id": "$z.image"
+            }
+          }
+        ],
+        "rationale": "To accurately read the text on the sign, OCR is used on the whole image, while also grounding the sign to locate it, zooming in for a closer look, and then applying OCR to the zoomed crop for confirmation."
+      }
+    },
+    {
+      "schema": "current",
+      "condition": "count_natural",
+      "sample": 0,
+      "seconds": 1.665,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Zoom_In_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "count_natural",
+      "sample": 1,
+      "seconds": 1.236,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "count_natural",
+      "sample": 2,
+      "seconds": 1.435,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "count_natural",
+      "sample": 3,
+      "seconds": 1.059,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "current",
+      "condition": "count_natural",
+      "sample": 4,
+      "seconds": 1.033,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_natural",
+      "sample": 0,
+      "seconds": 1.139,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_natural",
+      "sample": 1,
+      "seconds": 0.381,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_natural",
+      "sample": 2,
+      "seconds": 0.968,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_natural",
+      "sample": 3,
+      "seconds": 0.379,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_natural",
+      "sample": 4,
+      "seconds": 0.379,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "OCR_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_explicit",
+      "sample": 0,
+      "seconds": 1.833,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "empty: actions must list at least one action",
+      "independent_actions": null,
+      "plan": {
+        "steps": [
+          {
+            "id": "g1",
+            "tool": "Visual_Grounding_Tool",
+            "image_id": "input_image_1",
+            "query": "sign"
+          },
+          {
+            "id": "g2",
+            "tool": "Zoom_In_Tool",
+            "image_id": "input_image_1",
+            "coords": [
+              62,
+              104,
+              308,
+              279
+            ],
+            "after": [
+              "g1"
+            ]
+          },
+          {
+            "id": "g3",
+            "tool": "OCR_Tool",
+            "image_id": "$g2.image"
+          }
+        ]
+      }
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_explicit",
+      "sample": 1,
+      "seconds": 2.352,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "empty: actions must list at least one action",
+      "independent_actions": null,
+      "plan": {
+        "steps": [
+          {
+            "id": "g1",
+            "tool": "Visual_Grounding_Tool",
+            "image_id": "input_image_1",
+            "query": "sign"
+          },
+          {
+            "id": "g2",
+            "tool": "Zoom_In_Tool",
+            "image_id": "input_image_1",
+            "coords": [
+              60,
+              100,
+              300,
+              280
+            ],
+            "after": [
+              "g1"
+            ]
+          },
+          {
+            "id": "g3",
+            "tool": "OCR_Tool",
+            "image_id": "$g2.image",
+            "after": [
+              "g2"
+            ]
+          },
+          {
+            "id": "g4",
+            "tool": "OCR_Tool",
+            "image_id": "input_image_1",
+            "after": [
+              "g1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_explicit",
+      "sample": 2,
+      "seconds": 2.353,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "empty: actions must list at least one action",
+      "independent_actions": null,
+      "plan": {
+        "steps": [
+          {
+            "id": "g1",
+            "tool": "Visual_Grounding_Tool",
+            "image_id": "input_image_1",
+            "query": "sign"
+          },
+          {
+            "id": "g2",
+            "tool": "Zoom_In_Tool",
+            "image_id": "input_image_1",
+            "coords": [
+              60,
+              100,
+              300,
+              275
+            ],
+            "after": [
+              "g1"
+            ]
+          },
+          {
+            "id": "g3",
+            "tool": "OCR_Tool",
+            "image_id": "$g2.image",
+            "after": [
+              "g2"
+            ]
+          },
+          {
+            "id": "g4",
+            "tool": "OCR_Tool",
+            "image_id": "input_image_1",
+            "after": [
+              "g1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_explicit",
+      "sample": 3,
+      "seconds": 2.337,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "empty: actions must list at least one action",
+      "independent_actions": null,
+      "plan": {
+        "steps": [
+          {
+            "id": "g1",
+            "tool": "Visual_Grounding_Tool",
+            "image_id": "input_image_1",
+            "query": "sign"
+          },
+          {
+            "id": "g2",
+            "tool": "Zoom_In_Tool",
+            "image_id": "input_image_1",
+            "coords": [
+              63,
+              98,
+              305,
+              273
+            ],
+            "after": [
+              "g1"
+            ]
+          },
+          {
+            "id": "g3",
+            "tool": "OCR_Tool",
+            "image_id": "$g2.image",
+            "after": [
+              "g2"
+            ]
+          },
+          {
+            "id": "g4",
+            "tool": "OCR_Tool",
+            "image_id": "input_image_1",
+            "after": [
+              "g1"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "schema": "simple",
+      "condition": "sign_explicit",
+      "sample": 4,
+      "seconds": 1.828,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Execute_Action_Plan"
+      ],
+      "parse_errors": [],
+      "plan_proposed": true,
+      "plan_valid": false,
+      "plan_reason": "empty: actions must list at least one action",
+      "independent_actions": null,
+      "plan": {
+        "steps": [
+          {
+            "id": "g1",
+            "tool": "Visual_Grounding_Tool",
+            "image_id": "input_image_1",
+            "query": "sign"
+          },
+          {
+            "id": "g2",
+            "tool": "Zoom_In_Tool",
+            "image_id": "input_image_1",
+            "coords": [
+              62,
+              100,
+              307,
+              280
+            ],
+            "after": [
+              "g1"
+            ]
+          },
+          {
+            "id": "g3",
+            "tool": "OCR_Tool",
+            "image_id": "$g2.image"
+          }
+        ]
+      }
+    },
+    {
+      "schema": "simple",
+      "condition": "count_natural",
+      "sample": 0,
+      "seconds": 1.406,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "count_natural",
+      "sample": 1,
+      "seconds": 1.359,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Zoom_In_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "count_natural",
+      "sample": 2,
+      "seconds": 1.184,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Visual_Grounding_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "count_natural",
+      "sample": 3,
+      "seconds": 1.668,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Zoom_In_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    },
+    {
+      "schema": "simple",
+      "condition": "count_natural",
+      "sample": 4,
+      "seconds": 1.748,
+      "plan_tool_offered": true,
+      "tools_offered": 7,
+      "calls": [
+        "Zoom_In_Tool"
+      ],
+      "parse_errors": [],
+      "plan_proposed": false,
+      "plan_valid": null,
+      "plan_reason": null,
+      "independent_actions": null,
+      "plan": null
+    }
+  ]
+}

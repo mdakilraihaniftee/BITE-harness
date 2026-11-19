@@ -2,7 +2,7 @@
 """Offline verification and advisor orchestration using existing PARSEC engines.
 
 No inference or service probe is invoked. Every execution gets a new output root.
-Historical artifacts are read-only. The shell entry points select .venv Python.
+Bundled reference measurements are read-only. The shell entry points select .venv Python.
 """
 from __future__ import annotations
 
@@ -173,18 +173,17 @@ def fixture_suite(out, trials=2, delay=0.3):
     return value
 
 
-def artifact_audit(out):
-    base = ROOT / "outputs/parsec_vl"
-    checks, warnings, metrics, sources = [], [], {}, []
-
-    def load(relative):
-        path = base / relative
-        sources.append({"path": relative, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()})
-        return read(path)
-
-    # Recompute all recorded scheduler means, trial counts, speedups, and capacities.
-    for folder in ("bench", "phase3/bench", "phase3/scaling"):
-        raw, summary = load(f"{folder}/bench_raw.json"), load(f"{folder}/bench_summary.json")
+def reference_checks(out):
+    """Check bundled results without depending on ignored local run directories."""
+    base = ROOT / "results/reference"
+    manifest = read(base / "manifest.json")
+    for entry in manifest["files"]:
+        path = base / entry["path"]
+        require(hashlib.sha256(path.read_bytes()).hexdigest() == entry["sha256"],
+                f"Reference file changed: {entry['path']}")
+    for folder in ("bench", "scaling"):
+        raw = read(base / folder / "bench_raw.json")
+        summary = read(base / folder / "bench_summary.json")
         groups = defaultdict(list)
         for trial in raw["trials"]:
             groups[trial["workload"], trial["policy"], trial["workers"]].append(trial)
@@ -198,77 +197,17 @@ def artifact_audit(out):
             baseline = next(r for r in summary["rows"] if r["workload"] == row["workload"] and r["policy"] == "e0")
             close(baseline["makespan_mean"] / mean, row["speedup_vs_e0"], "scheduler speedup")
             close(row["speedup_vs_e0"] / row["workers"], row["efficiency"], "scheduler efficiency")
-        checks.append(f"{folder}: {len(raw['trials'])} raw trials, means, dependencies, capacity, budget, speedup")
-        if folder.endswith("scaling"):
-            metrics["historical_scheduler"] = [{k: r[k] for k in ("policy", "workers", "makespan_mean", "speedup_vs_e0", "efficiency")}
-                                               for r in summary["rows"]]
-    actions = load("phase3/actions/actions.json")
-    for row in actions["rows"]:
-        close(actions["rows"][0]["tool_span_mean"] / row["tool_span_mean"], row["speedup_vs_first"], "fixture speedup")
-    for policy, trace in actions["traces"].items():
-        by_action = {t["call"].rsplit(".", 1)[-1]: t for t in trace}
-        full, ground, crop, text = [by_action[key] for key in ("ocr_full", "g", "z", "ocr_crop")]
-        overlap = full["start"] < ground["end"] and ground["start"] < full["end"]
-        require(overlap == (policy != "e0"), f"Historical fixed-plan overlap mismatch: {policy}")
-        require(crop["start"] >= ground["end"] and text["start"] >= crop["end"], "Historical visual dependencies violated")
-    checks.append("Historical actions: first stored trace per policy has correct overlap and dependency order")
-    metrics["historical_actions"] = actions["rows"]
-    warnings.append("Historical actions: only one tool trace per policy is stored; five-trial means cannot be recomputed from those traces.")
-    mc = load("phase3/planning/multicore.json")
-    one = next(r for r in mc["rows"] if r["processes"] == 1)
-    for row in mc["rows"]:
-        close(one["wall_mean"] / row["wall_mean"], row["speedup_vs_1_process"], "Monte Carlo speedup")
-        require(row["rollouts_total"] == mc["candidates"] * mc["rollouts_per_candidate"], "Rollout workloads differ")
-    metrics["historical_montecarlo"] = mc["rows"]
-    warnings.append("Historical Monte Carlo: aggregate timings/estimates only; original trial means, per-process estimates and worker PIDs are not stored.")
-    metrics["historical_speculation"] = load("phase3/speculation/speculation.json")["rows"]
-    warnings.append("Historical speculation: aggregate rows only; original per-trial means/outcomes cannot be recomputed. New runs preserve them.")
-    # Whole-harness and planner-overhead rows do have full persisted event streams.
-    for folder in ("whole", "overhead", "contention"):
-        data = load(f"phase3/{folder}/variants.json")
-        for row in data["rows"]:
-            name = f"n{row['workers']}_" + "".join(c if c.isalnum() else "_" for c in row["variant"])[:48]
-            runs = sorted((base / "phase3" / folder / "runs" / name).glob("*/events.jsonl"))
-            require(len(runs) == row["trials"], f"Missing raw {folder} trials: {name}")
-            walls = []
-            for path in runs:
-                events = [json.loads(line) for line in path.read_text().splitlines()]
-                walls.append(datetime.fromisoformat(events[-1]["timestamp"]).timestamp()
-                             - datetime.fromisoformat(events[0]["timestamp"]).timestamp())
-            close(statistics.fmean(walls), row["wall_mean"], f"{folder}/{name}")
-        checks.append(f"{folder}: all {len(data['rows'])} row means recomputed from persisted event timestamps")
-        metrics[f"historical_{folder}"] = data["rows"]
-    probe = load("phase3/probe/probe.json")
-    throughput = {}
-    for name, tool in probe["results"].items():
-        levels = tool["levels"]
-        rate = {k: v["requests"] / v["wall_seconds"] for k, v in levels.items()}
-        throughput[name] = rate["4"] / rate["1"]
-        for k, v in levels.items():
-            close(rate[k], v["throughput_per_s"], f"{name} throughput", tolerance=2e-4)
-    metrics["recorded_real_service_throughput_4_vs_1"] = throughput
-    warnings.append("REAL service probe: ratios recomputed from stored request counts/wall totals; no new GPU stress test or per-request raw latency data.")
-    executed = load("phase3/plan_probe/execute_summary.json")
-    overlaps = []
-    for index in range(len(executed)):
-        events = [json.loads(l) for l in (base / f"phase3/plan_probe/execute_{index}_events.jsonl").read_text().splitlines()]
-        spans = [e["payload"]["executed_interval"] for e in events
-                 if e["event_type"] == "TOOL_CALL_COMPLETED" and e["payload"].get("executed_interval")]
-        require(len(spans) == 3, f"Missing raw real-tool intervals in execution {index}")
-        overlaps.append(sum(a["start_time"] < b["finish_time"] and b["start_time"] < a["finish_time"]
-                            for i, a in enumerate(spans) for b in spans[i + 1:]))
-    metrics["recorded_real_plan_overlapping_pairs"] = overlaps
-    require(overlaps == [0, 0], "Recorded real-plan overlap differs from the report; investigate")
-    checks.append("Recorded real plan tool intervals: two serial executions, zero overlap")
-    value = {"status": "PASS", "checks": checks, "warnings": warnings, "metrics": metrics, "sources": sources}
-    write(out / "historical_audit.json", value)
+    value = {"status": "PASS", "files_checked": len(manifest["files"]),
+             "checks": ["Reference hashes", "Scheduler raw trials, means, dependencies, capacity, budgets, speedups"],
+             "limitations": "Other reference experiments include aggregate measurements; original per-trial records are not all bundled. See docs/REPORT.md."}
+    write(out / "reference_checks.json", value)
     return value
 
 
 def validate_measured(out):
     """Recompute this run's means and independently validate its raw work records."""
-    raw = read(out / "scheduler/bench_raw.json")["trials"]
-    summary = read(out / "scheduler/bench_summary.json")["rows"]
+    raw = read(out / "bench/bench_raw.json")["trials"]
+    summary = read(out / "bench/bench_summary.json")["rows"]
     groups = defaultdict(list)
     for trial in raw:
         require(trial["status"] == {"COMPLETED": trial["tasks"]}, "A controlled scheduler trial did not complete")
@@ -278,6 +217,14 @@ def validate_measured(out):
         values = groups[row["workload"], row["policy"], row["workers"]]
         require(len(values) == row["trials"], "New scheduler trial count mismatch")
         close(statistics.fmean(values), row["makespan_mean"], "New scheduler mean")
+        baseline = next(r for r in summary if r["workload"] == row["workload"] and r["policy"] == "e0")
+        close(baseline["makespan_mean"] / row["makespan_mean"], row["speedup_vs_e0"], "New scheduler speedup")
+        close(row["speedup_vs_e0"] / row["workers"], row["efficiency"], "New scheduler efficiency")
+    scaling = out / "scaling/bench_raw.json"
+    if scaling.exists():
+        for trial in read(scaling)["trials"]:
+            require(trial["status"] == {"COMPLETED": trial["tasks"]}, "Scaling workload did not complete")
+            check_intervals(trial["records"], {p: v["capacity"] for p, v in trial["resources"].items()}, trial["budget_used"])
     mc = read(out / "planning/multicore.json")
     for trial in mc["raw_trials"]:
         require(trial["complete"] and trial["batches"] == trial["batches_done"], "Incomplete fixed-rollout computation")
@@ -315,11 +262,66 @@ def validate_measured(out):
                 count = check_intervals(t["records"], row["capacities"], t["budget"])
                 require(count == t["tool_calls"], "Dispatched speculative work was not charged exactly once")
         spec_results.extend(data["rows"])
+    # Experiment commands must not pass just because they produced a table.
+    # Validate the persisted harness runs, including every worker and ledger.
+    fixture_runs = []
+    for folder in ("fixture", "harness", "agents", "whole", "overhead", "contention", "matrix", "demo"):
+        for path in (out / folder).rglob("final_result.json"):
+            final = read(path)
+            require(final["run_status"] == "COMPLETED", f"Run failed: {path.parent.name}")
+            require(not final["execution_summary"]["failed_workers"], f"Worker failed: {path.parent.name}")
+            for resource, ledger in final["budgets"]["global"].items():
+                require(0 <= ledger["used"] <= ledger["limit"] and ledger["remaining"] >= 0,
+                        f"Invalid {resource} ledger: {path.parent.name}")
+            if final.get("scheduler"):
+                records = [event["payload"] for event in map(json.loads, (path.parent / "events.jsonl").read_text().splitlines())
+                           if event["event_type"] == "SCHEDULER_TASK_FINISHED"]
+                check_intervals(records, {p: v["capacity"] for p, v in final["scheduler"]["resources"].items()},
+                                final["budgets"]["global"]["tool_calls"]["limit"])
+            fixture_runs.append(str(path.parent.relative_to(out)))
     result = {"status": "PASS", "scheduler_rows": summary, "montecarlo_rows": mc["rows"],
-              "speculation_rows": spec_results, "worker_pids": {str(p): sorted({pid for t in mc["raw_trials"]
+              "speculation_rows": spec_results, "fixture_runs_checked": fixture_runs,
+              "worker_pids": {str(p): sorted({pid for t in mc["raw_trials"]
                          if t["processes"] == p for pid in t["worker_pids"]}) for p in (1, 2, 4, 8, 16)}}
     write(out / "measured_checks.json", result)
     return result
+
+
+def measurement_report(out):
+    """Assemble fresh experiment tables without substituting reference timings."""
+    env = read(out / "environment.json")
+    lines = ["# Fresh PARSEC-VL experiment results", "", f"Recorded: {env['date_utc']}",
+             f"Python: {env['python'].split()[0]}; logical CPUs: {env['cpus']}", "",
+             "SYNTHETIC timings measure declared workloads. FIXTURE runs use scripted models and local tools.",
+             "These results do not establish real-model accuracy or GPU throughput. Measurements include slowdowns.",
+             "See [verification summary](SUMMARY.md) for check status and summary.json for commands and logs.", ""]
+    fixture = out / "fixture/fixture_checks.json"
+    if fixture.exists():
+        data = read(fixture)
+        lines += ["## Same visual plan: sequential and parallel dispatch", "",
+                  f"Measured tool-span speedup: **{data['speedup']:.3f}x** (FIXTURE).",
+                  "Independent OCR and grounding overlap; crop OCR consumes the actual generated crop.", ""]
+    tables = [("Scheduler policies and workload bounds", "bench/bench_summary.md"),
+              ("Independent-task worker scaling", "scaling/bench_summary.md"),
+              ("CPU-process Monte Carlo scaling", "planning/multicore.md"),
+              ("Planning decision quality", "planning/decision_quality.md"),
+              ("Identical declared action plan", "actions/actions.md"),
+              ("Original tool protocol", "harness/harness.md"),
+              ("Worker and scheduler policy coverage", "agents/agents.md"),
+              ("Speculation latency and waste", "speculation/speculation.md"),
+              ("Tool budget sensitivity", "budget/speculation.md"),
+              ("Whole harness OFF and E0-E5", "whole/variants.md"),
+              ("Planning pool overhead", "overhead/variants.md"),
+              ("Resource contention", "contention/variants.md"),
+              ("Worker, memory and peer configuration matrix", "matrix/matrix.md")]
+    included = []
+    for title, name in tables:
+        path = out / name
+        if path.exists():
+            lines += [f"## {title}", "", f"Source: [{name}]({name})", "", path.read_text(), ""]
+            included.append(name)
+    (out / "REPORT.md").write_text("\n".join(lines) + "\n")
+    return {"tables": included, "report": "REPORT.md"}
 
 
 class Runner:
@@ -398,7 +400,7 @@ class Runner:
         lines = ["# PARSEC-VL verification", "", "| Check | Status | Duration |", "|---|---|---:|"]
         lines += [f"| {s['check']} | {s['status']} | {s.get('seconds', 0):.1f}s |" for s in self.steps]
         lines += ["", f"Overall result: {'FAIL' if failed else 'PASS (for the selected tier)'}", "",
-                  "Only checks listed above ran. Historical aggregate-only limitations are in historical_audit.json.",
+                  "Only checks listed above ran. Reference-data limitations are documented in docs/REPORT.md.",
                   "No new real-model inference or GPU stress tests were run. Browser validation is a separate recorded check."]
         (self.out / "SUMMARY.md").write_text("\n".join(lines) + "\n")
         self.save()
@@ -409,7 +411,6 @@ class Runner:
 
 def prerequisites():
     value = environment()
-    require(value["branch"] == "proj654", f"Expected proj654; found {value['branch']}")
     require(all(value["packages"].values()), f"Missing dependencies: {[k for k,v in value['packages'].items() if not v]}")
     require(value["node"] is not None, "Node is required for JavaScript checks")
     return value
@@ -433,14 +434,15 @@ def verify(quick):
             subprocess.run(["node", "--check", str(path)], check=True, capture_output=True)
         write(r.out / "javascript_syntax.json", {"files_checked": [str(p.relative_to(ROOT)) for p in files]})
     r.function("JavaScript syntax", syntax)
-    r.function("Historical artifact checks", lambda: artifact_audit(r.out))
+    r.function("Bundled reference results", lambda: reference_checks(r.out))
     r.command("Recorded plan revalidation", [sys.executable, "scripts/plan_probe.py", "--revalidate", "--recorded",
-              "outputs/parsec_vl/phase3/plan_probe/plan_probe.json", "--out", str(r.out / "recorded_plans")])
+              str(ROOT / "results/reference/plan_probe/plan_probe.json"), "--out", str(r.out / "recorded_plans")])
     r.function("Fixture DAG overlap and provenance", lambda: fixture_suite(r.out / "fixture", trials=2 if quick else 3))
     base = [sys.executable, "scripts/parsec.py"]
-    workloads = "B_chain,C_mixed,S_scaling" if quick else "B_chain,C_mixed,D_contention,M_misestimated,X_cpu_bound,S_scaling"
+    workloads = "B_chain,C_mixed,S_scaling" if quick else ",".join([
+        "A_independent", "B_chain", "C_mixed", "D_contention", "M_misestimated", "V_visual_pipeline", "X_cpu_bound", "S_scaling"])
     r.command("Controlled scheduler benchmarks", base + ["bench", "--workloads", workloads, "--policies", "e0,e1,e2",
-              "--workers", "1,2,8" if quick else "1,2,4,8", "--trials", "2", "--out", str(r.out / "scheduler")])
+              "--workers", "1,2,8" if quick else "1,2,4,8", "--trials", "2", "--out", str(r.out / "bench")])
     r.command("Multicore Monte Carlo", base + ["plan-bench", "--processes", "1,2,4" if quick else "1,2,4,8,16",
               "--rollouts", "2000" if quick else "50000", "--trials", "1" if quick else "3",
               "--quality-instances", "0" if quick else "8", "--out", str(r.out / "planning")])
@@ -449,13 +451,25 @@ def verify(quick):
                   "A_speculation_helps", "B_speculation_wastes", "C_limited_resources", "D_wrong_estimates", "E_small_budget"]),
               "--out", str(r.out / "speculation")])
     if not quick:
+        r.command("Independent task scaling", base + ["bench", "--workloads", "S_scaling", "--policies", "e0,e1,e2",
+                  "--workers", "1,2,4,8,16,32", "--trials", "2", "--out", str(r.out / "scaling")])
+        r.command("Fixed plan E0 E1 E2", base + ["actions-bench", "--trials", "3", "--out", str(r.out / "actions")])
+        r.command("Original protocol harness", base + ["harness", "--workers", "4", "--trials", "2",
+                  "--out", str(r.out / "harness")])
+        r.command("All policies and worker counts", base + ["agents-bench", "--workers", "1,2,3,4",
+                  "--policies", "off,e0,e1,e2,e3,e4,e5", "--trials", "1", "--planning-processes", "2",
+                  "--rollouts", "400", "--out", str(r.out / "agents")])
         r.command("Small budget sweep", base + ["spec-bench", "--trials", "10", "--processes", "4", "--scenarios", "E_small_budget",
                   "--budgets", "3,4,5,8,12", "--out", str(r.out / "budget")])
-        r.command("Whole harness E0-E5", base + ["compare", "--set", "whole", "--workers", "4",
-                  "--trials", "3", "--out", str(r.out / "variants")])
+        for variants in ("whole", "overhead", "contention"):
+            r.command(f"Harness variants {variants}", base + ["compare", "--set", variants, "--workers", "1,4",
+                      "--trials", "2", "--out", str(r.out)])
         r.command("Configuration matrix", base + ["matrix", "--out", str(r.out / "matrix")])
+        r.command("Standalone visual demo", base + ["demo", "--fast", "--out", str(r.out / "demo")])
         r.command("Figures from recorded data", base + ["figures", "--out", str(r.out / "figures")])
+        r.command("Figures from fresh experiments", base + ["figures", "--results", str(r.out), "--out", str(r.out / "fresh_figures")])
     r.function("Fresh traces budgets and numerical results", lambda: validate_measured(r.out))
+    r.function("Fresh experiment report", lambda: measurement_report(r.out))
     return r.finish()
 
 

@@ -4,7 +4,7 @@
  *
  * Usage:
  *   STUDIO_VIEWER_TOKEN=... node scripts/studio_browser_check.mjs \
- *     --base http://127.0.0.1:8799 --out docs/images/studio [--chrome google-chrome]
+ *     --base http://127.0.0.1:8799 --out outputs/studio_browser [--chrome google-chrome]
  *
  * Requires the runs `studio_protocol_fixture` (scripts/studio_protocol_fixture.py),
  * `real_fsc147_row0_studio` (a recorded real run) and `studio_demo_architecture`
@@ -22,7 +22,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, inde
   return pairs;
 }, []));
 const BASE = args.base || "http://127.0.0.1:8799";
-const OUT = args.out || "docs/images/studio";
+const OUT = args.out || "outputs/studio_browser";
 const RUNS_DIR = args["runs-dir"] || "outputs/multi_agent";
 const CHROME = args.chrome || "google-chrome";
 const TOKEN = process.env.STUDIO_VIEWER_TOKEN;

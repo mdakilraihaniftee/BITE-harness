@@ -1,0 +1,498 @@
+{
+  "label": "FIXTURE (coordinator + workers; scripted model; 0.2s injected tool latency; plan 'fallback')",
+  "rows": [
+    {
+      "workers": 1,
+      "variant": "OFF (original)",
+      "policy": "OFF",
+      "trials": 5,
+      "wall_mean": 0.9764620780944824,
+      "wall_sd": 0.005615312814083683,
+      "wall_first": 0.969365119934082,
+      "wall_rest_mean": 0.9782363176345825,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E4 fixed speculation",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 0.8410086154937744,
+      "wall_sd": 0.011998453184494355,
+      "wall_first": 0.8342230319976807,
+      "wall_rest_mean": 0.8427050113677979,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 1.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E5 eager pool, always simulate (Phase 2)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.337271022796631,
+      "wall_sd": 0.011125446082359611,
+      "wall_first": 1.3421192169189453,
+      "wall_rest_mean": 1.3360589742660522,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.020841720327734948,
+      "pool_startup_seconds_mean": 0.25398,
+      "runs_with_pool_start": 5,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "eager",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 lazy pool, always simulate",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.3229828357696534,
+      "wall_sd": 0.011348412631666034,
+      "wall_first": 1.3424811363220215,
+      "wall_rest_mean": 1.3181082606315613,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.26575210941955446,
+      "pool_startup_seconds_mean": 0.24523999999999999,
+      "runs_with_pool_start": 5,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "lazy",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 shared warm pool, always simulate",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.127458095550537,
+      "wall_sd": 0.10895110969220106,
+      "wall_first": 1.3209521770477295,
+      "wall_rest_mean": 1.079084575176239,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.08064782731235028,
+      "pool_startup_seconds_mean": 0.0499,
+      "runs_with_pool_start": 1,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "shared",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 sequential MC (0 processes)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.0801368236541748,
+      "wall_sd": 0.006590708128067771,
+      "wall_first": 1.0859830379486084,
+      "wall_rest_mean": 1.0786752700805664,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.036302591860294345,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning_processes": 0,
+        "planning": {
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 heuristic only",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 0.8328678131103515,
+      "wall_sd": 0.018070408761160714,
+      "wall_first": 0.8540458679199219,
+      "wall_rest_mean": 0.827573299407959,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 1.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "heuristic": 10
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_gate": "auto",
+          "min_stakes_s": 1000000000.0
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 overhead-aware gate, lazy pool (Phase 3 default)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.0728142261505127,
+      "wall_sd": 0.00803870482227933,
+      "wall_first": 1.0685629844665527,
+      "wall_rest_mean": 1.0738770365715027,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.03618786819279194,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 10
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_gate": "auto",
+          "planning_pool": "lazy"
+        }
+      }
+    },
+    {
+      "workers": 1,
+      "variant": "E5 with legacy model (no plan proposed)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.0501545429229737,
+      "wall_sd": 0.014902206638474544,
+      "wall_first": 1.0396459102630615,
+      "wall_rest_mean": 1.0527817010879517,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "legacy": true
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "OFF (original)",
+      "policy": "OFF",
+      "trials": 5,
+      "wall_mean": 1.7834036827087403,
+      "wall_sd": 0.011822032286948609,
+      "wall_first": 1.8024461269378662,
+      "wall_rest_mean": 1.7786430716514587,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E4 fixed speculation",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 1.7112195491790771,
+      "wall_sd": 0.05879349182511692,
+      "wall_first": 1.646399974822998,
+      "wall_rest_mean": 1.727424442768097,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 4.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E5 eager pool, always simulate (Phase 2)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 2.0923084735870363,
+      "wall_sd": 0.03557005466030862,
+      "wall_first": 2.1531941890716553,
+      "wall_rest_mean": 2.0770870447158813,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.18910860791802406,
+      "pool_startup_seconds_mean": 0.24245999999999998,
+      "runs_with_pool_start": 5,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "eager",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 lazy pool, always simulate",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 2.1036853313446047,
+      "wall_sd": 0.025075105462429557,
+      "wall_first": 2.0620458126068115,
+      "wall_rest_mean": 2.1140952110290527,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 1.1558368948288262,
+      "pool_startup_seconds_mean": 0.24556,
+      "runs_with_pool_start": 5,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "lazy",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 shared warm pool, always simulate",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.910398006439209,
+      "wall_sd": 0.11528705413158408,
+      "wall_first": 2.1139299869537354,
+      "wall_rest_mean": 1.8595150113105774,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.40432842606678604,
+      "pool_startup_seconds_mean": 0.04856,
+      "runs_with_pool_start": 1,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_pool": "shared",
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 sequential MC (0 processes)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 2.034171199798584,
+      "wall_sd": 0.10570373758363377,
+      "wall_first": 1.9968039989471436,
+      "wall_rest_mean": 2.043513000011444,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.8904836212284863,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning_processes": 0,
+        "planning": {
+          "planning_gate": "off"
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 heuristic only",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.79549298286438,
+      "wall_sd": 0.03283915477049537,
+      "wall_first": 1.8054218292236328,
+      "wall_rest_mean": 1.7930107712745667,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 4.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "heuristic": 40
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_gate": "auto",
+          "min_stakes_s": 1000000000.0
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 overhead-aware gate, lazy pool (Phase 3 default)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 2.0609886169433596,
+      "wall_sd": 0.14378643853963594,
+      "wall_first": 2.1996970176696777,
+      "wall_rest_mean": 2.02631151676178,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.6478966406546534,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 40
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "planning": {
+          "planning_gate": "auto",
+          "planning_pool": "lazy"
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5 with legacy model (no plan proposed)",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.8455885887145995,
+      "wall_sd": 0.03700326645390147,
+      "wall_first": 1.8623559474945068,
+      "wall_rest_mean": 1.8413967490196228,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "legacy": true
+      }
+    }
+  ],
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:16:04.591469+00:00"
+  },
+  "variant_set": "overhead"
+}

@@ -1,0 +1,160 @@
+{
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-18T23:57:53.785005+00:00"
+  },
+  "rows": [
+    {
+      "workload": "S_scaling",
+      "policy": "e0",
+      "workers": 1,
+      "trials": 5,
+      "makespan_mean": 3.2152878,
+      "makespan_sd": 0.0003975137733462971,
+      "makespan_min": 3.214861,
+      "makespan_max": 3.215736,
+      "peak_concurrency": 1,
+      "budget_used": 32,
+      "status": {
+        "COMPLETED": 32
+      },
+      "queue_wait_mean": 1.5580012,
+      "dependency_wait_mean": 0.0,
+      "dispatch_latency_mean": 0.0001318,
+      "decision_seconds_mean": 0.0041078,
+      "worker_idle_mean": 0.009806800000000001,
+      "saturation": {
+        "io": 0.004
+      },
+      "T1": 3.2052984591573477,
+      "Tinf": 0.1002347250469029,
+      "T_LB": 3.2052984591573477,
+      "binding": "workers",
+      "speedup_vs_e0": 1.0,
+      "efficiency": 1.0,
+      "observed_over_LB": 1.0031165087962755
+    },
+    {
+      "workload": "S_scaling",
+      "policy": "e1",
+      "workers": 1,
+      "trials": 5,
+      "makespan_mean": 3.2147768,
+      "makespan_sd": 0.0002036288290002862,
+      "makespan_min": 3.21461,
+      "makespan_max": 3.215072,
+      "peak_concurrency": 1,
+      "budget_used": 32,
+      "status": {
+        "COMPLETED": 32
+      },
+      "queue_wait_mean": 1.5576843999999999,
+      "dependency_wait_mean": 0.0,
+      "dispatch_latency_mean": 0.00012360000000000002,
+      "decision_seconds_mean": 0.0040808,
+      "worker_idle_mean": 0.009468,
+      "saturation": {
+        "io": 0.004
+      },
+      "T1": 3.2052984591573477,
+      "Tinf": 0.1002347250469029,
+      "T_LB": 3.2052984591573477,
+      "binding": "workers",
+      "speedup_vs_e0": 1.00015895349251,
+      "efficiency": 1.00015895349251,
+      "observed_over_LB": 1.0029570852647351
+    },
+    {
+      "workload": "S_scaling",
+      "policy": "e1",
+      "workers": 2,
+      "trials": 5,
+      "makespan_mean": 1.6087775999999998,
+      "makespan_sd": 0.00048388252706622675,
+      "makespan_min": 1.608412,
+      "makespan_max": 1.609613,
+      "peak_concurrency": 2,
+      "budget_used": 32,
+      "status": {
+        "COMPLETED": 32
+      },
+      "queue_wait_mean": 0.7547148,
+      "dependency_wait_mean": 0.0,
+      "dispatch_latency_mean": 0.0001656,
+      "decision_seconds_mean": 0.003992600000000001,
+      "worker_idle_mean": 0.011879,
+      "saturation": {
+        "io": 0.008
+      },
+      "T1": 3.2052984591573477,
+      "Tinf": 0.1002347250469029,
+      "T_LB": 1.6026492295786738,
+      "binding": "workers",
+      "speedup_vs_e0": 1.9985906069303803,
+      "efficiency": 0.9992953034651901,
+      "observed_over_LB": 1.0038239000201792
+    },
+    {
+      "workload": "S_scaling",
+      "policy": "e1",
+      "workers": 4,
+      "trials": 5,
+      "makespan_mean": 0.8067382000000001,
+      "makespan_sd": 0.0004420143662823461,
+      "makespan_min": 0.806361,
+      "makespan_max": 0.807441,
+      "peak_concurrency": 4,
+      "budget_used": 32,
+      "status": {
+        "COMPLETED": 32
+      },
+      "queue_wait_mean": 0.3537808,
+      "dependency_wait_mean": 0.0,
+      "dispatch_latency_mean": 0.0003068,
+      "decision_seconds_mean": 0.003549,
+      "worker_idle_mean": 0.019849,
+      "saturation": {
+        "io": 0.016
+      },
+      "T1": 3.2052984591573477,
+      "Tinf": 0.1002347250469029,
+      "T_LB": 0.8013246147893369,
+      "binding": "workers",
+      "speedup_vs_e0": 3.9855405384299387,
+      "efficiency": 0.9963851346074847,
+      "observed_over_LB": 1.0067557954800705
+    },
+    {
+      "workload": "S_scaling",
+      "policy": "e1",
+      "workers": 8,
+      "trials": 5,
+      "makespan_mean": 0.4068676,
+      "makespan_sd": 0.0006461453396875927,
+      "makespan_min": 0.406238,
+      "makespan_max": 0.407651,
+      "peak_concurrency": 8,
+      "budget_used": 32,
+      "status": {
+        "COMPLETED": 32
+      },
+      "queue_wait_mean": 0.1537894,
+      "dependency_wait_mean": 0.0,
+      "dispatch_latency_mean": 0.0007646,
+      "decision_seconds_mean": 0.0028766,
+      "worker_idle_mean": 0.0477206,
+      "saturation": {
+        "io": 0.031
+      },
+      "T1": 3.2052984591573477,
+      "Tinf": 0.1002347250469029,
+      "T_LB": 0.40066230739466846,
+      "binding": "workers",
+      "speedup_vs_e0": 7.90254077739294,
+      "efficiency": 0.9878175971741175,
+      "observed_over_LB": 1.0154875876537572
+    }
+  ]
+}

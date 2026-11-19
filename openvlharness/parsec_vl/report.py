@@ -23,19 +23,27 @@ def _load(path: Path) -> Any:
 
 def _first(base: Path, *candidates: str) -> tuple[Path | None, Any]:
     for rel in candidates:
-        data = _load(base / rel)
-        if data is not None:
-            return base / rel, data
+        # Submission folders use experiment names. Older local recordings
+        # retain their layout and remain readable.
+        paths = [rel.split("/", 1)[1], rel] if rel.startswith(("phase2/", "phase3/")) else [rel]
+        for name in paths:
+            data = _load(base / name)
+            if data is not None:
+                return base / name, data
     return None, None
 
 
 def _relative(source) -> str:
     """Show sources relative to the results directory (never an absolute home path)."""
     path = Path(str(source))
-    for anchor in ("parsec_vl",):
+    for anchor in ("results", "parsec_vl"):
         if anchor in path.parts:
             return "/".join(path.parts[path.parts.index(anchor):])
     return path.name
+
+
+def _variant_label(label: str) -> str:
+    return label.replace(" (Phase 2)", "").replace(" (Phase 3 default)", " (default)")
 
 
 def _experiment(eid, title, evidence, description, source, metrics, labels, units, rows, primary=None, notes=None, higher=None):
@@ -52,7 +60,7 @@ def load_comparisons(base: str | Path = "outputs/parsec_vl") -> list[dict[str, A
     path, data = _first(base, "phase3/whole/variants.json")
     if data:
         for n in sorted({r["workers"] for r in data["rows"]}):
-            rows = [{"label": r["variant"], "values": {"wall": r["wall_mean"], "planning": r["planning_seconds_mean"],
+            rows = [{"label": _variant_label(r["variant"]), "values": {"wall": r["wall_mean"], "planning": r["planning_seconds_mean"],
                                                        "pool": r["pool_startup_seconds_mean"], "calls": r["tool_calls_mean"],
                                                        "spec": r["speculative_calls_mean"]}, "sd": {"wall": r["wall_sd"]}}
                     for r in data["rows"] if r["workers"] == n]
@@ -69,12 +77,12 @@ def load_comparisons(base: str | Path = "outputs/parsec_vl") -> list[dict[str, A
     path, data = _first(base, "phase3/overhead/variants.json")
     if data:
         for n in sorted({r["workers"] for r in data["rows"]}):
-            rows = [{"label": r["variant"], "values": {"wall": r["wall_mean"], "first": r["wall_first"], "rest": r["wall_rest_mean"],
+            rows = [{"label": _variant_label(r["variant"]), "values": {"wall": r["wall_mean"], "first": r["wall_first"], "rest": r["wall_rest_mean"],
                                                        "planning": r["planning_seconds_mean"], "pool": r["pool_startup_seconds_mean"],
                                                        "pool_runs": r["runs_with_pool_start"]}, "sd": {"wall": r["wall_sd"]}}
                     for r in data["rows"] if r["workers"] == n]
             out.append(_experiment(f"planning_overhead_n{n}", f"Planning overhead, {n} worker(s)", "FIXTURE",
-                                   "Same sign task and plan; only the planner's pool lifecycle and the Phase 3 overhead gate change. "
+                                   "Same sign task and plan; only the planner's pool lifecycle and overhead gate change. "
                                    "'shared' keeps one warm pool across consecutive runs (first run cold, rest warm).", path,
                                    ["wall", "first", "rest", "planning", "pool", "pool_runs"],
                                    {"wall": "Run wall (mean)", "first": "First run", "rest": "Later runs (mean)", "planning": "Planning time",
@@ -85,7 +93,7 @@ def load_comparisons(base: str | Path = "outputs/parsec_vl") -> list[dict[str, A
     path, data = _first(base, "phase3/contention/variants.json")
     if data:
         for n in sorted({r["workers"] for r in data["rows"]}):
-            rows = [{"label": r["variant"], "values": {"wall": r["wall_mean"], "calls": r["tool_calls_mean"],
+            rows = [{"label": _variant_label(r["variant"]), "values": {"wall": r["wall_mean"], "calls": r["tool_calls_mean"],
                                                        "spec": r["speculative_calls_mean"]}, "sd": {"wall": r["wall_sd"]}}
                     for r in data["rows"] if r["workers"] == n]
             out.append(_experiment(f"contention_n{n}", f"Resource contention, {n} worker(s)", "FIXTURE",
@@ -152,6 +160,23 @@ def load_comparisons(base: str | Path = "outputs/parsec_vl") -> list[dict[str, A
                                    {"latency": "Decision latency", "calls": "Tool calls", "wasted": "Wasted calls",
                                     "completion": "Completion rate", "queue": "Necessary queue wait"},
                                    {"latency": "s", "queue": "s"}, rows, higher=["completion"]))
+
+    # REAL: bundled tool-service measurements are available in a clean checkout,
+    # even when the original model-run recordings are absent.
+    path, data = _first(base, "probe/probe.json")
+    if data:
+        for tool, result in data["results"].items():
+            rows = [{"label": f"{level} concurrent requests",
+                     "values": {"throughput": row["throughput_per_s"], "relative": row["throughput_vs_1"],
+                                "latency": row["latency_median"], "failures": len(row["failures"])}}
+                    for level, row in sorted(result["levels"].items(), key=lambda item: int(item[0]))]
+            out.append(_experiment(f"real_tool_{tool}", f"Real tool service: {tool}", "REAL",
+                                   "Recorded requests to real tool services at different client concurrencies. "
+                                   "These measure service throughput, not model accuracy or whole-run speedup.", path,
+                                   ["throughput", "relative", "latency", "failures"],
+                                   {"throughput": "Throughput", "relative": "Throughput vs baseline", "latency": "Median latency",
+                                    "failures": "Failed requests"}, {"throughput": "requests/s", "latency": "s"}, rows,
+                                   notes=[data.get("measurement", "")], higher=["throughput", "relative"]))
 
     # REAL: small real runs (different trajectories: not a paired speedup comparison).
     real = []
@@ -304,7 +329,7 @@ def make_figures(base: str | Path, out: str | Path) -> list[str]:
         fig, axes = plt.subplots(1, len(counts), figsize=(6.5 + 3.5 * len(counts), 4.2), sharey=True, squeeze=False)
         for ax, n in zip(axes[0], counts):
             rows = [r for r in overhead["rows"] if r["workers"] == n]
-            labels = [r["variant"] for r in rows]
+            labels = [_variant_label(r["variant"]) for r in rows]
             ax.barh(labels, [r["wall_mean"] for r in rows], xerr=[r["wall_sd"] for r in rows], color="#60a5fa",
                     label="run wall (mean ± sd)")
             ax.barh(labels, [r["pool_startup_seconds_mean"] for r in rows], color="#dc2626", label="pool start-up")

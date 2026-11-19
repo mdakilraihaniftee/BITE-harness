@@ -1745,6 +1745,7 @@ function renderConfig() {
   const rows = config ? [
     ["Workers", String(config.num_workers)], ["Coordinator", "1 (always on)"],
     ["Optional worker memory", onOff(config.optional_worker_memory_enabled)],
+    ["Message bus", onOff(config.communication_enabled)],
     ["Peer communication", onOff(config.peer_communication_enabled) + (config.peer_communication_enabled && config.num_workers < 2 ? " (no effect: one worker)" : "")],
     ["Coordinator assignment/reporting", `ON (${config.coordinator_reporting_channel?.replaceAll("_", " ") || "message bus"})`],
     ["Execution mode", config.execution_mode],
@@ -1763,11 +1764,13 @@ function renderConfig() {
   chip("Workers", String(workers || "—"), "neutral");
   const mem = config ? config.optional_worker_memory_enabled : null;
   chip("Memory", mem === null ? "?" : mem ? "● On" : "○ Off", mem === null ? "unknown" : mem ? "on" : "off");
+  const bus = config ? config.communication_enabled : (typeof comm.enabled === "boolean" ? comm.enabled : null);
+  chip("Communication", bus === null ? "?" : bus ? "● On" : "○ Off", bus === null ? "unknown" : bus ? "on" : "off");
   const peer = config ? config.peer_communication_enabled : legacyPeer;
   chip("Peer comm.", peer === null ? "?" : peer ? "● On" : "○ Off", peer === null ? "unknown" : peer ? "on" : "off");
   chip("Coord. reporting", "● On", "on");
   if (config) chip("Estimates", config.coordinator_estimate_updates?.enabled ? "● On" : "○ Off", config.coordinator_estimate_updates?.enabled ? "on" : "off");
-  $("#config-summary").textContent = config ? `${workers} worker(s) · memory ${onOff(mem)} · peer ${onOff(peer)} · ${config.execution_mode}` : "Legacy run: some settings were not recorded";
+  $("#config-summary").textContent = config ? `${workers} worker(s) · memory ${onOff(mem)} · communication ${onOff(bus)} · peer ${onOff(peer)} · ${config.execution_mode}` : "Legacy run: some settings were not recorded";
 }
 
 function planCommand() {

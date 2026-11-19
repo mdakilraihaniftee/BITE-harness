@@ -1,0 +1,93 @@
+{
+  "label": "SYNTHETIC (random declared plan problems; reference = 40000 rollouts per candidate)",
+  "score": "latency + 0.25 x tool calls",
+  "rows": [
+    {
+      "method": "closed-form heuristic",
+      "time_budget_s": 0.0,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 0,
+      "best_choice_rate": 0.8,
+      "regret_mean": 0.016693018371500622,
+      "regret_max": 0.16106734691589075,
+      "planning_seconds_mean": 1.5154795255511999e-05,
+      "backends": null
+    },
+    {
+      "method": "sequential MC",
+      "time_budget_s": 0.05,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 241.25,
+      "best_choice_rate": 0.975,
+      "regret_mean": 0.0003023707242728824,
+      "regret_max": 0.012094828970915295,
+      "planning_seconds_mean": 0.060937049391213804,
+      "backends": null
+    },
+    {
+      "method": "parallel MC (8 processes)",
+      "time_budget_s": 0.05,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 181.25,
+      "best_choice_rate": 0.95,
+      "regret_mean": 0.002500400496091443,
+      "regret_max": 0.08792119087274242,
+      "planning_seconds_mean": 0.06769651025533677,
+      "backends": null
+    },
+    {
+      "method": "overhead-aware gate",
+      "time_budget_s": 0.05,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 241.25,
+      "best_choice_rate": 0.975,
+      "regret_mean": 0.0003023707242728824,
+      "regret_max": 0.012094828970915295,
+      "planning_seconds_mean": 0.06120681605534628,
+      "backends": {
+        "sequential": 40
+      }
+    },
+    {
+      "method": "sequential MC",
+      "time_budget_s": 0.2,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 1412.5,
+      "best_choice_rate": 1.0,
+      "regret_mean": 0.0,
+      "regret_max": 0.0,
+      "planning_seconds_mean": 0.2121539145708084,
+      "backends": null
+    },
+    {
+      "method": "parallel MC (8 processes)",
+      "time_budget_s": 0.2,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 2451.25,
+      "best_choice_rate": 1.0,
+      "regret_mean": 0.0,
+      "regret_max": 0.0,
+      "planning_seconds_mean": 0.2660115059814416,
+      "backends": null
+    },
+    {
+      "method": "overhead-aware gate",
+      "time_budget_s": 0.2,
+      "instances": 40,
+      "rollouts_per_candidate_mean": 1391.25,
+      "best_choice_rate": 1.0,
+      "regret_mean": 0.0,
+      "regret_max": 0.0,
+      "planning_seconds_mean": 0.21193307773210107,
+      "backends": {
+        "sequential": 40
+      }
+    }
+  ],
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:00:11.255202+00:00"
+  }
+}

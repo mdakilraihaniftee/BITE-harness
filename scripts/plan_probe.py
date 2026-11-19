@@ -54,7 +54,7 @@ def main() -> int:
     parser.add_argument("--samples", type=int, default=5)
     parser.add_argument("--agent-config", default="examples/local_grounding_tools.yaml")
     parser.add_argument("--schema", choices=("current", "simple", "both"), default="both")
-    parser.add_argument("--out", default="outputs/parsec_vl/phase3/plan_probe")
+    parser.add_argument("--out", default="outputs/parsec_vl/plan_probe")
     parser.add_argument("--execute", type=int, default=0,
                         help="also run N complete single-agent investigations of the explicit sign question "
                              "(real model + real tools, E2 scheduler, simple plan schema)")

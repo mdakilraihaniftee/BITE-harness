@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -318,13 +319,21 @@ def test_deterministic_two_worker_investigation_uses_production_replay_path(
     )
 
 
-def test_dataset_runner_resolves_real_row_without_opening_label() -> None:
+def test_dataset_runner_resolves_local_row_without_opening_label(tmp_path: Path) -> None:
+    # Exercise the actual CLI and TSV loader without a downloaded benchmark,
+    # a deployment .env, or a network request.
+    image = tmp_path / "input.png"
+    Image.new("RGB", (32, 24), "green").save(image)
+    (tmp_path / "SubmissionFixture.tsv").write_text(
+        "index\timage_path\tquestion\tanswer\n"
+        f"17\t{image}\tHow many marked objects are there?\t8675309\n"
+    )
     completed = subprocess.run(
         [
             sys.executable,
             "scripts/run_studio_dataset_task.py",
             "--dataset",
-            "FSC147_val",
+            "SubmissionFixture",
             "--row",
             "0",
             "--run-id",
@@ -335,10 +344,13 @@ def test_dataset_runner_resolves_real_row_without_opening_label() -> None:
         capture_output=True,
         text=True,
         timeout=30,
+        env={**os.environ, "LMUData": str(tmp_path)},
     )
     assert completed.returncode == 0, completed.stderr
-    assert "data/images/FSC147/190.jpg" in completed.stdout
-    assert "How many seagull are there" in completed.stdout
+    assert str(image) in completed.stdout
+    assert "Dataset index: 17" in completed.stdout
+    assert "How many marked objects are there?" in completed.stdout
     assert "Ground truth: sealed" in completed.stdout
     assert "Inspect-only preflight completed" in completed.stdout
     assert "Final answer:" not in completed.stdout
+    assert "8675309" not in completed.stdout

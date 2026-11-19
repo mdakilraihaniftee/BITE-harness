@@ -1,0 +1,130 @@
+{
+  "label": "FIXTURE (real agent loop and capabilities; scripted model; 0.3s injected tool latency)",
+  "rows": [
+    {
+      "policy": "E0",
+      "trials": 5,
+      "tool_span_mean": 1.310458699055016,
+      "tool_span_sd": 0.004795476351744981,
+      "answer_wall_mean": 1.323227138351649,
+      "answer_wall_sd": 0.003045812778931413,
+      "overlapping_pairs_mean": 0.0,
+      "answers": [
+        "EXIT 42"
+      ],
+      "speedup_vs_first": 1.0
+    },
+    {
+      "policy": "E1",
+      "trials": 5,
+      "tool_span_mean": 0.9985955379903316,
+      "tool_span_sd": 0.006943405587751119,
+      "answer_wall_mean": 1.0119144957512618,
+      "answer_wall_sd": 0.006866351416629815,
+      "overlapping_pairs_mean": 1.0,
+      "answers": [
+        "EXIT 42"
+      ],
+      "speedup_vs_first": 1.3123017770460976
+    },
+    {
+      "policy": "E2",
+      "trials": 5,
+      "tool_span_mean": 1.002524983137846,
+      "tool_span_sd": 0.008440864005851053,
+      "answer_wall_mean": 1.0155069545842708,
+      "answer_wall_sd": 0.008445550349213612,
+      "overlapping_pairs_mean": 1.0,
+      "answers": [
+        "EXIT 42"
+      ],
+      "speedup_vs_first": 1.3071581467759088
+    }
+  ],
+  "traces": {
+    "e0": [
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0001.primary.ocr_full",
+        "start": 0.0,
+        "end": 0.3271
+      },
+      {
+        "tool": "grounding",
+        "call": "run.worker_01.plan0001.primary.g",
+        "start": 0.3275,
+        "end": 0.7088
+      },
+      {
+        "tool": "zoom",
+        "call": "run.worker_01.plan0001.primary.z",
+        "start": 0.7108,
+        "end": 1.0141
+      },
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0001.primary.ocr_crop",
+        "start": 1.0159,
+        "end": 1.3185
+      }
+    ],
+    "e1": [
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0006.primary.ocr_full",
+        "start": 0.0,
+        "end": 0.3483
+      },
+      {
+        "tool": "grounding",
+        "call": "run.worker_01.plan0006.primary.g",
+        "start": 0.001,
+        "end": 0.3776
+      },
+      {
+        "tool": "zoom",
+        "call": "run.worker_01.plan0006.primary.z",
+        "start": 0.38,
+        "end": 0.6897
+      },
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0006.primary.ocr_crop",
+        "start": 0.6917,
+        "end": 0.9939
+      }
+    ],
+    "e2": [
+      {
+        "tool": "grounding",
+        "call": "run.worker_01.plan0011.primary.g",
+        "start": 0.0,
+        "end": 0.384
+      },
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0011.primary.ocr_full",
+        "start": 0.0007,
+        "end": 0.3487
+      },
+      {
+        "tool": "zoom",
+        "call": "run.worker_01.plan0011.primary.z",
+        "start": 0.3863,
+        "end": 0.6966
+      },
+      {
+        "tool": "ocr",
+        "call": "run.worker_01.plan0011.primary.ocr_crop",
+        "start": 0.6986,
+        "end": 1.0012
+      }
+    ]
+  },
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:09:59.032992+00:00"
+  }
+}

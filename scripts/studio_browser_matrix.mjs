@@ -3,9 +3,9 @@
  * Headless-Chrome validation and screenshots for the answer strip, coordinator
  * estimates, ground-truth release, compact team view, and configuration runs.
  *
- * Usage (start a Studio on a runs directory first, see docs/INVESTIGATION_STUDIO.md):
+ * Usage (start a Studio on a runs directory first, see README.md#visualization):
  *   STUDIO_VIEWER_TOKEN=... STUDIO_EVALUATOR_TOKEN=... node scripts/studio_browser_matrix.mjs \
- *     --base http://127.0.0.1:8799 --runs-dir outputs/studio_validation --out docs/images/studio_v3
+ *     --base http://127.0.0.1:8799 --runs-dir outputs/studio_validation --out outputs/studio_browser_matrix
  *
  * Expects fixture runs fixture_w1_memoff_peeroff, fixture_w2_memon_peeron,
  * fixture_w3_memon_peeroff, fixture_w4_memoff_peeron and (optional) legacy_demo
@@ -23,7 +23,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, inde
   return pairs;
 }, []));
 const BASE = args.base || "http://127.0.0.1:8799";
-const OUT = args.out || "docs/images/studio_v3";
+const OUT = args.out || "outputs/studio_browser_matrix";
 const RUNS = args["runs-dir"] || "outputs/studio_validation";
 const CHROME = args.chrome || "google-chrome";
 const TOKEN = process.env.STUDIO_VIEWER_TOKEN;
@@ -135,6 +135,36 @@ const strip = `({gt: document.querySelector('#gt-value').textContent, gtState: d
   final: document.querySelector('#final-value').textContent, evaluation: document.querySelector('#eval-label').textContent, evalHidden: document.querySelector('#eval-label').classList.contains('hidden'),
   round: document.querySelector('#as-round').textContent, sticky: getComputedStyle(document.querySelector('#answer-strip')).position})`;
 async function waitFor(expression, timeout = 15000) { const end = Date.now() + timeout; while (Date.now() < end) { if (await evaluate(expression).catch(() => false)) return true; await sleep(200); } return false; }
+
+// Follow an actual in-progress inference, using the same browser as replay checks.
+if (args.live) {
+  const run = args.live;
+  await open(run, {technical: false});
+  const before = await evaluate(`({run: state.runId, events: state.events.length,
+    started: state.events.some((e) => e.event_type === 'RUN_STARTED'),
+    completed: state.events.some((e) => e.event_type === 'RUN_COMPLETED'),
+    cards: document.querySelectorAll('#simple-team .st-card').length})`);
+  check("live real run: correct selection and agent cards", before.run === run && before.cards >= 2);
+  check("live real run: observed before completion", before.started && !before.completed);
+  await shot("live-real-in-progress");
+  const advanced = await waitFor(`state.events.length > ${before.events}`, 90000);
+  check("live real run: new events arrive without reloading", advanced);
+  const completed = await waitFor(`state.events.some((e) => e.event_type === 'RUN_COMPLETED' || e.event_type === 'RUN_FAILED')`, 600000);
+  check("live real run: completion arrives through the event stream", completed
+    && await evaluate(`state.events.some((e) => e.event_type === 'RUN_COMPLETED')`));
+  await frames();
+  const final = await evaluate(`({displayed: document.querySelector('#final-value').textContent,
+    recorded: state.events.findLast((e) => e.event_type === 'FINAL_ANSWER_RECORDED')?.payload.final_answer})`);
+  check("live real run: displayed final matches recorded answer", final.recorded != null && final.displayed.trim() === String(final.recorded).trim());
+  await shot("live-real-completed");
+  // Opening the page before exchanging the launch ticket can produce an
+  // expected 401, as in the replay suites. Keep other browser errors fatal.
+  const unexpected = problems.filter((item) => !/status of 40[13]/.test(item));
+  check("live real run: no browser exceptions", unexpected.length === 0, unexpected.slice(0, 5).join(" | "));
+  writeFileSync(join(OUT, "browser-live-report.json"), `${JSON.stringify({run, before, final, checks, problems}, null, 2)}\n`);
+  socket.close(); chrome.kill("SIGTERM"); await sleep(300); rmSync(profile, {recursive: true, force: true});
+  process.exit(checks.some((item) => !item.ok) ? 1 : 0);
+}
 
 // ---- optional: PARSEC-VL view (Gantt, DAG, speculation, budget, comparison, live) -----------
 if (args.parsec) {
@@ -328,6 +358,9 @@ if (args.simple) {
       if (a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1) overlaps.push(a.agent + '/' + b.agent); }
     const recordedTools = {}; for (const [id, a] of state.activityCache?.state?.agents || []) recordedTools[id] = [...(a.tools || new Map())].reduce((n, [, c]) => n + c, 0);
     return {cards, overlaps, recordedTools, routes: document.querySelectorAll('#simple-team .st-route.st-link').length,
+      effectiveConfig: state.snapshot?.effective_config,
+      configChips: Object.fromEntries([...document.querySelectorAll('#config-chips .cfg-chip')].map((n) => [n.querySelector('span')?.textContent, n.querySelector('strong')?.textContent])),
+      communication: document.querySelector('#simple-team .st-communication')?.textContent,
       technicalOpen: document.querySelector('#technical-details').open, teamVisible: document.querySelector('#team-view').checkVisibility(),
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       focus: [...document.querySelectorAll('#focus-flow > li .fl-label')].map((n) => n.textContent), focusTitle: document.querySelector('#focus-title').textContent,
@@ -342,6 +375,20 @@ if (args.simple) {
     await frames(); await sleep(300); await frames();
     const p = await evaluate(simpleProbe);
     const workers = p.cards.filter((c) => c.agent !== "coordinator");
+    const matrix = /^matrix_w([1-4])_mem_(on|off)_comm_(on|off)_/.exec(run);
+    if (matrix) {
+      const count = Number(matrix[1]), memory = matrix[2] === "on", comm = matrix[3] === "on";
+      check(`${tag}: worker cards match requested matrix variant`, workers.length === count && p.cards.length === count + 1);
+      check(`${tag}: recorded settings match requested matrix variant`, p.effectiveConfig?.num_workers === count
+        && p.effectiveConfig?.optional_worker_memory_enabled === memory && p.effectiveConfig?.communication_enabled === comm);
+    }
+    if (p.effectiveConfig) {
+      const cfg = p.effectiveConfig;
+      check(`${tag}: memory chip matches recorded policy`, p.configChips.Memory === (cfg.optional_worker_memory_enabled ? "● On" : "○ Off"));
+      check(`${tag}: communication chip matches recorded policy`, p.configChips.Communication === (cfg.communication_enabled ? "● On" : "○ Off"));
+      check(`${tag}: shared infrastructure shows actual bus state`, p.communication === (cfg.communication_enabled
+        ? "Message bus: on" : "Message bus: off · direct result handoff"));
+    }
     check(`${tag}: technical details collapsed by default`, !p.technicalOpen && !p.teamVisible);
     check(`${tag}: one card per agent, none overlapping`, p.cards.length === Object.keys(p.recordedTools).length || p.cards.length >= 2, `${p.cards.length} cards, overlaps ${p.overlaps.join(",") || "none"}`);
     check(`${tag}: no overlaps and no horizontal page scroll`, !p.overlaps.length && p.overflow <= 0, `overflow ${p.overflow}`);

@@ -48,7 +48,8 @@ def create_app(
 ) -> FastAPI:
     root = Path(runs_directory).resolve()
     # Recorded PARSEC-VL benchmark summaries (read-only; never executed from the UI).
-    experiments_root = Path(experiments_dir or os.getenv("STUDIO_EXPERIMENTS_DIR") or "outputs/parsec_vl").resolve()
+    experiments_root = Path(experiments_dir or os.getenv("STUDIO_EXPERIMENTS_DIR")
+                            or Path(__file__).resolve().parents[2] / "results/reference").resolve()
     root.mkdir(parents=True, exist_ok=True)
     if not viewer_token:
         raise ValueError("A nonempty Studio viewer token is required")

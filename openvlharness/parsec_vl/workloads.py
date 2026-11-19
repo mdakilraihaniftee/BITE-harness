@@ -9,7 +9,7 @@ nothing about GPU throughput; real backend concurrency is measured separately
 wall-clock measurements of the executor running these declared waits.
 
 The ``visual_pipeline`` workload replays durations measured on this machine's
-real tool services (see docs/PHASE1_RESULTS.md); it is still a synthetic
+real tool services (see docs/REPORT.md); it is still a synthetic
 replay, not a real tool execution.
 
 ``cpu_bound`` is a negative control: pure-Python arithmetic holds the GIL, so

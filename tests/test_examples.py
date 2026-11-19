@@ -24,7 +24,9 @@ ENV = {"MODEL_BASE_URL": "http://fixture.invalid/v1", "MODEL_API_KEY": "fixture-
 class ExampleConfigTests(unittest.TestCase):
     def test_examples_build_an_agent_and_a_router(self):
         self.assertTrue(EXAMPLES)
-        with patch.dict(os.environ, ENV):
+        # These are configuration/schema checks. Tokenizer loading has separate
+        # coverage and must not require a checkpoint cache or a Hub connection.
+        with patch.dict(os.environ, ENV), patch("openvlharness.services.models.ModelAdapter.load_tokenizer"):
             for path in EXAMPLES:
                 with self.subTest(example=path.name):
                     build_agent(str(path))
