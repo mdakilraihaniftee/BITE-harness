@@ -3,14 +3,14 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bite-visual-agents"
+name = "parsec-vl"
 version = "0.1.0"
-description = "Evidence provenance and controlled tool-utility evaluation for visual agents"
+description = "PARSEC-VL: dependency-aware parallel execution for multi-agent visual reasoning (built on OpenVLHarness)"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_LICENSES.md", "LICENSES/*"]
-authors = [{name = "BITE Contributors"}]
+authors = [{name = "PARSEC-VL contributors"}]
 classifiers = [
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
@@ -24,8 +24,7 @@ classifiers = [
 dependencies = ["requests>=2.31", "PyYAML>=6.0.1", "numpy>=1.26", "Pillow>=10", "jsonschema>=4"]
 
 [project.scripts]
-bite-eval = "evaluation_kit.cli:main"
-openvlharness-eval = "evaluation_kit.cli:main"  # Legacy compatibility alias.
+openvlharness-eval = "evaluation_kit.cli:main"
 openvlharness-multi-agent = "openvlharness.multi_agent.run:main"
 openvlharness-studio = "openvlharness.studio.server:main"
 

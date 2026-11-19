@@ -223,6 +223,8 @@ def main():
     """Load the CLI configuration and serve the router with Uvicorn."""
     parser = argparse.ArgumentParser(prog="python -m openvlharness.services.server", description=__doc__)
     parser.add_argument("--config", required=True, help="Agent-system YAML; use the same file as the agent")
+    parser.add_argument("--host", help="override services.server.host")
+    parser.add_argument("--port", type=int, help="override services.server.port (e.g. when another router holds it)")
     args = parser.parse_args()
     try:
         config = load_agent_config(args.config)
@@ -230,7 +232,9 @@ def main():
         sys.exit(f"error: {exc}")
     settings = config["services"]["server"]
     import uvicorn
-    uvicorn.run(create_app(config), host=settings.get("host", "127.0.0.1"), port=settings.get("port", 8101))
+    host = args.host or settings.get("host", "127.0.0.1")
+    port = args.port or settings.get("port", 8101)
+    uvicorn.run(create_app(config), host=host, port=port)
 
 
 if __name__ == "__main__":

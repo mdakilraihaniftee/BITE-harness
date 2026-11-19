@@ -23,6 +23,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, inde
 }, []));
 const BASE = args.base || "http://127.0.0.1:8799";
 const OUT = args.out || "docs/images/studio";
+const RUNS_DIR = args["runs-dir"] || "outputs/multi_agent";
 const CHROME = args.chrome || "google-chrome";
 const TOKEN = process.env.STUDIO_VIEWER_TOKEN;
 if (!TOKEN) { console.error("Set STUDIO_VIEWER_TOKEN"); process.exit(2); }
@@ -190,11 +191,11 @@ const selectedFlows = () => evaluate(`[...document.querySelectorAll('.flow.on.le
 // 1-2. Full architecture in both themes.
 for (const theme of ["light", "dark"]) {
   await open("studio_protocol_fixture", {theme});
-  const info = await evaluate(`({theme: document.documentElement.dataset.theme, nodes: document.querySelectorAll('.arch-svg .node').length, topo: state.topology.nodes.length, href: location.href, tokenType: document.querySelector('#token').type, bg: getComputedStyle(document.body).backgroundColor})`);
+  const info = await evaluate(`({theme: document.documentElement.dataset.theme, nodes: document.querySelectorAll('.arch-svg .node').length, topo: state.topology.nodes.length, href: location.href, tokenControls: document.querySelectorAll('#token, #connect, #evaluator-token').length, bg: getComputedStyle(document.body).backgroundColor})`);
   check(`${theme}: theme applied`, info.theme === theme, info.bg);
   check(`${theme}: every topology node drawn`, info.nodes === info.topo, `${info.nodes}/${info.topo}`);
   check(`${theme}: token removed from URL`, !info.href.includes("token") && !info.href.includes(TOKEN));
-  check(`${theme}: token field masked`, info.tokenType === "password");
+  check(`${theme}: no token entry controls`, info.tokenControls === 0);
   const contrast = await evaluate(`(() => {
     const parse = (c) => c.match(/[\\d.]+/g).slice(0, 3).map(Number);
     const lum = (rgb) => { const [r, g, b] = rgb.map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -216,7 +217,7 @@ for (const theme of ["light", "dark"]) {
 await evaluate(`document.querySelector('[data-theme-choice="dark"]').click(); true`);
 await send("Page.reload"); await sleep(1200);
 check("theme persists across reload", (await evaluate("document.documentElement.dataset.theme")) === "dark" && (await evaluate("localStorage.getItem('studio.theme')")) === "dark");
-check("theme storage holds no token", !(await evaluate("JSON.stringify(Object.assign({}, localStorage))")).includes(TOKEN));
+check("theme storage holds no token", !(await evaluate("JSON.stringify(Object.fromEntries(Object.entries(localStorage).filter(([key]) => !key.startsWith('studio.session.'))))")).includes(TOKEN));
 await send("Emulation.setEmulatedMedia", {features: [{name: "prefers-color-scheme", value: "dark"}]});
 await evaluate(`document.querySelector('[data-theme-choice="system"]').click(); true`);
 check("system mode follows dark preference", (await evaluate("document.documentElement.dataset.theme")) === "dark");
@@ -364,39 +365,51 @@ async function mintLink(run) {
 const viewValid = (stats) => /^-?[\d.]+ -?[\d.]+ [\d.]+ [\d.]+$/.test(stats.viewBox) && stats.width > 300 && stats.height > 200;
 
 // A. Disconnected: generic preview, no data, no activity.
-await visit(`${BASE}/`, {until: "document.querySelector('.arch-svg .node') && document.querySelector('#connection-state').textContent === 'Authentication required'"});
+await send("Network.clearBrowserCookies");
+await evaluate("localStorage.clear(); sessionStorage.clear(); true");
+await visit(`${BASE}/`, {until: "document.querySelector('.arch-svg .node') && document.querySelector('#connection-state').textContent === 'Open run link'"});
 let stats = await graphStats();
 const previewCounts = await evaluate("({nodes: StudioGraph.previewTopology().nodes.length, edges: StudioGraph.previewTopology().edges.length})");
 check("A disconnected: preview architecture drawn", stats.scope === "preview" && stats.nodes === previewCounts.nodes && stats.edges === previewCounts.edges && stats.finite && viewValid(stats), JSON.stringify({...stats, notice: undefined}));
 check("A disconnected: labelled as preview, not live", stats.title.includes("Architecture preview — not live execution"));
 check("A disconnected: no activity and no run data", stats.activeFlows === 0 && !(await evaluate("document.body.innerText")).match(/fsc147|worker_0\d|real_/i));
-check("A disconnected: connection instructions visible", stats.chip === "Authentication required" && stats.notice.includes("viewer token"));
+check("A disconnected: automatic sign-in instructions visible", stats.chip === "Open run link" && stats.notice.includes("visualization link"));
 await shot("13-disconnected-architecture-preview", ".architecture-panel");
 
 // Invalid token is visible, not silent.
-await visit(`${BASE}/#token=definitely-wrong`, {until: "document.querySelector('#connection-state').textContent === 'Invalid token'"});
+await visit(`${BASE}/#token=definitely-wrong`, {until: "document.querySelector('#connection-state').textContent === 'Open run link'"});
 stats = await graphStats();
-check("L invalid token reported", stats.chip === "Invalid token" && stats.notice.includes("rejected") && stats.scope === "preview");
+check("L invalid credential rejected with launch-link guidance", stats.chip === "Open run link" && stats.notice.includes("visualization link") && stats.scope === "preview");
 
-// B. Connected without a run: configured architecture with a worker template.
-await visit(await mintLink(null), {until: "document.querySelector('.arch-svg.scope-configured .node')"});
+// B. A link without a run selects the newest recorded run automatically.
+await visit(await mintLink(null), {until: "state.runId && document.querySelector('.arch-svg.scope-run .node')"});
 stats = await graphStats();
 const configured = await evaluate("state.configured && {nodes: state.configured.nodes.length, edges: state.configured.edges.length, tools: state.configured.nodes.filter((n) => n.type === 'tool').length, agents: state.configured.agents}");
-check("B connected: configured architecture drawn", stats.scope === "configured" && configured && stats.nodes === configured.nodes && stats.edges === configured.edges && stats.finite && viewValid(stats), JSON.stringify({nodes: stats.nodes, edges: stats.edges, configured}));
-check("B connected: worker template, not invented workers", JSON.stringify(configured.agents) === JSON.stringify(["coordinator", "worker_template"]) && (await evaluate("document.querySelectorAll('.group-worker_template').length")) === 1);
-check("B connected: labelled configured, no activity", stats.title.includes("Configured architecture — no task running") && stats.activeFlows === 0 && stats.chip === "Connected");
+check("B connected: newest run topology drawn automatically", stats.scope === "run" && stats.finite && viewValid(stats)
+  && await evaluate("state.runId === state.runs[0].run_id && document.querySelectorAll('.arch-svg .node').length === state.topology.nodes.length"));
+check("B configured preview still has a worker template", configured && JSON.stringify(configured.agents) === JSON.stringify(["coordinator", "worker_template"]));
+check("B connected: authenticated run status matches recorded state", await evaluate(`(() => {
+  const status = state.snapshot?.state?.status || state.snapshot?.final?.run_status;
+  const chip = document.querySelector('#connection-state').textContent;
+  return terminalStates.has(status) ? chip === 'Run ' + status.toLowerCase() + ' · recorded' : chip.includes('live stream');
+})()`));
 check("B connected: run menu populated", (await evaluate("document.querySelector('#run-select').options.length")) > 2 && !(await evaluate("document.querySelector('#run-select').disabled")));
-check("B connected: token removed from URL and field", !(await evaluate("location.href")).includes("ticket") && (await evaluate("document.querySelector('#token').value")) === "");
+check("B connected: credentials absent from URL and UI", !(await evaluate("location.href")).includes("ticket") && await evaluate("!document.querySelector('#token, #connect')"));
 await shot("14-connected-configured-architecture", ".architecture-panel");
 await evaluate(`localStorage.setItem("studio.theme", "dark"); StudioTheme.apply("dark"); true`);
 await shot("15-connected-configured-architecture-dark", ".architecture-panel");
 
-// Used launch link cannot be replayed.
+// A used link still works in its signed-in browser; a fresh browser cannot redeem it.
 const link = await mintLink("real_fsc147_row0_studio");
 await visit(link, {until: "state.runId === 'real_fsc147_row0_studio'"});
-await visit(link, {until: "document.querySelector('#connection-state').textContent === 'Authentication required'"});
+await evaluate("localStorage.clear(); sessionStorage.clear(); true");
+await visit(link, {until: "state.runId === 'real_fsc147_row0_studio' && state.connected"});
+check("L browser cookie reconnects without tokens in storage", await evaluate("state.connected && !state.token && !document.querySelector('input[type=password]')"));
+await send("Network.clearBrowserCookies");
+await evaluate("localStorage.clear(); sessionStorage.clear(); true");
+await visit(link, {until: "document.querySelector('#connection-state').textContent === 'Open run link'"});
 stats = await graphStats();
-check("L launch link is single-use", stats.notice.includes("expired or was already used") && stats.scope === "preview");
+check("L used launch link cannot authenticate a fresh browser", stats.chip === "Open run link" && stats.scope === "preview");
 
 // C. Completed real run, full architecture, via a launch link.
 await visit(await mintLink("real_fsc147_row0_studio"), {until: "state.runId === 'real_fsc147_row0_studio' && document.querySelector('.arch-svg.scope-run')"});
@@ -439,14 +452,14 @@ await send("Emulation.setDeviceMetricsOverride", {width: 1600, height: 1250, dev
 const pendingRun = `studio_pending_${Date.now()}`;
 await visit(await mintLink(pendingRun), {until: "document.querySelector('#connection-state').textContent === 'Waiting for run'"});
 check("H waiting state shown for not-yet-existing run", (await graphStats()).notice.includes(pendingRun));
-const produced = spawn("python", ["scripts/studio_protocol_fixture.py", "--output-dir", "outputs/multi_agent", "--run-id", pendingRun], {stdio: "ignore"});
+const produced = spawn("python", ["scripts/studio_protocol_fixture.py", "--output-dir", RUNS_DIR, "--run-id", pendingRun], {stdio: "ignore"});
 await new Promise((resolve) => produced.on("exit", resolve));
 for (let i = 0; i < 60 && !(await evaluate(`state.runId === ${JSON.stringify(pendingRun)} && state.events.length > 50`)); i += 1) await sleep(200);
 await frames();
 stats = await graphStats();
 check("H run discovered and loaded without refresh", stats.scope === "run" && (await evaluate(`state.runId`)) === pendingRun && stats.nodes > 20);
-rmSync(join("outputs/multi_agent", pendingRun), {recursive: true, force: true});
-rmSync(join("outputs/multi_agent", `${pendingRun}_source.png`), {force: true});
+rmSync(join(RUNS_DIR, pendingRun), {recursive: true, force: true});
+rmSync(join(RUNS_DIR, `${pendingRun}_source.png`), {force: true});
 
 // F. Outdated backend serving these static files.
 if (args["old-port"]) {
@@ -456,8 +469,8 @@ if (args["old-port"]) {
   await send("Page.navigate", {url: `${oldBase}/?visit=${loads++}#token=old-backend-token`});
   for (let i = 0; i < 40 && (await evaluate("document.querySelector('#connection-state')?.textContent").catch(() => "")) !== "Backend incompatible"; i += 1) await sleep(150);
   await frames();
-  const incompatible = await evaluate("({chip: document.querySelector('#connection-state').textContent, notice: document.querySelector('#graph-notice').textContent, connect: document.querySelector('#connect').disabled, nodes: document.querySelectorAll('.arch-svg .node').length})");
-  check("F outdated backend detected, not treated as connected", incompatible.chip === "Backend incompatible" && incompatible.notice.includes("outdated") && incompatible.connect && incompatible.nodes > 0, JSON.stringify(incompatible).slice(0, 200));
+  const incompatible = await evaluate("({chip: document.querySelector('#connection-state').textContent, notice: document.querySelector('#graph-notice').textContent, connected: state.connected, nodes: document.querySelectorAll('.arch-svg .node').length})");
+  check("F outdated backend detected, not treated as connected", incompatible.chip === "Backend incompatible" && incompatible.notice.includes("outdated") && !incompatible.connected && incompatible.nodes > 0, JSON.stringify(incompatible).slice(0, 200));
   await shot("19-incompatible-backend", ".architecture-panel");
   old.kill("SIGTERM");
 }

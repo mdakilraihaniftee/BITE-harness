@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from fastapi.testclient import TestClient
 from PIL import Image
 
 from openvlharness.multi_agent.events import EventLog
@@ -211,6 +212,31 @@ def test_private_memory_can_be_disabled_at_backend(tmp_path: Path) -> None:
         assert error.value.status_code == 403
 
     asyncio.run(denied())
+
+
+def test_launch_link_signs_browser_in_for_evidence_memory_and_stream(tmp_path: Path) -> None:
+    run, artifact_id = make_run(tmp_path)
+    app = create_app(tmp_path, viewer_token="internal", instance_id="browser-test")
+    with TestClient(app) as client:
+        assert client.get("/api/runs").status_code == 401
+        ticket = client.post("/api/launch-tickets", headers={"X-Studio-Token": "internal"}, json={}).json()["ticket"]
+        sign_in = client.post("/api/launch-tickets/redeem", json={"ticket": ticket})
+        assert "HttpOnly" in sign_in.headers["set-cookie"] and "SameSite=strict" in sign_in.headers["set-cookie"]
+        assert client.get("/api/session").json() == {"authenticated": True, "evaluator": False}
+        assert client.get("/api/runs").json()["runs"][0]["run_id"] == run.name
+        assert client.get(f"/api/runs/{run.name}/snapshot").status_code == 200
+        assert client.get(f"/api/runs/{run.name}/memory/worker_01").status_code == 200
+        assert client.get(f"/api/runs/{run.name}/artifacts/{artifact_id}").headers["content-type"] == "image/png"
+        stream = client.get(f"/api/runs/{run.name}/stream?follow=false&cursor=0")
+        assert stream.status_code == 200 and "id: 1" in stream.text and "id: 0" not in stream.text
+        restarted = TestClient(create_app(tmp_path, viewer_token="replacement", instance_id="restarted"))
+        restarted.cookies.update(client.cookies)
+        assert restarted.get("/api/runs").status_code == 401
+    with TestClient(app) as stranger:
+        for path in ("/api/session", "/api/runs", f"/api/runs/{run.name}/snapshot",
+                     f"/api/runs/{run.name}/memory/worker_01", f"/api/runs/{run.name}/artifacts/{artifact_id}",
+                     f"/api/runs/{run.name}/stream?follow=false"):
+            assert stranger.get(path).status_code == 401
 
 
 def test_replay_snapshot_tolerates_missing_assets_and_partial_jsonl(

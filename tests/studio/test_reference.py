@@ -162,6 +162,32 @@ def test_memory_endpoint_reports_policy(tmp_path: Path) -> None:
     assert snapshot["effective_config"]["num_workers"] == 2
 
 
+def test_browser_session_releases_reference_only_after_completion_and_honors_scope(tmp_path: Path) -> None:
+    code, runs, _, _, image = _run_dataset_task(tmp_path)
+    assert code == 0
+    app = create_app(runs, viewer_token=VIEWER, evaluator_token=EVALUATOR,
+                     dataset_loader=lambda name: FSC147Dataset(image))
+    with TestClient(app) as client:
+        scoped = client.post("/api/launch-tickets", headers={"X-Studio-Token": VIEWER,
+                             "X-Studio-Evaluator-Token": EVALUATOR}, json={"scopes": ["evaluator"]}).json()
+        client.post("/api/launch-tickets/redeem", json={"ticket": scoped["ticket"]})
+        released = client.get("/api/runs/row41/reference").json()
+        assert released["state"] == "AVAILABLE" and released["value"] == LABEL
+        state_file = runs / "row41/run_state.json"
+        state = json.loads(state_file.read_text())
+        state_file.write_text(json.dumps({**state, "status": "RUNNING"}))
+        sealed = client.get("/api/runs/row41/reference").json()
+        assert sealed["state"] == "SEALED" and "value" not in sealed
+        state_file.write_text(json.dumps(state))
+        plain = client.post("/api/launch-tickets", json={}).json()
+        client.post("/api/launch-tickets/redeem", json={"ticket": plain["ticket"]})
+        assert client.get("/api/session").json()["evaluator"] is False
+        assert client.get("/api/runs/row41/reference").json()["state"] == "ACCESS_DENIED"
+    with TestClient(create_app(runs, viewer_token=VIEWER,
+                              dataset_loader=lambda name: FSC147Dataset(image))) as disabled:
+        assert disabled.get("/api/runs/row41/reference", headers={"X-Studio-Token": VIEWER}).json()["state"] == "ACCESS_DENIED"
+
+
 def test_evaluation_rule_is_the_deterministic_count_parser() -> None:
     assert evaluate("There are 13 grapes.", "13", "fsc147_parse_count_exact_match")["correct"] is True
     assert evaluate("\\boxed{12}", "13", "fsc147_parse_count_exact_match")["absolute_error"] == 1

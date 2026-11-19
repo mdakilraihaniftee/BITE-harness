@@ -1,5 +1,5 @@
 # Zoom and coding with a hosted GPT model: no GPU tool workers, Serper or cloud
-# storage. Needs MODEL_BASE_URL, MODEL_API_KEY and TOOL_SERVER_URL; see the README.
+# storage. Needs MODEL_BASE_URL, MODEL_API_KEY and TOOL_SERVER_URL; see docs/HARNESS_GUIDE.md.
 agent_name: MainAgent
 agent_config_version: local_tools_v1
 agent:

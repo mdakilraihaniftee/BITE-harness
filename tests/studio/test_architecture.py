@@ -727,7 +727,16 @@ def test_frontend_never_uses_html_injection_or_stores_tokens() -> None:
             "new Function",
         ):
             assert sink not in source, (path.name, sink)
+        # The viewer token may be remembered only under an instance-scoped key (a
+        # restarted Studio never accepts an old entry); the evaluator token, which
+        # releases ground truth, is never written to persistent storage.
         assert 'localStorage.setItem("studio.token' not in source
+        for line in source.splitlines():
+            if "localStorage.setItem" in line:
+                assert "evaluator" not in line.lower(), (path.name, line)
+    app = (static / "app.js").read_text()
+    assert "window.localStorage.setItem(key, state.token)" in app
+    assert "state.backend.instance_id" in app.split("function sessionKey")[1].split("\n")[0]
     html = (static / "index.html").read_text()
     for component in (
         "agent-graph",

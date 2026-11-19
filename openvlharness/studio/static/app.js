@@ -11,7 +11,7 @@ const Geo = window.StudioGeometry;
 const Story = window.StudioStory;
 
 const state = {
-  token: "", runs: [], runId: null, snapshot: null, events: [], eventIndex: new Map(), selectedEventId: null,
+  token: "", connected: false, runs: [], runId: null, snapshot: null, events: [], eventIndex: new Map(), selectedEventId: null,
   selectedAgent: "", replayIndex: 0, live: true, playing: false, timer: null,
   streamController: null, artifactUrls: new Map(), startedAt: null,
   pendingEvent: null,
@@ -19,8 +19,8 @@ const state = {
   topology: null, graph: null, activityCache: null, selectedNode: null, selectedEdge: null,
   renderScheduled: false, pulseQueue: [], evidenceToken: 0, evidenceKey: null, topologyRefresh: null,
   backend: null, scope: "preview", displayTopology: null, configured: null, waitTimer: null, connectGeneration: 0,
-  // Evaluator credential lives only in page memory (never storage, never the URL).
-  evaluatorToken: "", reference: null, referenceKey: null, referenceLoading: false,
+  // Legacy header credential; new launch links use HttpOnly browser cookies.
+  evaluatorToken: "", evaluatorAccess: false, reference: null, referenceKey: null, referenceLoading: false,
   team: null, tab: "story", answerCache: null, storyCache: null, selectedStepId: null, linkedSteps: new Set(),
   expandedSteps: new Set(), traceFilter: null, technical: false,
   lineageCache: null, ta: {boxes: true, labels: "auto", scores: false, view: "boxes", selectedBox: null, invocation: null},
@@ -96,6 +96,35 @@ function setConnection(label, kind = "idle") {
   chip.className = `status-chip ${kind}`;
 }
 
+// ---- Legacy remembered sign-in -------------------------------------------------
+// Keep older browser credentials compatible. New script links sign in with cookies,
+// so reloads and new tabs do not need credentials in JavaScript or browser storage.
+const SESSION_PREFIX = "studio.session.";
+function sessionKey() { return state.backend?.instance_id ? `${SESSION_PREFIX}${state.backend.instance_id}` : null; }
+function rememberedSession() {
+  const key = sessionKey(); if (!key) return {};
+  let viewer = null; let evaluator = null;
+  try { viewer = window.localStorage.getItem(key); } catch { /* storage unavailable */ }
+  try { evaluator = window.sessionStorage.getItem(`${key}.evaluator`); } catch { /* storage unavailable */ }
+  return {viewer, evaluator};
+}
+function rememberSession() {
+  const key = sessionKey(); if (!key) return;
+  try {
+    for (const name of Object.keys(window.localStorage)) if (name.startsWith(SESSION_PREFIX) && name !== key) window.localStorage.removeItem(name);
+    if (state.token) window.localStorage.setItem(key, state.token);
+  } catch { /* storage unavailable: sign-in still works for this page */ }
+  try {
+    if (state.evaluatorToken) window.sessionStorage.setItem(`${key}.evaluator`, state.evaluatorToken);
+    else window.sessionStorage.removeItem(`${key}.evaluator`);
+  } catch { /* storage unavailable */ }
+}
+function forgetSession() {
+  const key = sessionKey(); if (!key) return;
+  try { window.localStorage.removeItem(key); } catch { /* storage unavailable */ }
+  try { window.sessionStorage.removeItem(`${key}.evaluator`); } catch { /* storage unavailable */ }
+}
+
 // ---- Display preferences (never credentials) -------------------------------
 function loadPrefs() {
   try { return JSON.parse(window.localStorage.getItem(PREFS_KEY) || "{}") || {}; } catch { return {}; }
@@ -111,6 +140,12 @@ function setNotice(text, kind = "info") {
   const node = $("#graph-notice");
   node.textContent = text || "";
   node.className = `graph-notice ${kind}${text ? "" : " hidden"}`;
+  // The same message in a banner under the top bar, so connection and link problems are
+  // visible even while "Technical details" is collapsed. `code` spans become selectable.
+  const banner = $("#app-notice");
+  if (!banner) return;
+  banner.replaceChildren(...String(text || "").split("`").map((part, index) => (index % 2 ? el("code", "", part) : document.createTextNode(part))));
+  banner.className = `graph-notice app-notice ${kind}${text ? "" : " hidden"}`;
 }
 
 /** Compatibility handshake. Old backends lack /api/info and are never treated as connected. */
@@ -128,7 +163,6 @@ async function checkBackend() {
     setNotice(`Studio backend at ${location.host} is outdated or not an Investigation Studio (${error.message}). `
       + "It cannot provide the architecture data this page needs. Run `python scripts/studio_ctl.py status` to see instances, "
       + "stop the old one with `python scripts/studio_ctl.py stop --port " + (location.port || "80") + "`, or open the link printed by the newly launched Studio.", "error");
-    $("#connect").disabled = true;
     return false;
   }
 }
@@ -139,25 +173,19 @@ async function redeemTicket(ticket) {
       method: "POST", cache: "no-store", headers: {"Content-Type": "application/json"}, body: JSON.stringify({ticket}),
     });
     if (!response.ok) throw new Error("expired");
-    const payload = await response.json();
-    if (payload.evaluator_token) state.evaluatorToken = payload.evaluator_token;
-    return payload.token || null;
+    // The server sets HttpOnly session cookies; credentials never need a paste field.
+    return true;
   } catch {
-    setConnection("Authentication required", "idle");
-    setNotice("This launch link has expired or was already used. Get a fresh one with `python scripts/studio_ctl.py url`, or paste the viewer token.", "warning");
-    return null;
+    // An existing browser session can still open an already-used launch link.
+    return false;
   }
 }
 
-async function connect() {
+async function connect(credential = "") {
   if (!state.backend && !(await checkBackend())) return;
-  state.token = $("#token").value.trim();
-  if (!state.token) {
-    setConnection("Authentication required", "idle");
-    setNotice("Enter the viewer token, or open a link from `python scripts/studio_ctl.py url`.", "warning");
-    return;
-  }
+  state.token = credential;
   const generation = ++state.connectGeneration;
+  state.connected = false;
   setConnection("Connecting", "idle");
   try {
     await refreshRunList();
@@ -165,8 +193,10 @@ async function connect() {
     if (generation !== state.connectGeneration) return;
     state.token = "";
     if (error.status === 401) {
-      setConnection("Invalid token", "failed");
-      setNotice(`The token was rejected by the Studio at ${location.host}. Each Studio instance has its own token; get a fresh link with \`python scripts/studio_ctl.py url\`.`, "error");
+      forgetSession();
+      setConnection("Open run link", "idle");
+      setNotice("Open the visualization link printed by your run script to connect automatically. "
+        + `To reopen this Studio, run \`python scripts/studio_ctl.py --runs-dir <runs dir> url --port ${location.port || "80"} --open\`.`, "info");
     } else {
       setConnection("Connection failed", "failed");
       setNotice(`Could not reach the Studio API: ${error.message}`, "error");
@@ -175,9 +205,12 @@ async function connect() {
     return;
   }
   setConnection("Connected", "live");
-  $("#token").value = "";
+  state.connected = true;
+  try { state.evaluatorAccess = (await (await api("/api/session", {evaluator: true})).json()).evaluator; } catch { state.evaluatorAccess = false; }
+  rememberSession();
   await loadConfiguredArchitecture();
   if (state.pendingRun) return selectPendingRun(generation);
+  if (state.runs.length) return loadRun(state.runs[0].run_id);
   showScope("configured");
   if (!state.configured) setNotice("Connected. This Studio has no readable multi-agent configuration, so a generic preview is shown.", "warning");
   else if (state.runs.length) setNotice(`Connected. Select one of ${state.runs.length} run(s) from the menu to load its recorded topology, events, and evidence.`, "info");
@@ -189,6 +222,12 @@ async function refreshRunList() {
   state.runs = payload.runs || [];
   const select = $("#run-select");
   const current = state.runId || state.pendingRun;
+  const signature = JSON.stringify(state.runs.map((run) => [run.run_id, run.status, run.event_count]));
+  if (signature === state.runListSignature && select.options.length > 1) {
+    if (current && state.runs.some((run) => run.run_id === current)) select.value = current;
+    return;
+  }
+  state.runListSignature = signature;
   select.replaceChildren(new Option(state.runs.length ? "Select a run" : "No runs yet", ""));
   for (const run of state.runs) {
     const option = el("option", "", `${run.run_id} · ${run.status || "RUNNING"} · ${run.event_count || 0} events`);
@@ -305,6 +344,17 @@ function isVisible(eventId) {
   return count >= state.events.length || state.events.indexOf(event) < count;
 }
 
+function updateRunConnection() {
+  const terminalEvent = state.events.findLast((event) => ["RUN_COMPLETED", "RUN_FAILED", "RUN_CANCELLED"].includes(event.event_type));
+  const status = terminalEvent
+    ? {RUN_COMPLETED: "COMPLETED", RUN_FAILED: "FAILED", RUN_CANCELLED: "CANCELLED"}[terminalEvent.event_type]
+    : state.snapshot?.state?.status || state.snapshot?.final?.run_status;
+  if (terminalStates.has(status)) {
+    setConnection(`Run ${status.toLowerCase()} · recorded`, status === "FAILED" ? "failed" : status === "COMPLETED" ? "completed" : "idle");
+    if (status === "FAILED") setNotice("This recorded run failed. Opening it replays saved events; it does not restart the investigation. Start a fresh run after the required services are ready.", "error");
+  } else setConnection("Run loaded · live stream", "live");
+}
+
 async function startStream() {
   if (!state.runId) return;
   const controller = new AbortController();
@@ -312,7 +362,7 @@ async function startStream() {
   const last = state.events.at(-1)?.sequence ?? -1;
   try {
     const response = await api(`/api/runs/${encodeURIComponent(state.runId)}/stream?cursor=${last}`, {signal: controller.signal});
-    setConnection("Run loaded · live stream", "live");
+    updateRunConnection();
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -343,9 +393,14 @@ function acceptEvent(event) {
   const appended = !state.events.length || state.events.at(-1).sequence < event.sequence;
   if (appended) { state.events.push(event); state.eventIndex.set(event.event_id, event); }
   else setEvents([...state.events, event]);
+  updateRunConnection();
   if (state.live) { state.replayIndex = state.events.length; state.pulseQueue.push(event.event_id); }
   if (referencesUnknownNode(event)) scheduleTopologyRefresh();
-  if (["RUN_COMPLETED", "FINAL_ANSWER_RECORDED", "RUN_FAILED", "RUN_CANCELLED"].includes(event.event_type)) refreshSnapshot().then(fetchReference);
+  if (["RUN_COMPLETED", "FINAL_ANSWER_RECORDED", "RUN_FAILED", "RUN_CANCELLED"].includes(event.event_type)) {
+    refreshSnapshot().then(fetchReference);
+    // Keep the run menu's "STATUS · N events" label in step with the stream.
+    refreshRunList().catch(() => { /* transient; the next refresh will catch up */ });
+  }
   renderAll();
 }
 
@@ -399,12 +454,25 @@ function renderNow() {
   const activity = activityState();
   const answer = answerState();
   renderHeader(activity); renderFilters(); renderGraph(activity); renderTeam(activity, answer); renderReplay();
-  renderAnswerStrip(answer); renderConfig(); renderEstimateHistory(answer); renderSimpleTeam(activity, answer); renderFocus();
+  renderAnswerStrip(answer); renderConfig(); renderEstimateHistory(answer); renderSimpleTeam(activity, answer); renderFocus(); renderParsec();
   if (state.tab === "log") renderTimeline(); else renderStory();
   renderMemoryTabs(); renderInspector(activity);
   const selected = state.selectedEventId && isVisible(state.selectedEventId) ? state.eventIndex.get(state.selectedEventId) : null;
   renderDetails(selected); renderEvidence(evidenceSelection(selected) || latestEvidenceEvent());
   flushPulses();
+}
+
+/** PARSEC-VL view: rebuilt only when the run or the visible prefix changes (replay-safe fold). */
+function renderParsec() {
+  if (!state.parsec || !window.StudioParsec) return;
+  const inRun = state.scope === "run" && state.runId;
+  const key = inRun ? `${state.runId}|${visibleCount()}` : `none|${state.scope}`;
+  if (state.parsecKey === key) return;
+  state.parsecKey = key;
+  const model = inRun ? window.StudioParsec.buildModel(visibleEvents()) : null;
+  state.parsec.update(model);
+  $("#parsec-meta").textContent = model && model.available
+    ? `${model.policy ? model.policy.toUpperCase() : "scheduler"} · ${model.tasks.length} scheduler task(s) · ${model.plans.length} plan(s)` : "";
 }
 
 /** Answer state for the visible prefix (cached per prefix length). */
@@ -1597,7 +1665,7 @@ const GT_TEXT = {
 async function fetchReference() {
   if (state.scope !== "run" || !state.runId) return;
   const terminal = TERMINAL.has(state.snapshot?.state?.status || state.snapshot?.final?.run_status || "");
-  const key = `${state.runId}|${terminal}|${state.evaluatorToken ? "e" : "v"}`;
+  const key = `${state.runId}|${terminal}|${state.evaluatorAccess ? "e" : "v"}`;
   if (key === state.referenceKey || state.referenceLoading) return;
   state.referenceLoading = true;
   const runId = state.runId;
@@ -1633,8 +1701,6 @@ function renderAnswerStrip(answer) {
   if (ref.error) rows.push(["error", ref.error]);
   rows.push(["release policy", "after the run is terminal, evaluator only"]);
   for (const [k, v] of rows) { const row = el("div", "prov-row"); row.append(el("span", "", k.replaceAll("_", " ")), el("span", "", typeof v === "object" ? JSON.stringify(v) : v)); prov.append(row); }
-  $("#evaluator-unlock").textContent = state.evaluatorToken ? "Evaluator access active" : "Unlock evaluator view";
-  $("#evaluator-unlock").disabled = Boolean(state.evaluatorToken);
   // Coordinator estimate (recorded answer state at this replay position only).
   const e = answer.estimate;
   estCell.dataset.status = e.status;
@@ -1961,14 +2027,14 @@ async function bootstrapFragment() {
   showScope("preview");
   setConnection("Not connected", "idle");
   if (!(await checkBackend())) return;
-  const credential = token || (ticket ? await redeemTicket(ticket) : null);
-  if (credential) { $("#token").value = credential; return connect(); }
-  if (!ticket) {
-    setConnection("Authentication required", "idle");
-    setNotice(state.pendingRun
-      ? `Connect to open run “${state.pendingRun}”. Enter the viewer token, or use a link from \`python scripts/studio_ctl.py url\`.`
-      : "Connect to inspect runs: enter the viewer token, or open a link from `python scripts/studio_ctl.py url`.", "info");
-  }
+  // A new ticket sets browser scope exactly, clearing any prior evaluator cookie for
+  // a viewer-only link. Reloads and bare URLs reuse the existing browser session;
+  // older header credentials remain a fallback.
+  const remembered = rememberedSession();
+  const explicit = Boolean(token || ticket);
+  state.evaluatorToken = explicit ? null : (remembered.evaluator || null);
+  const redeemed = ticket ? await redeemTicket(ticket) : false;
+  return connect(token || (redeemed ? "" : remembered.viewer) || "");
 }
 
 function setupTheme() {
@@ -1985,6 +2051,12 @@ function setupGraph() {
     onLayoutChange: () => renderAll(),
   });
   const prefs = loadPrefs();
+  if (window.StudioParsec) {
+    state.parsec = new window.StudioParsec.ParsecView($("#parsec-view"), {
+      onEvidence: (eventId) => { if (isVisible(eventId)) { selectEvent(eventId); document.querySelector(".evidence-panel")?.scrollIntoView({block: "nearest"}); } },
+      loadExperiments: () => api("/api/parsec/experiments").then((response) => response.json()),
+    });
+  }
   state.simple = new SimpleTeamApi.SimpleTeam($("#simple-team"), {
     onAgent: (id) => { const select = $("#story-agent"); select.value = select.value === id ? "" : id; renderAll(); },
     onTool: (agent, tool) => { openStepForNode(`tool:${String(tool).replace(/[^A-Za-z0-9_.-]/g, "_").slice(0, 96)}`, agent); renderAll(); },
@@ -2036,8 +2108,6 @@ function setupGraph() {
   });
 }
 
-$("#connect").addEventListener("click", connect);
-$("#token").addEventListener("keydown", (event) => { if (event.key === "Enter") connect(); });
 $("#run-select").addEventListener("change", (event) => { state.pendingRun = null; loadRun(event.target.value); });
 $("#agent-filter").addEventListener("change", (event) => { state.selectedAgent = event.target.value; renderAll(); });
 $("#type-filter").addEventListener("change", renderTimeline);
@@ -2056,14 +2126,6 @@ $("#story-agent").addEventListener("change", renderAll);
 $("#trace-filter-clear").addEventListener("click", () => { state.traceFilter = null; renderAll(); });
 $("#story-minor").addEventListener("change", renderAll);
 $("#est-history-toggle").addEventListener("click", () => $("#estimate-history-panel").scrollIntoView({behavior: "smooth", block: "center"}));
-$("#evaluator-unlock").addEventListener("click", async () => {
-  const value = $("#evaluator-token").value.trim();
-  if (!value) return toast("Enter the evaluator token.");
-  const previous = state.evaluatorToken; state.evaluatorToken = value;
-  try { await api("/api/evaluator/check", {evaluator: true}); $("#evaluator-token").value = ""; state.referenceKey = null; toast("Evaluator access active for this page."); fetchReference(); }
-  catch { state.evaluatorToken = previous; toast("The evaluator token was not accepted."); }
-  renderAll();
-});
 const syncTopbar = () => {
   const top = document.querySelector(".topbar"); const strip = $("#answer-strip");
   document.documentElement.style.setProperty("--topbar-height", `${getComputedStyle(top).position === "sticky" ? top.offsetHeight : 0}px`);
@@ -2084,3 +2146,17 @@ setupTheme();
 setupGraph();
 setupPlanner();
 bootstrapFragment();
+// Opening another Studio link in an already-open tab changes only the #fragment (no page
+// load), so react to it: a new ticket, token, or run in the fragment is applied here.
+window.addEventListener("hashchange", () => {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (params.has("ticket") || params.has("token") || (params.get("run") && params.get("run") !== state.runId)) bootstrapFragment();
+});
+// New runs appear in the run menu on their own while this page is open and signed in.
+window.setInterval(() => {
+  if (state.connected && !document.hidden) {
+    refreshRunList().then(() => {
+      if (!state.runId && !state.pendingRun && state.runs.length) loadRun(state.runs[0].run_id);
+    }).catch(() => { /* transient */ });
+  }
+}, 5000);

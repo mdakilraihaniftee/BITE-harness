@@ -59,6 +59,16 @@ def add_run_option_arguments(
     )
     result.add_argument("--max-reassessments", type=int, default=None)
     result.add_argument("--follow-up-rounds", type=int, default=None)
+    result.add_argument(
+        "--tool-scheduler", choices=("off", "e0", "e1", "e2", "e3", "e4", "e5"), default=None,
+        help="PARSEC-VL: off (original), e0 sequential FIFO, e1 parallel FIFO, e2 critical path; "
+             "e3-e5 add declared action plans (e3 Monte Carlo plan selection, e4 fixed-width speculation, "
+             "e5 selective speculation + replanning). e3-e5 change the decision protocol.",
+    )
+    result.add_argument("--scheduler-workers", type=int, default=None,
+                        help="Concurrent tool executions allowed by the scheduler (e1-e5).")
+    result.add_argument("--planning-processes", type=int, default=None,
+                        help="CPU processes for Monte Carlo plan evaluation (e3/e5; 0 = in-process).")
 
 
 def apply_cli_run_options(config: dict, args: argparse.Namespace) -> dict:
@@ -73,6 +83,9 @@ def apply_cli_run_options(config: dict, args: argparse.Namespace) -> dict:
             estimate_updates=args.estimate_updates,
             max_reassessments=args.max_reassessments,
             follow_up_rounds=args.follow_up_rounds,
+            tool_scheduler=getattr(args, "tool_scheduler", None),
+            scheduler_workers=getattr(args, "scheduler_workers", None),
+            planning_processes=getattr(args, "planning_processes", None),
         )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc

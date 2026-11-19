@@ -218,6 +218,8 @@ class MultiAgentOrchestrator:
             message_path=self.run_dir / "messages.jsonl",
         )
         self.worker_ids = worker_ids
+        self.scheduler: Any = None  # parsec_vl.Scheduler when execution.scheduler.policy != "off"
+        self.planning_pool: Any = None  # parsec_vl.PlanEvaluator for e3/e5
         self.workers: dict[str, WorkerAgent] = {}
         self.coordinator: CoordinatorAgent | None = None
 
@@ -281,6 +283,98 @@ class MultiAgentOrchestrator:
             agent.event_sink = self._event_sink(worker_id)
             (self.run_dir / "workers" / worker_id).mkdir(parents=True)
         (self.run_dir / "coordinator").mkdir(parents=True)
+        self._start_scheduler(coordinator_agent)
+
+    def _start_scheduler(self, coordinator_agent: Any) -> None:
+        """PARSEC-VL: one shared tool scheduler for every agent with tools (if enabled)."""
+        settings = self.config["execution"]["scheduler"]
+        if settings["policy"] == "off":
+            return
+        from ..parsec_vl.harness import ToolScheduling, pools_for
+        from ..parsec_vl.resources import BudgetAdapter
+        from ..parsec_vl.scheduler import Scheduler
+
+        agents = {worker_id: worker.agent for worker_id, worker in self.workers.items()}
+        if self.config["coordinator"]["tool_access"]:
+            agents["coordinator"] = coordinator_agent
+        capacities = pools_for(agents.values(), service_capacity=settings["service_capacity"],
+                               capacities=settings["capacities"])
+
+        def sink(event_type: str, record: dict[str, Any]) -> None:
+            status = record["status"]
+            self.events.emit(
+                record.get("agent_id") or "orchestrator",
+                event_type,
+                record,
+                summary=(f"Scheduler started {record['operation']} on worker slot {record.get('worker_id')}."
+                         if event_type == "SCHEDULER_TASK_STARTED"
+                         else f"Scheduler task {record['operation']} {status.lower()}."),
+                status=("running" if event_type == "SCHEDULER_TASK_STARTED" else
+                        "completed" if status == "COMPLETED" else "failed" if status == "FAILED" else "cancelled"),
+                tool_name=record.get("operation"),
+            )
+
+        planned = settings["policy"] in ("e3", "e4", "e5")
+        selective = settings["policy"] == "e5"
+        self.scheduler = Scheduler(
+            policy=settings.get("plan_dispatch", "e2") if planned else settings["policy"], workers=settings["workers"],
+            capacities=capacities,
+            budget=BudgetAdapter(self.budget), run_id=self.run_id, event_sink=sink,
+            task_timeout=settings["task_timeout_seconds"],
+            # E5 keeps one worker slot and one unit of every shared pool for necessary work.
+            speculative_limits={p: max(1, c - 1) for p, c in capacities.items()} if selective else None,
+            necessary_slot_reserve=1 if selective and settings["workers"] > 1 else 0,
+        )
+        for agent_id, agent in agents.items():
+            agent.tool_scheduler = ToolScheduling(self.scheduler, agent_id)
+        if planned:
+            self._start_planning(settings["policy"], agents)
+        self.events.emit(
+            "orchestrator", "SCHEDULER_CONFIGURED",
+            {"policy": self.scheduler.policy, "workers": self.scheduler.workers, "capacities": capacities},
+            summary=f"Tool calls run through the PARSEC-VL scheduler ({self.scheduler.policy}, "
+                    f"{self.scheduler.workers} worker slot(s)).",
+        )
+
+    def _start_planning(self, policy: str, agents: dict[str, Any]) -> None:
+        """E3-E5: declared action plans for every tool-using agent; one shared planning process pool."""
+        from ..parsec_vl.controller import PlanningConfig
+        from ..parsec_vl.harness import PlanController, attach_plan_mode
+        from ..parsec_vl.montecarlo import PROBE_PRIORS, OutcomeModel, PlanEvaluator
+
+        planning = dict(self.config["execution"]["planning"])
+        path = planning.pop("outcome_model", None)
+        schema = planning.pop("plan_schema", "current")
+        model = OutcomeModel.load(path) if path else PROBE_PRIORS
+        config = PlanningConfig.for_mode(policy, **planning)
+        startup, warning = 0.0, None
+        if config.plan_selection or config.speculation == "S2":
+            def started(seconds: float) -> None:
+                self.events.emit("orchestrator", "PLANNING_POOL_STARTED",
+                                 {"processes": config.planning_processes, "startup_seconds": round(seconds, 4),
+                                  "pool_mode": config.planning_pool},
+                                 summary=f"Started {config.planning_processes} planning processes ({seconds:.2f} s).")
+            if config.planning_pool == "shared":
+                self.planning_pool = PlanEvaluator.shared(config.planning_processes)
+                self.planning_pool.on_start = started
+            else:
+                self.planning_pool = PlanEvaluator(processes=config.planning_processes, on_start=started)
+            if config.planning_pool == "eager":
+                try:
+                    startup = self.planning_pool.start()
+                except Exception as exc:  # noqa: BLE001 - planning must never stop the run
+                    warning = f"planning process pool unavailable ({type(exc).__name__}: {exc}); evaluating in-process"
+                    self.planning_pool.shutdown()
+                    self.planning_pool = PlanEvaluator(processes=0)
+        for agent_id, agent in agents.items():
+            attach_plan_mode(agent, PlanController(self.scheduler, agent_id, config, evaluator=self.planning_pool,
+                                                   model=model, budget=self.budget, run_id=self.run_id), schema=schema)
+        self.events.emit("orchestrator", "PLANNING_CONFIGURED", {
+            "mode": policy, "speculation": config.speculation, "decision_protocol": "declared_multi_action_plan",
+            "planning_processes": config.planning_processes if self.planning_pool else 0,
+            "pool_mode": config.planning_pool, "planning_gate": config.planning_gate,
+            "pool_startup_seconds": round(startup, 4), "outcome_model": model.to_dict(), "warning": warning},
+            summary=f"Workers may submit declared action plans ({policy.upper()}, speculation {config.speculation}).")
 
     def _event_sink(self, agent_id: str):
         def emit(event_type: str, payload: dict[str, Any], **metadata: Any):
@@ -890,6 +984,20 @@ class MultiAgentOrchestrator:
                 "failure_reason": failure,
             }
         finally:
+            if self.scheduler is not None:
+                self.scheduler.shutdown(cancel_pending=True, wait=True)
+                final["scheduler"] = self.scheduler.summary()
+                plans = {aid: {"stats": w.agent.plan_controller.stats, "plans": w.agent.plan_controller.reports}
+                         for aid, w in self.workers.items() if getattr(w.agent, "plan_controller", None) is not None}
+                if plans:
+                    final["planning"] = plans
+            if self.planning_pool is not None:
+                final.setdefault("planning_pool", {
+                    "mode": self.config["execution"]["planning"]["planning_pool"],
+                    "started": self.planning_pool.starts > 0 or self.planning_pool.started,
+                    "startup_seconds": round(self.planning_pool.startup_seconds, 4)})
+                if self.config["execution"]["planning"]["planning_pool"] != "shared":
+                    self.planning_pool.shutdown()
             final["worker_results"] = [
                 {
                     key: value

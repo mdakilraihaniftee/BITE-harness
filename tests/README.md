@@ -1,6 +1,9 @@
 # Tests
 
-`tests/` covers the `openvlharness` package: configuration validation, the agent
+`tests/parsec_vl/` covers the PARSEC-VL scheduler: DAG validation, E0/E1/E2
+policies with measured interval overlap, resource capacities, budget safety under
+concurrency, failure/timeout/cancellation handling, and the integration with the
+real agent loop and multi-agent orchestrator. The rest of `tests/` covers the `openvlharness` package: configuration validation, the agent
 loop, memory, model request formats, capabilities, the tool server and client,
 the local tool backends and raw trace export. `tests/evaluation/` covers
 `evaluation_kit`: run identity, resume and failed-row retries, per-example

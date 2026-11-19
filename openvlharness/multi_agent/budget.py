@@ -35,6 +35,10 @@ class BudgetManager:
             for actor, limits in self.actor_limits.items()
         }
         self.measured = {"generated_tokens": 0, "estimated_cost": None}
+        # Accounting counters (per resource): refused reservations, and
+        # reservations returned before the work was dispatched.
+        self.rejected: dict[str, int] = {}
+        self.released: dict[str, int] = {}
         self._lock = threading.Lock()
         self._event_sink = event_sink
 
@@ -64,6 +68,8 @@ class BudgetManager:
                         self.actor_used[agent_id].get(resource, 0) + amount
                     )
                 result = Reservation(True, resource, agent_id, amount)
+            if not result.granted:
+                self.rejected[resource] = self.rejected.get(resource, 0) + amount
             global_remaining = (
                 global_limit - self.global_used.get(resource, 0)
                 if global_limit is not None
@@ -94,6 +100,42 @@ class BudgetManager:
                 status="completed" if result.granted else "failed",
             )
         return result
+
+    def release(self, agent_id: str, resource: str, amount: int = 1, *, reason: str = "not_dispatched") -> None:
+        """Return a granted reservation whose work was never dispatched.
+
+        Only for work that did not start (e.g. cancelled while queued). Work
+        that was dispatched keeps its charge, including failed calls; this is
+        the runtime's non-refundable cost policy.
+        """
+        if type(amount) is not int or amount <= 0:
+            raise ValueError("Budget release amount must be a positive integer")
+        with self._lock:
+            global_limit = self.global_limits.get(resource)
+            actor_limit = self.actor_limits.get(agent_id, {}).get(resource)
+            if global_limit is not None:
+                if self.global_used.get(resource, 0) < amount:
+                    raise RuntimeError(f"release of {amount} {resource} exceeds the reserved global amount")
+            if actor_limit is not None:
+                if self.actor_used[agent_id].get(resource, 0) < amount:
+                    raise RuntimeError(f"release of {amount} {resource} exceeds {agent_id}'s reserved amount")
+            # Validate both balances before mutating either: a rejected actor
+            # release must not silently refund another actor's global charge.
+            if global_limit is not None:
+                self.global_used[resource] -= amount
+            if actor_limit is not None:
+                self.actor_used[agent_id][resource] -= amount
+            self.released[resource] = self.released.get(resource, 0) + amount
+            global_remaining = global_limit - self.global_used.get(resource, 0) if global_limit is not None else None
+        if self._event_sink:
+            self._event_sink(
+                agent_id,
+                "BUDGET_UPDATED",
+                {"resource": resource, "amount": amount, "granted": True, "released": True,
+                 "reason": reason, "global_remaining": global_remaining},
+                summary=f"Released {amount} unused {resource.replace('_', ' ')} reservation.",
+                status="completed",
+            )
 
     def remaining(self, agent_id: str, resource: str) -> int | None:
         """Smallest remaining global/actor allowance for a resource (None = unlimited)."""
@@ -156,6 +198,7 @@ class BudgetManager:
                     for actor, limits in self.actor_limits.items()
                 },
                 "measured": dict(self.measured),
+                "counters": {"rejected": dict(self.rejected), "released": dict(self.released)},
             }
 
 

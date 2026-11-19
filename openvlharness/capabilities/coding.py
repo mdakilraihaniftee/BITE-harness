@@ -129,6 +129,8 @@ class Capability(BaseCapability):
     name = "Python_Coding_Agent_Tool"
     backends = {"python_coding_agent": "Python_Coding_Agent_Tool"}
     schema = PUBLIC_SCHEMA
+    # translate_args and execute read the bindings published by earlier calls.
+    parallel_safe = False
     process_output = staticmethod(process_tool_output)
 
     def translate_args(self, args, memory):

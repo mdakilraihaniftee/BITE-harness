@@ -37,7 +37,11 @@ case "$service" in
       --host 127.0.0.1 --port 8086 "$@"
     ;;
   router)
-    exec python -m openvlharness.services.server --config "${AGENT_CONFIG:-configs/local_qwen.yaml}" "$@"
+    # Listen where the agents look for the router (TOOL_SERVER_URL in .env), e.g. 18101
+    # when another project's router already holds the config's default port 8101.
+    router_port="$(python -c 'import os,urllib.parse as u;print(u.urlsplit(os.environ.get("TOOL_SERVER_URL","")).port or "")')"
+    exec python -m openvlharness.services.server --config "${AGENT_CONFIG:-configs/local_qwen.yaml}" \
+      ${router_port:+--port "$router_port"} "$@"
     ;;
   image-host)
     exec python -m openvlharness.services.image_host --port 8111 "$@"

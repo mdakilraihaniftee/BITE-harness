@@ -1,19 +1,19 @@
 cff-version: 1.2.0
-message: "BITE has no archival paper yet; cite this repository and the exact version used."
-title: "BITE: Evidence Provenance and Controlled Tool-Utility Evaluation for Visual Agents"
+message: "PARSEC-VL has no archival paper; cite this repository and the exact commit used."
+title: "PARSEC-VL: Budget-Aware Parallel Planning and Speculative Execution for Multi-Agent Visual Reasoning"
 type: software
 version: "0.1.0"
 license: MIT
 abstract: >-
-  Research infrastructure for passive visual-agent evidence tracing, controlled
-  tool-evidence collection, label-isolated evaluation, calibration, utility,
-  uncertainty, and task-level headroom analysis.
+  CISC 654 course project built on the OpenVLHarness visual-agent runtime:
+  dependency-aware parallel execution of agent tool calls with typed resource
+  pools and shared budgets (Phase 1), with parallel planning and speculation
+  planned for later phases.
 keywords:
+  - parallel computing
+  - task scheduling
   - visual agents
   - tool use
-  - evidence provenance
-  - calibration
-  - value of information
-  - multimodal reasoning
+  - multi-agent systems
 authors:
-  - name: "BITE contributors"
+  - name: "PARSEC-VL contributors"

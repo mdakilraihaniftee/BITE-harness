@@ -43,6 +43,40 @@ DEFAULTS = {
         "max_concurrent_workers": 4,
         "task_timeout_seconds": 600,
         "peer_review_rounds": 1,
+        # PARSEC-VL tool scheduler (openvlharness/parsec_vl). "off" keeps the
+        # original behaviour: each agent runs its tool calls one by one in its
+        # own thread. e0/e1/e2 route every tool call through one shared
+        # scheduler with typed resource pools and the run's budget ledger.
+        "scheduler": {
+            "policy": "off",
+            "workers": 4,
+            "service_capacity": 1,   # concurrent requests per GPU tool server (unverified -> 1)
+            "capacities": {},        # explicit pool capacities, e.g. {"cpu": 4}
+            "task_timeout_seconds": None,
+            "plan_dispatch": "e2",   # e3-e5: dispatch order for plan actions (e0 = same plan, one at a time)
+        },
+        # PARSEC-VL Phase 2 (used when scheduler.policy is e3, e4 or e5): workers may call
+        # Execute_Action_Plan (declared multi-action plans); E3 selects plans by Monte Carlo,
+        # E4 adds fixed-width speculation, E5 selective speculation + event-driven replanning.
+        "planning": {
+            "candidate_plan_limit": 6,
+            "max_plan_depth": 3,
+            "beam_width": 4,
+            "planning_processes": 4,      # CPU processes for Monte Carlo evaluation (0 = in-process)
+            "rollouts": 2000,
+            "planning_time_budget": 0.5,  # seconds per evaluation
+            "max_speculative_branches": 1,
+            "speculative_budget_limit": 4,
+            "random_seed": 0,
+            "latency_weight": 1.0,
+            "cost_weight": 0.25,
+            "max_replans": 2,
+            "heuristic_alternatives": True,
+            "outcome_model": None,        # JSON from `scripts/parsec.py outcome-model`; None = probe priors
+            "planning_gate": "auto",      # auto: skip/sequential/pool by predicted cost; off: always the pool
+            "planning_pool": "lazy",      # lazy (first use) | eager (run start) | shared (warm across runs)
+            "plan_schema": "current",     # model-facing Execute_Action_Plan schema: current | simple (flat steps; Phase 3 probe: no measured difference)
+        },
     },
     "coordinator": {
         "agent_config": "configs/local_qwen.yaml",
@@ -127,6 +161,8 @@ def load_multi_agent_config(config: str | Path | dict[str, Any]) -> dict[str, An
             "max_concurrent_workers",
             "task_timeout_seconds",
             "peer_review_rounds",
+            "scheduler",
+            "planning",
         },
         "coordinator": {
             "agent_config",
@@ -184,6 +220,8 @@ def load_multi_agent_config(config: str | Path | dict[str, Any]) -> dict[str, An
         or execution["task_timeout_seconds"] <= 0
     ):
         raise ValueError("execution.task_timeout_seconds must be positive")
+    validate_scheduler(execution["scheduler"])
+    validate_planning(execution["planning"])
     communication = merged["communication"]
     if type(merged["coordinator"]["tool_access"]) is not bool:
         raise ValueError("coordinator.tool_access must be boolean")
@@ -231,6 +269,44 @@ def load_multi_agent_config(config: str | Path | dict[str, Any]) -> dict[str, An
     return merged
 
 
+SCHEDULER_POLICIES = ("off", "e0", "e1", "e2", "e3", "e4", "e5")
+PLANNING_KEYS = {"candidate_plan_limit", "max_plan_depth", "beam_width", "planning_processes", "rollouts",
+                 "planning_time_budget", "max_speculative_branches", "speculative_budget_limit", "random_seed",
+                 "latency_weight", "cost_weight", "max_replans", "heuristic_alternatives", "outcome_model",
+                 "planning_gate", "planning_pool", "min_stakes_s", "plan_schema"}
+
+
+def validate_planning(planning: dict[str, Any]) -> None:
+    _reject_unknown(planning, PLANNING_KEYS, "execution.planning")
+    from ..parsec_vl.controller import PlanningConfig
+
+    if planning.get("plan_schema", "current") not in ("simple", "current"):
+        raise ValueError("execution.planning.plan_schema must be simple or current")
+    keys = {k: v for k, v in planning.items() if k not in ("outcome_model", "plan_schema")}
+    PlanningConfig.for_mode("e5", **keys)  # raises ValueError on invalid values
+    model = planning.get("outcome_model")
+    if model is not None and not isinstance(model, str):
+        raise ValueError("execution.planning.outcome_model must be a file path or null")
+
+
+def validate_scheduler(scheduler: dict[str, Any]) -> None:
+    _reject_unknown(scheduler, {"policy", "workers", "service_capacity", "capacities", "task_timeout_seconds", "plan_dispatch"},
+                    "execution.scheduler")
+    if scheduler.get("plan_dispatch", "e2") not in ("e0", "e1", "e2"):
+        raise ValueError("execution.scheduler.plan_dispatch must be e0, e1 or e2")
+    if scheduler["policy"] not in SCHEDULER_POLICIES:
+        raise ValueError(f"execution.scheduler.policy must be one of {', '.join(SCHEDULER_POLICIES)}")
+    for key in ("workers", "service_capacity"):
+        if type(scheduler[key]) is not int or scheduler[key] < 1:
+            raise ValueError(f"execution.scheduler.{key} must be a positive integer")
+    capacities = scheduler["capacities"]
+    if not isinstance(capacities, dict) or any(type(v) is not int or v < 1 for v in capacities.values()):
+        raise ValueError("execution.scheduler.capacities must map pool names to positive integers")
+    timeout = scheduler["task_timeout_seconds"]
+    if timeout is not None and (type(timeout) not in (int, float) or timeout <= 0):
+        raise ValueError("execution.scheduler.task_timeout_seconds must be positive or null")
+
+
 def validate_coordinator_policy(coordinator: dict[str, Any]) -> None:
     updates = coordinator["estimate_updates"]
     if type(updates.get("enabled")) is not bool:
@@ -261,6 +337,9 @@ def apply_run_options(
     estimate_updates: bool | None = None,
     max_reassessments: int | None = None,
     follow_up_rounds: int | None = None,
+    tool_scheduler: str | None = None,
+    scheduler_workers: int | None = None,
+    planning_processes: int | None = None,
 ) -> dict[str, Any]:
     """Apply CLI/UI run options to a loaded configuration and re-validate it.
 
@@ -290,7 +369,15 @@ def apply_run_options(
         result["coordinator"]["estimate_updates"]["max_reassessments"] = max_reassessments
     if follow_up_rounds is not None:
         result["coordinator"]["max_follow_up_rounds"] = follow_up_rounds
+    if tool_scheduler is not None:
+        result["execution"]["scheduler"]["policy"] = tool_scheduler
+    if scheduler_workers is not None:
+        result["execution"]["scheduler"]["workers"] = scheduler_workers
+    if planning_processes is not None:
+        result["execution"]["planning"]["planning_processes"] = planning_processes
     validate_coordinator_policy(result["coordinator"])
+    validate_scheduler(result["execution"]["scheduler"])
+    validate_planning(result["execution"]["planning"])
     return result
 
 
@@ -318,6 +405,16 @@ def effective_run_config(config: dict[str, Any]) -> dict[str, Any]:
         "execution_mode": config["execution"]["mode"],
         "max_concurrent_workers": config["execution"]["max_concurrent_workers"],
         "peer_review_rounds": config["execution"]["peer_review_rounds"],
+        "tool_scheduler": {
+            "policy": config["execution"]["scheduler"]["policy"],
+            "workers": config["execution"]["scheduler"]["workers"],
+            "service_capacity": config["execution"]["scheduler"]["service_capacity"],
+            "plan_dispatch": config["execution"]["scheduler"].get("plan_dispatch", "e2"),
+            "decision_protocol": ("declared_multi_action_plan" if config["execution"]["scheduler"]["policy"] in ("e3", "e4", "e5")
+                                  else "legacy_single_call"),
+            **({"planning": {k: v for k, v in config["execution"]["planning"].items()}}
+               if config["execution"]["scheduler"]["policy"] in ("e3", "e4", "e5") else {}),
+        },
         "coordinator_estimate_updates": {
             "enabled": bool(updates["enabled"]),
             "trigger": updates["trigger"],

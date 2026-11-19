@@ -2,13 +2,13 @@
 """Inspect and manage Investigation Studio instances for a runs directory.
 
   status                 list recorded and probed Studios with compatibility
-  url [--port] [--run]   mint a fresh single-use browser link for a usable Studio
+  url [--port] [--run]   print a browser link for a usable Studio
   ensure [--port]        reuse a compatible Studio or start one, then print a link
   stop --port PORT       stop the Studio server process listening on PORT
 
 ``stop`` only signals a process that is (a) owned by you and (b) running
 ``openvlharness.studio.server``; any other listener is refused. Tokens are never
-printed; links carry a single-use ticket.
+printed; browser sign-in is handled automatically by the launch link.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ import os
 import signal
 import sys
 import time
-import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -116,14 +115,18 @@ def main(argv: list[str] | None = None) -> int:
                     file=sys.stderr,
                 )
                 return 1
-        link, ttl = lifecycle.launch_link(
+        link, _ttl = lifecycle.launch_link(
             session, args.run, evaluator=not args.viewer_only
         )
-        scope = "viewer only" if args.viewer_only or not session.evaluator_token else "viewer + evaluator"
-        print(f"Link scope: {scope}")
-        print(f"Single-use link (valid {ttl // 60} min): {link}")
-        if args.open:
-            webbrowser.open(link, new=2)
+        print(f"Open visualization: {link}")
+        opened = bool(args.open) and lifecycle.open_in_browser(link)
+        if opened:
+            print("Opened in your browser.")
+        if args.open and not opened:
+            print("No graphical browser is available here; open the link above.")
+        hint = None if opened else lifecycle.remote_access_hint(session.port)
+        if hint:
+            print(hint)
         return 0
 
     pid = lifecycle.listener_pid(args.port)

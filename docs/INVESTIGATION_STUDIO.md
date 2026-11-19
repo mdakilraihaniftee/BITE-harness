@@ -83,15 +83,22 @@ terminal), `ACCESS_DENIED` (no evaluator scope), `AVAILABLE`, `REFERENCE_ERROR`
   row identity before inference. Prompts, tool arguments, messages, memory, events,
   and every run file are label-free; `tests/studio/test_reference.py` asserts this
   with a distinctive label across the full runner.
-* **Authorization.** The viewer token cannot read labels. The server holds a separate
+* **Automatic browser access.** Opening a runner's launch link signs the browser in
+  and sets an HttpOnly, SameSite session cookie. The UI has no token fields or
+  Connect button. Reloads, new tabs, and the bare Studio URL reconnect using the
+  browser session. API, evidence, and memory routes still require authentication.
+* **Evaluator access.** The viewer token cannot read labels. The server holds a separate
   **evaluator token** (`STUDIO_EVALUATOR_TOKEN`, or generated at start-up and stored
   only in the owner-only `<runs>/.studio/studio-<port>.json`). `GET
-  /api/runs/{id}/reference` returns the value only with `X-Studio-Evaluator-Token`.
+  /api/runs/{id}/reference` returns the value only with evaluator scope (header or browser cookie).
   Launch tickets carry evaluator scope only when minted by an evaluator: local
   runners and `studio_ctl.py url` do this by default for the owner; use
   `studio_ctl.py url --viewer-only` (or `STUDIO_EVALUATOR_LINKS=0`) for a link to
-  share. A viewer can also paste the evaluator token in the ground-truth popover
-  (kept in page memory only). `--disable-evaluator` turns release off entirely.
+  share. `--disable-evaluator` turns release off entirely.
+* **Session scope.** Cookies are bound to the Studio instance, so a restarted
+  Studio needs its new launch link. A viewer-only ticket clears any previous
+  evaluator cookie. Legacy header credentials and remembered browser credentials
+  remain compatible; new launch links use cookies without exposing tokens in the UI.
 * **Provenance.** The ⓘ popover lists dataset, split, row position and index, question
   type, reference source, value, and normalization rule. For counting rows it states
   that the value is the official annotated instance count, not guaranteed exhaustive
@@ -183,6 +190,24 @@ when there is no message bus; `activeFlow()` reads the event's activity annotati
 so replay and live runs draw the same picture at the same position. Browser checks:
 `node scripts/studio_browser_matrix.mjs … --simple <run>,<run>,…`
 (screenshots in `docs/images/studio_simple/`).
+
+### PARSEC-VL panel (parallel execution)
+
+A collapsible **Parallel execution** panel sits under the team picture. Its four tabs
+are built from the visible events only (so replay and live behave the same):
+**Timeline** — a Gantt chart of the scheduler's real execution intervals, grouped by
+scheduler slot, resource pool, or agent, with queue wait drawn separately, speculative
+work hatched, adopted work outlined, unused or cancelled work faded, running work open
+to "now", a planning lane, and the critical path; clicking a bar shows its timings and
+opens its tool evidence in the evidence viewer. **Plan & DAG** — the declared plan graph,
+branch outcomes, who proposed the plan (model, scripted policy, controller heuristic),
+the recorded speculation decision, and predicted versus observed latency and tool
+calls. **Budget & resources** — spent, reserved, available, speculative and unused cost,
+cancelled-before-start work, logical versus physical requests, budget over time, and
+pool occupancy (a proxy, not GPU utilization). **Compare** — recorded benchmark tables
+from `outputs/parsec_vl` (`GET /api/parsec/experiments`, read-only; `--experiments-dir`
+changes the folder), each labelled REAL, FIXTURE, or SYNTHETIC. Runs without scheduler
+data say so. Details: [ARCHITECTURE.md](ARCHITECTURE.md) §4.
 
 ### Compact team view
 
@@ -341,28 +366,25 @@ python scripts/studio_ctl.py ensure --run example_fsc147_row25 --open
 Older runs open with the same story, grouped as far as their recorded fields allow
 (see Limitations).
 
-**Run one or two inferences with visualization.** Start the model and tool services
-and prepare FSC-147 as described in the README, then run:
+**Run inferences with visualization.** Start the model and tool services and
+prepare FSC-147 as described in [HARNESS_GUIDE.md](HARNESS_GUIDE.md), then run:
 
 ```bash
-bash scripts/run_studio_inferences.sh 0
-bash scripts/run_studio_inferences.sh 0 10
-# Check the exact commands without starting services or inference:
-bash scripts/run_studio_inferences.sh --dry-run 0 10
+bash scripts/run_custom_inference.sh 0              # one task, two workers + coordinator
+bash scripts/run_custom_inference.sh -w 4 -m off 0 10   # four workers, memory off, two tasks
+bash scripts/run_custom_inference.sh --check 0-4    # inspect inputs only, no model calls
+bash scripts/run_custom_inference.sh --dry-run 0 10 # print the commands only
 ```
 
-Rows are zero-based dataset positions. The script validates the entire argument
-list before launching a task, caps the batch at two tasks, and runs them in
-sequence through the existing authenticated live launcher. Each task gets a
-unique run ID and browser link, reusing a compatible Studio for
-`outputs/multi_agent`. It stops on a failed task. `STUDIO_DATASET` defaults to
-`FSC147_val`; all environment options in the configuration table still apply.
-`STUDIO_OPEN_BROWSER=0` prints links for a remote/headless session. Reference labels
-remain sealed during inference.
+Rows are zero-based dataset positions (`25`, `3,7`, `10-13`). The script validates
+every option and row before launching anything, runs tasks in sequence through the
+authenticated live launcher, gives each a unique run ID and browser link, and
+continues with the next task if one fails. `--help` lists the team options (workers,
+memory, peer messages, message bus, estimates, mode, follow-ups, dataset);
+`--no-browser` prints links for a remote/headless session. Reference labels remain
+sealed during inference.
 
-The [engineering report](STUDIO_STORY_REPORT.md) includes actual counts, original
-timeline excerpts, validation results, limitations, and screenshots from persisted
-records. An uncorrelated budget denial can remain a separate failure step alongside
+An uncorrelated budget denial can remain a separate failure step alongside
 the failed tool call; it is not merged by time or agent proximity.
 
 ### Visual tool actions
@@ -514,7 +536,7 @@ policy deciding from the actual request (so memory and peer switches change beha
 plus deterministic grounding, zoom, and an always-failing depth tool over a synthetic
 five-object scene. Worker 4 has a one-call tool budget to exercise budget stops; a
 `withdrawal` scenario exercises estimate withdrawal. Results validate engineering
-behavior only. See [the v3 validation report](STUDIO_V3_VALIDATION.md).
+behavior only.
 
 ## Run it
 
@@ -535,7 +557,7 @@ communication, memory, budgets, and replay use the production paths. The earlier
 fixed two-worker smoke (`scripts/multi_agent_smoke.py`) is still available.
 
 The demo, image investigation, and dataset runners start or reuse the viewer,
-open the authenticated run in a browser, and follow its event stream automatically:
+open the run in a browser, and follow its event stream automatically:
 
 ```bash
 ./scripts/run_studio_demo.sh
@@ -543,17 +565,18 @@ open the authenticated run in a browser, and follow its event stream automatical
 ```
 
 No separate viewer command or token entry is required. Each runner prints which
-Studio it used (`reused existing instance` or `started (pid N)`) and a
-**single-use launch link** carrying a short-lived ticket (valid 10 minutes), not the
-viewer token. The page exchanges the ticket for the token in memory, removes it from
-the address bar, and keeps only `#run=<id>` so a refresh still knows the run. If
-browser launching is unavailable, open the printed link. Set `STUDIO_OPEN_BROWSER=0`
-for deliberate headless use.
+Studio it used (`reused existing instance` or `started (pid N)`) and a launch URL.
+The browser signs in automatically, removes the launch ticket from the address bar,
+and keeps only `#run=<id>`. Reloading or opening the bare Studio URL uses the browser
+session and selects the run (the newest run for a bare URL). If browser launching
+is unavailable, forward the printed port and open the full printed link once.
+Set `STUDIO_OPEN_BROWSER=0` for headless use. In a fresh browser, launch tickets
+are single-use and expire after 10 minutes; scripts generate them automatically.
 
 ### Which Studio instance? (lifecycle)
 
 A listener counts as a usable Studio only if `GET /api/info` reports this
-application, API version `studio.api.v3`, and the same runs directory (a non-secret
+application, API version `studio.api.v4`, and the same runs directory (a non-secret
 hash, `runs_root_id`), **and** the recorded viewer token is accepted. A bare HTTP 200
 or `/health` is never enough. The launcher (`scripts/run_with_live_studio.py`):
 
@@ -574,7 +597,7 @@ Manage instances explicitly with `scripts/studio_ctl.py`:
 
 ```bash
 python scripts/studio_ctl.py status                 # every recorded/probed Studio and its compatibility
-python scripts/studio_ctl.py url --run RUN_ID       # fresh single-use link to a usable Studio
+python scripts/studio_ctl.py url --run RUN_ID       # automatic browser sign-in link
 python scripts/studio_ctl.py ensure --open          # reuse or start one, then open it
 python scripts/studio_ctl.py stop --port 8787       # stop *your* Studio server on that port
 ```
@@ -588,8 +611,7 @@ STUDIO_PORT=8790 STUDIO_RUNS_DIR=/absolute/path/to/runs ./scripts/studio.sh
 ```
 
 It binds the port *before* announcing anything. On success it prints
-`Studio ready: <url>` and a single-use link once the API answers (`--print-token`
-also prints the long-lived token). If the port is taken, it exits with status 2 and
+`Studio ready: <url>` and a browser sign-in link once the API answers. If the port is taken, it exits with status 2 and
 says whether the holder is a compatible Studio (use its link), an outdated Studio
 (stop it or pick another port), or an unrelated process (left untouched). Loopback
 is the default; a non-loopback bind requires `STUDIO_VIEWER_TOKEN`:
@@ -686,7 +708,7 @@ made to decorate the UI.
 ## Live transport and replay
 
 The browser first loads `/api/runs/{run_id}/snapshot`, then opens an SSE response
-using `fetch()` so the mandatory `X-Studio-Token` header can be sent. The stream:
+using `fetch()` with the authenticated browser cookie (or a legacy viewer header). The stream:
 
 - accepts `cursor=<last sequence>` for resume;
 - sorts by sequence and event ID and sends at most 200 records per poll;
@@ -963,13 +985,14 @@ cannot change an agent's context, retrieval policy, or cross-agent permissions.
 Workers remain private by default and exchange only typed messages and explicit
 artifact references. The memory API returns a restricted projection of worker
 records and strips trajectories. Coordinator memory contains its assignments and
-public synthesis records. All memory endpoints enforce the viewer token on the
-server and can be disabled globally.
+public synthesis records. Memory viewing can be disabled globally and requires
+an authenticated browser session or viewer header.
 
 ## Security and performance
 
-- API, stream, artifact, and memory routes require the viewer token. Static assets
-  contain no run data.
+- API, stream, artifact, and memory routes require a viewer header or authenticated
+  browser session. Static assets contain no run data. Session cookies are HttpOnly,
+  SameSite=strict, Secure when served over HTTPS, and scoped to the Studio instance.
 - Responses set no-store, frame denial, MIME sniffing denial, no-referrer, and a
   restrictive Content Security Policy. Artifact images are fetched with the auth
   header and displayed through temporary blob URLs.
@@ -989,9 +1012,8 @@ server and can be disabled globally.
 - Snapshot manifests are sanitized: endpoint credentials, query strings, process ID,
   and object IDs are removed. Topology metadata passes the same sanitizer, and keys
   that look like secrets are redacted.
-- The URL fragment that carries the token is removed from the address bar
-  immediately, even when no token is present. Screenshots show only the masked
-  password field.
+- Launch credentials are removed from the address bar immediately after automatic
+  sign-in. The UI shows no token entry controls.
 - A slow or disconnected browser only reads the append-only log and cannot apply
   backpressure to model or tool execution.
 
@@ -1020,13 +1042,15 @@ record before enabling a new overlay type.
 | --- | --- |
 | `Studio NOT started: cannot bind …:8787` | The message names the holder. If it is a compatible Studio, `python scripts/studio_ctl.py url --port 8787`. If it is an outdated Studio, `python scripts/studio_ctl.py stop --port 8787`, then start again. If it is another process, set `STUDIO_PORT`. |
 | Browser on 8787 but the task used another port | Runners now open the exact instance they used and print its URL. `studio_ctl.py status` lists every instance. |
-| *Backend incompatible* | That server predates `studio.api.v3` (answer status, references, run configuration); stop it as above. Runners never reuse it. |
-| *Authentication required* / *Invalid token* | Links are single-use. Get a fresh one with `python scripts/studio_ctl.py url`. Each instance has its own token. |
+| *Backend incompatible* | That server predates `studio.api.v4` (automatic browser sessions); stop it as above. Runners never reuse it. |
+| Text page with *Disconnected*, *Select a run*, *Loading the framework architecture…*, "press space for next page" | The link opened in a terminal browser (lynx/w3m), which cannot run the Studio's JavaScript. On a headless SSH session the runners now never start one; they print the link and an SSH tunnel command instead. Forward the port from your own computer (`ssh -N -L 8787:127.0.0.1:8787 <user>@<server>`, or the VS Code *Ports* tab), then open a fresh link (`python scripts/studio_ctl.py --runs-dir <dir> url`) in Chrome or Firefox on your computer. |
+| Page says *Open run link* | In a fresh browser or after a server restart, open the full visualization link printed by the run script. It signs in automatically; there are no token fields. To reopen later, use `python scripts/studio_ctl.py --runs-dir <dir> url --port <port> --run <run> --open`. Once signed in, reloads and the bare Studio URL reconnect automatically. |
+| Browser session expired after a server restart | Open the new link printed by the script or run `python scripts/studio_ctl.py url --open`. No token entry is needed. |
 | Preview or configured diagram but no run | Nothing is selected. Pick a run from the menu, or start one: `./scripts/run_studio_demo.sh`. |
 | *Waiting for run* | The requested run directory does not exist yet. It loads automatically when the task creates it; after 5 minutes check that the task and the Studio share a runs directory. |
 | Run graph with dashed *inferred/observed* nodes | An older run without a topology manifest. Only what its events establish is drawn. |
 | *No runs exist yet* | Empty runs directory. Run the deterministic demo. |
-| Real task fails at model or tool calls | Model/tool services are not reachable. Start them as in the README; the Studio itself needs no model. |
+| Real task fails at model or tool calls | Model/tool services are not reachable. Start them as in docs/HARNESS_GUIDE.md; the Studio itself needs no model. |
 | `None of PyTorch, TensorFlow >= 2.0, or Flax have been found` | Harmless here. Inference runs behind HTTP (Qwen on the model service, SAM 3 and other tools on tool services). The runner only loads the fast Qwen tokenizer (`ModelAdapter.load_tokenizer`, for context-length counting), which needs `tokenizers`, not PyTorch. The Studio runners set `TRANSFORMERS_NO_ADVISORY_WARNINGS=1`, transformers' supported switch, to silence it. Real tokenizer failures are still logged as `Tokenizer unavailable …`. |
 
 Inspect a stored run without inference: `python scripts/studio_ctl.py ensure --open`,

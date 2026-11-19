@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Run an Investigation Studio in the foreground.
 #
-# The viewer token is passed through the environment (never the command line).
-# The server binds its port first and prints "Studio ready" plus a single-use
+# The launch link connects the browser automatically without token entry.
+# The server binds its port first and prints "Studio ready" plus a
 # browser link only after its API answers. If the port is taken, it explains
 # whether the holder is a compatible Studio, an outdated Studio, or an unrelated
 # process, and exits without claiming success.

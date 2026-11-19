@@ -226,6 +226,11 @@ class ModelAdapter:
         self.requester = requester
         self.json_schema = []
         self.counting_available = False
+        # The paper protocol allows one tool call per assistant message and turns
+        # extra calls into errors. PARSEC-VL experiments may opt in to several
+        # calls per message (they are then scheduled as a dependency DAG). Off by
+        # default: enabling it changes the agent protocol.
+        self.allow_multiple_tool_calls = False
 
     def load_tokenizer(self):
         """Load the profile's tokenizer when context counting or raw export needs it.
@@ -391,7 +396,7 @@ class ModelAdapter:
         if not isinstance(output, list):
             raise RuntimeError("Invalid responses payload: output must be a list")
         calls = self._normalize_responses_tool_calls(self._extract_function_calls(output), turn_idx)
-        if len(calls) > 1:
+        if len(calls) > 1 and not self.allow_multiple_tool_calls:
             for call in calls:
                 call["parse_error"] = {"code": "multi_tool_call_rejected",
                     "message": "Only one tool call is allowed per turn. Please re-issue exactly one."}
@@ -541,7 +546,7 @@ class ModelAdapter:
         consistent tool-result feedback messages, but no actual tool execution
         happens.
         """
-        if not isinstance(tool_calls, list) or len(tool_calls) <= 1:
+        if not isinstance(tool_calls, list) or len(tool_calls) <= 1 or self.allow_multiple_tool_calls:
             return tool_calls
 
         tool_names = [str((call or {}).get("name") or "unknown") for call in tool_calls]
