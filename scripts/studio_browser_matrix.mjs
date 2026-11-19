@@ -3,9 +3,9 @@
  * Headless-Chrome validation and screenshots for the answer strip, coordinator
  * estimates, ground-truth release, compact team view, and configuration runs.
  *
- * Usage (start a Studio on a runs directory first, see docs/INVESTIGATION_STUDIO.md):
+ * Usage (start a Studio on a runs directory first, see README.md#visualization):
  *   STUDIO_VIEWER_TOKEN=... STUDIO_EVALUATOR_TOKEN=... node scripts/studio_browser_matrix.mjs \
- *     --base http://127.0.0.1:8799 --runs-dir outputs/studio_validation --out docs/images/studio_v3
+ *     --base http://127.0.0.1:8799 --runs-dir outputs/studio_validation --out outputs/studio_browser_matrix
  *
  * Expects fixture runs fixture_w1_memoff_peeroff, fixture_w2_memon_peeron,
  * fixture_w3_memon_peeroff, fixture_w4_memoff_peeron and (optional) legacy_demo
@@ -23,7 +23,7 @@ const args = Object.fromEntries(process.argv.slice(2).reduce((pairs, value, inde
   return pairs;
 }, []));
 const BASE = args.base || "http://127.0.0.1:8799";
-const OUT = args.out || "docs/images/studio_v3";
+const OUT = args.out || "outputs/studio_browser_matrix";
 const RUNS = args["runs-dir"] || "outputs/studio_validation";
 const CHROME = args.chrome || "google-chrome";
 const TOKEN = process.env.STUDIO_VIEWER_TOKEN;
@@ -136,6 +136,217 @@ const strip = `({gt: document.querySelector('#gt-value').textContent, gtState: d
   round: document.querySelector('#as-round').textContent, sticky: getComputedStyle(document.querySelector('#answer-strip')).position})`;
 async function waitFor(expression, timeout = 15000) { const end = Date.now() + timeout; while (Date.now() < end) { if (await evaluate(expression).catch(() => false)) return true; await sleep(200); } return false; }
 
+// Follow an actual in-progress inference, using the same browser as replay checks.
+if (args.live) {
+  const run = args.live;
+  await open(run, {technical: false});
+  const before = await evaluate(`({run: state.runId, events: state.events.length,
+    started: state.events.some((e) => e.event_type === 'RUN_STARTED'),
+    completed: state.events.some((e) => e.event_type === 'RUN_COMPLETED'),
+    cards: document.querySelectorAll('#simple-team .st-card').length})`);
+  check("live real run: correct selection and agent cards", before.run === run && before.cards >= 2);
+  check("live real run: observed before completion", before.started && !before.completed);
+  await shot("live-real-in-progress");
+  const advanced = await waitFor(`state.events.length > ${before.events}`, 90000);
+  check("live real run: new events arrive without reloading", advanced);
+  const completed = await waitFor(`state.events.some((e) => e.event_type === 'RUN_COMPLETED' || e.event_type === 'RUN_FAILED')`, 600000);
+  check("live real run: completion arrives through the event stream", completed
+    && await evaluate(`state.events.some((e) => e.event_type === 'RUN_COMPLETED')`));
+  await frames();
+  const final = await evaluate(`({displayed: document.querySelector('#final-value').textContent,
+    recorded: state.events.findLast((e) => e.event_type === 'FINAL_ANSWER_RECORDED')?.payload.final_answer})`);
+  check("live real run: displayed final matches recorded answer", final.recorded != null && final.displayed.trim() === String(final.recorded).trim());
+  await shot("live-real-completed");
+  // Opening the page before exchanging the launch ticket can produce an
+  // expected 401, as in the replay suites. Keep other browser errors fatal.
+  const unexpected = problems.filter((item) => !/status of 40[13]/.test(item));
+  check("live real run: no browser exceptions", unexpected.length === 0, unexpected.slice(0, 5).join(" | "));
+  writeFileSync(join(OUT, "browser-live-report.json"), `${JSON.stringify({run, before, final, checks, problems}, null, 2)}\n`);
+  socket.close(); chrome.kill("SIGTERM"); await sleep(300); rmSync(profile, {recursive: true, force: true});
+  process.exit(checks.some((item) => !item.ok) ? 1 : 0);
+}
+
+// ---- optional: PARSEC-VL view (Gantt, DAG, speculation, budget, comparison, live) -----------
+if (args.parsec) {
+  // --parsec <legacy_run>,<sequential_plan_run>,<parallel_plan_run>,<adopted_speculation_run>,<pruned_speculation_run>,<four_worker_run>
+  const [LEGACY, SEQ, PAR, ADOPT, PRUNE, FOUR] = args.parsec.split(",");
+  const runsDir = args["runs-dir"];
+  const model = `(() => { const m = window.StudioParsec.buildModel(visibleEvents()); return {available: m.available, message: m.message,
+    tasks: m.tasks.map((t) => ({id: t.id, action: t.action, agent: t.agent, pool: t.pool, slot: t.slot, start: t.start, end: t.end, enqueue: t.enqueue,
+      state: t.state, speculative: t.speculative, adopted: t.adopted, evidence: t.evidenceEvent, open: t.open})),
+    plans: m.plans.length, budget: m.budget, capacities: m.capacities}; })()`;
+  const tab = (name) => evaluate(`(() => { document.querySelector('.pv-tab[data-tab="${name}"]').click(); return true; })()`);
+  const panelShot = async (name) => {  // the sticky header would cover a clipped panel capture
+    await evaluate(`document.querySelectorAll('.topbar, #answer-strip').forEach((n) => { n.style.visibility = 'hidden'; }); true`);
+    await frames(); await shot(name, "#parsec-panel");
+    await evaluate(`document.querySelectorAll('.topbar, #answer-strip').forEach((n) => { n.style.visibility = ''; }); true`);
+  };
+  const overlap = (a, b) => a.start < b.end && b.start < a.end;
+
+  // 1. Legacy run: explicit "no data" message, nothing invented.
+  await open(LEGACY, {technical: false});
+  await waitFor(`document.querySelector('#parsec-view .pv-empty')`, 15000);
+  const legacy = await evaluate(`({text: document.querySelector('#parsec-view').textContent, bars: document.querySelectorAll('#parsec-view .pv-task').length})`);
+  check("legacy run: 'no PARSEC-VL data' message, no bars", legacy.text.includes("No PARSEC-VL planning or scheduler data was recorded for this run.") && legacy.bars === 0);
+  check("original Studio still renders the story for a legacy run", await evaluate(`document.querySelectorAll('#story-list .story-step').length > 3`));
+
+  // 2. Parallel plan: Gantt bars match recorded intervals; independent overlap, dependents wait.
+  await open(PAR, {technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 4`, 15000);
+  const par = await evaluate(model);
+  const a = Object.fromEntries(par.tasks.map((t) => [t.action, t]));
+  check("parallel plan: one bar per recorded scheduler task", await evaluate(`document.querySelectorAll('#parsec-view .pv-task').length`) === par.tasks.length, `${par.tasks.length} tasks`);
+  check("parallel plan: OCR(original) overlaps grounding", overlap(a.ocr_full, a.g), JSON.stringify([a.ocr_full, a.g].map((t) => [t.start, t.end])));
+  check("parallel plan: Zoom starts after grounding finished; crop OCR after Zoom", a.z.start >= a.g.end && a.ocr_crop.start >= a.z.end);
+  const barGeometry = await evaluate(`[...document.querySelectorAll('#parsec-view .pv-task')].map((g) => { const r = g.querySelector('.pv-exec'); return {id: g.dataset.task, x: Number(r.getAttribute('x')), w: Number(r.getAttribute('width'))}; })`);
+  const geo = Object.fromEntries(barGeometry.map((b) => [b.id, b]));
+  check("bars are drawn at their recorded times (Zoom bar starts right of the grounding bar's end)",
+    geo[a.z.id].x >= geo[a.g.id].x + geo[a.g.id].w - 1 && geo[a.ocr_full.id].x < geo[a.g.id].x + geo[a.g.id].w);
+  await panelShot("parsec-01-gantt-parallel-plan");
+  await evaluate(`document.querySelector('.pv-mode[data-mode="pool"]').click(); true`); await frames();
+  const pools = await evaluate(`[...document.querySelectorAll('#parsec-view .pv-lane')].map((n) => n.textContent)`);
+  check("resource-pool lanes show capacities", pools.some((l) => /capacity \d+/.test(l)), pools.join(" | "));
+  const packed = await evaluate(`(() => { const m = window.StudioParsec.buildModel(visibleEvents()); return window.StudioParsec.lanes(m, 'pool').filter((g) => !g.planning).map((g) => ({label: g.label, rows: g.rows.length, cap: m.capacities[g.key.slice(5)] || null})); })()`);
+  check("pool lanes never exceed the pool's capacity", packed.every((g) => !g.cap || g.rows <= g.cap), JSON.stringify(packed));
+  await panelShot("parsec-02-gantt-resource-pools");
+  // Selecting a bar opens its detail and the real tool evidence.
+  await evaluate(`document.querySelector('.pv-mode[data-mode="slot"]').click(); true`); await frames();
+  await evaluate(`(() => { document.querySelector('#parsec-view .pv-task[data-task="${a.g.id}"]').dispatchEvent(new MouseEvent('click', {bubbles: true})); return true; })()`);
+  await frames(); await sleep(400); await frames();
+  const detail = await evaluate(`({detail: document.querySelector('#parsec-view .pv-detail')?.textContent || '', selected: state.selectedEventId,
+    related: document.querySelectorAll('#parsec-view .pv-task.related').length, evidence: document.querySelector('#tool-action')?.textContent || ''})`);
+  check("selecting a bar shows its interval and queue wait", detail.detail.includes("Queue wait") && detail.detail.includes("Visual Grounding"));
+  check("selecting a bar selects its recorded tool event (evidence)", detail.selected === a.g.evidence, `${detail.selected} vs ${a.g.evidence}`);
+  check("dependent operations are highlighted", detail.related >= 1, `${detail.related}`);
+  check("the evidence viewer shows the grounding detections on the processed image", /Detections|detection/i.test(detail.evidence));
+  await evaluate(`document.querySelector('.evidence-panel').scrollIntoView({block: 'start'}); true`); await frames();
+  await shot("parsec-03-selected-task-evidence");
+  await evaluate(`(() => { document.querySelector('#parsec-view .pv-task[data-task="${a.ocr_crop.id}"]').dispatchEvent(new MouseEvent('click', {bubbles: true})); return true; })()`);
+  await frames(); await sleep(400); await frames();
+  const crop = await evaluate(`({text: document.querySelector('#tool-action')?.textContent || '', selected: state.selectedEventId})`);
+  check("crop OCR evidence shows the Zoom crop as its input", crop.selected === a.ocr_crop.evidence && /crop|tool_generated_image/i.test(crop.text), crop.text.slice(0, 160));
+  await evaluate(`(() => { document.querySelector('#parsec-view .pv-task[data-task="${a.z.id}"]').dispatchEvent(new MouseEvent('click', {bubbles: true})); return true; })()`);
+  await frames(); await sleep(600); await frames();
+  await evaluate(`document.querySelector('.evidence-panel').scrollIntoView({block: 'start'}); true`); await frames();
+  await shot("parsec-04-zoom-crop-evidence");
+  // Plan & DAG.
+  await tab("plans"); await frames();
+  const dag = await evaluate(`({nodes: document.querySelectorAll('#parsec-view .pv-node:not(.input)').length, edges: document.querySelectorAll('#parsec-view .pv-edge:not(.input)').length,
+    origin: document.querySelector('#parsec-view .pv-origin')?.textContent || '', table: document.querySelector('#parsec-view .pv-table')?.textContent || ''})`);
+  check("DAG has one node per plan action and edges only for declared dependencies", dag.nodes === 4 && dag.edges === 2, JSON.stringify(dag).slice(0, 200));
+  check("plan origin is labelled (scripted policy, not the model)", dag.origin.includes("Scripted policy (fixture)"));
+  check("observed latency and tool calls are shown separately from predictions", dag.table.includes("Observed") && dag.table.includes("Tool calls"));
+  await panelShot("parsec-05-plan-dag");
+  // Clicking a DAG node selects the matching task in the timeline.
+  await evaluate(`(() => { document.querySelector('#parsec-view .pv-node[data-action="z"]').dispatchEvent(new MouseEvent('click', {bubbles: true})); return true; })()`); await frames();
+  check("clicking a DAG node selects its Gantt bar", await evaluate(`document.querySelector('#parsec-view .pv-task.selected')?.dataset.task === ${JSON.stringify(a.z.id)}`));
+
+  // 3. Sequential dispatch of the same plan: no overlap.
+  await open(SEQ, {technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 4`, 15000);
+  const seq = await evaluate(model);
+  const seqOverlaps = seq.tasks.some((t, i) => seq.tasks.slice(i + 1).some((u) => overlap(t, u)));
+  check("sequential dispatch: the same four actions never overlap", !seqOverlaps && seq.tasks.length === 4);
+  await panelShot("parsec-06-gantt-sequential-plan");
+
+  // 4. Adopted speculation + replay without future leakage.
+  await open(ADOPT, {technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 4`, 15000);
+  const adopt = await evaluate(model);
+  check("speculative tasks are marked and adopted", adopt.tasks.some((t) => t.speculative && t.adopted), JSON.stringify(adopt.tasks.map((t) => [t.action, t.speculative, t.adopted])));
+  check("adopted speculative bars are styled", await evaluate(`document.querySelectorAll('#parsec-view .pv-task.spec.adopted').length >= 1`));
+  check("story shows the adoption as one major step", await evaluate(`[...document.querySelectorAll('#story-list .story-title')].some((n) => /adopted the speculative/.test(n.textContent))`));
+  check("story shows the proposed plan, not queue bookkeeping", await evaluate(`(() => { const titles = [...document.querySelectorAll('#story-list .story-title')].map((n) => n.textContent);
+    return titles.some((t) => /proposed an action plan/.test(t)) && !titles.some((t) => /SCHEDULER|BUDGET|enqueue|reserv/i.test(t)); })()`));
+  await panelShot("parsec-07-speculation-adopted");
+  await tab("plans"); await frames();
+  const decision = await evaluate(`document.querySelector('#parsec-view .pv-decision')?.textContent || ''`);
+  check("speculation decision is explained from recorded terms", /S1|S2/.test(decision) && /Replanned/.test(decision), decision.slice(0, 200));
+  await panelShot("parsec-08-speculative-plan-decision");
+  const adoptIndex = await evaluate(`state.events.findIndex((e) => e.event_type === 'SPECULATIVE_RESULT_ADOPTED')`);
+  await evaluate(`setReplayIndex(${adoptIndex}); true`); await frames(); await sleep(200);
+  const before = await evaluate(model);
+  check("replay before adoption: nothing is shown as adopted", before.tasks.every((t) => !t.adopted));
+  check("replay before adoption: running tasks end at the replay position", before.tasks.filter((t) => t.open).every((t) => t.end >= t.start));
+  await evaluate(`setReplayIndex(3); true`); await frames(); await sleep(200);
+  const early = await evaluate(model);
+  check("replay at the start: no tasks from the future", early.tasks.length === 0);
+  await evaluate(`goLive(); true`); await frames();
+
+  // 5. Pruned speculation + budget monitor.
+  await open(PRUNE, {technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 1`, 15000);
+  const prune = await evaluate(model);
+  check("unneeded speculation: running work cancel-requested (charged, unused)", prune.tasks.some((t) => t.speculative && /cancel-requested|unused/.test(t.state)),
+    JSON.stringify(prune.tasks.map((t) => [t.action, t.state])));
+  await panelShot("parsec-09-speculation-pruned");
+  await tab("budget"); await frames();
+  const budget = await evaluate(`({cards: [...document.querySelectorAll('#parsec-view .pv-card')].map((c) => c.textContent), charts: document.querySelectorAll('#parsec-view .pv-chart').length})`);
+  check("budget monitor: spent, reserved, speculative and unused work", budget.cards.some((c) => c.startsWith("Spent")) && budget.cards.some((c) => /Speculative charged\s*1/.test(c) || /unused/.test(c)), budget.cards.join(" | "));
+  check("budget: spent equals executed tasks", prune.budget.spent === prune.tasks.filter((t) => t.start !== null).length);
+  check("resource occupancy is labelled as a proxy", await evaluate(`document.querySelector('#parsec-view').textContent.includes('occupancy proxy, not GPU utilization')`));
+  await panelShot("parsec-10-budget-resources");
+
+  // 6. Four workers: compact team view + agent lanes.
+  await open(FOUR, {technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 8`, 20000);
+  const team = await evaluate(`({cards: document.querySelectorAll('#simple-team .st-card').length, height: document.querySelector('#simple-team').getBoundingClientRect().height})`);
+  check("four workers: compact team view (5 cards)", team.cards === 5 && team.height < 520, JSON.stringify(team));
+  await evaluate(`document.querySelector('.pv-mode[data-mode="agent"]').click(); true`); await frames();
+  const agentLanes = await evaluate(`[...document.querySelectorAll('#parsec-view .pv-lane')].map((n) => n.textContent).filter((t) => /Worker/.test(t))`);
+  check("four workers: one Gantt lane per worker", agentLanes.length === 4, agentLanes.join(","));
+  await evaluate(`window.scrollTo(0, 0); true`); await shot("parsec-11-four-workers-overview");
+  await panelShot("parsec-12-four-workers-gantt");
+
+  // 7. Recorded comparison (no inference).
+  await tab("compare");
+  await waitFor(`document.querySelector('#parsec-view .pv-select')`, 15000);
+  const compare = await evaluate(`(() => { const sel = document.querySelector('#parsec-view .pv-select'); const opts = [...sel.options].map((o) => o.textContent);
+    const i = opts.findIndex((o) => o.includes('Same declared plan')); sel.value = String(i); sel.dispatchEvent(new Event('change')); return opts; })()`);
+  await frames();
+  const cmp = await evaluate(`({bars: document.querySelectorAll('#parsec-view .pv-bar-row').length, tag: document.querySelector('#parsec-view .pv-evidence-tag')?.textContent,
+    text: document.querySelector('#parsec-view').textContent})`);
+  check("comparison lists recorded experiments with evidence labels", compare.some((o) => o.startsWith("[FIXTURE]")) && compare.some((o) => o.startsWith("[SYNTHETIC]")) && compare.some((o) => o.startsWith("[REAL]")));
+  check("comparison: E0/E1/E2 on the same plan, labelled FIXTURE", cmp.bars === 3 && cmp.tag === "FIXTURE" && cmp.text.includes("nothing is executed"));
+  await panelShot("parsec-13-comparison");
+
+  // 8. Themes.
+  await open(PAR, {theme: "dark", technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 4`, 15000);
+  await panelShot("parsec-14-gantt-dark");
+  await tab("plans"); await frames(); await panelShot("parsec-15-dag-dark");
+  await open(PAR, {theme: "light", technical: false});
+  await waitFor(`document.querySelectorAll('#parsec-view .pv-task').length >= 4`, 15000);
+  await evaluate(`window.scrollTo(0, 0); true`); await shot("parsec-16-overview-light");
+
+  // 9. Live run: a slow run is followed while it executes.
+  const liveId = `parsec_live_${Date.now()}`;
+  const runner = spawn("python", ["-c", `from pathlib import Path; from openvlharness.parsec_vl.fixture import run_plan_fixture; ` +
+    `run_plan_fixture(Path(${JSON.stringify(runsDir)}), policy='e4', workers=1, plan='fallback', tool_delay=1.5, planning_processes=0, run_id=${JSON.stringify(liveId)})`],
+  {stdio: "ignore"});
+  await sleep(1500);
+  await open(liveId, {technical: false, waitEvents: 1});
+  const sawRunning = await waitFor(`(() => { const m = window.StudioParsec.buildModel(visibleEvents()); return m.tasks.some((t) => t.open); })()`, 20000);
+  const liveModel = await evaluate(model);
+  check("live: in-progress tasks are drawn as running (no future finish time)", sawRunning && liveModel.tasks.filter((t) => t.open).every((t) => t.end >= t.start),
+    JSON.stringify(liveModel.tasks.map((t) => [t.action, t.state])));
+  check("live: the 'now' line is drawn", await evaluate(`Boolean(document.querySelector('#parsec-view .pv-now'))`));
+  await panelShot("parsec-17-live-gantt");
+  const finished = await waitFor(`state.events.some((e) => e.event_type === 'RUN_COMPLETED')`, 40000);
+  await frames(); await sleep(400);
+  const done = await evaluate(model);
+  check("live run completes: no task left running", finished && done.tasks.every((t) => !t.open));
+  runner.kill();
+
+  const unexpected = problems.filter((item) => !/status of 40[13]/.test(item));
+  check("no console errors or exceptions", unexpected.length === 0, unexpected.slice(0, 5).join(" | "));
+  writeFileSync(join(OUT, "browser-parsec-report.json"), `${JSON.stringify({checks, problems}, null, 2)}\n`);
+  socket.close(); chrome.kill("SIGTERM"); await sleep(300); rmSync(profile, {recursive: true, force: true});
+  const failed = checks.filter((item) => !item.ok);
+  console.log(`${checks.length - failed.length}/${checks.length} browser checks passed`);
+  process.exit(failed.length ? 1 : 0);
+}
+
 // ---- optional: Simple view (team picture, selected-step card, answers) -------------------
 if (args.simple) {
   const runs = args.simple.split(",");
@@ -147,6 +358,9 @@ if (args.simple) {
       if (a.x < b.x + b.w - 1 && b.x < a.x + a.w - 1 && a.y < b.y + b.h - 1 && b.y < a.y + a.h - 1) overlaps.push(a.agent + '/' + b.agent); }
     const recordedTools = {}; for (const [id, a] of state.activityCache?.state?.agents || []) recordedTools[id] = [...(a.tools || new Map())].reduce((n, [, c]) => n + c, 0);
     return {cards, overlaps, recordedTools, routes: document.querySelectorAll('#simple-team .st-route.st-link').length,
+      effectiveConfig: state.snapshot?.effective_config,
+      configChips: Object.fromEntries([...document.querySelectorAll('#config-chips .cfg-chip')].map((n) => [n.querySelector('span')?.textContent, n.querySelector('strong')?.textContent])),
+      communication: document.querySelector('#simple-team .st-communication')?.textContent,
       technicalOpen: document.querySelector('#technical-details').open, teamVisible: document.querySelector('#team-view').checkVisibility(),
       overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       focus: [...document.querySelectorAll('#focus-flow > li .fl-label')].map((n) => n.textContent), focusTitle: document.querySelector('#focus-title').textContent,
@@ -161,6 +375,20 @@ if (args.simple) {
     await frames(); await sleep(300); await frames();
     const p = await evaluate(simpleProbe);
     const workers = p.cards.filter((c) => c.agent !== "coordinator");
+    const matrix = /^matrix_w([1-4])_mem_(on|off)_comm_(on|off)_/.exec(run);
+    if (matrix) {
+      const count = Number(matrix[1]), memory = matrix[2] === "on", comm = matrix[3] === "on";
+      check(`${tag}: worker cards match requested matrix variant`, workers.length === count && p.cards.length === count + 1);
+      check(`${tag}: recorded settings match requested matrix variant`, p.effectiveConfig?.num_workers === count
+        && p.effectiveConfig?.optional_worker_memory_enabled === memory && p.effectiveConfig?.communication_enabled === comm);
+    }
+    if (p.effectiveConfig) {
+      const cfg = p.effectiveConfig;
+      check(`${tag}: memory chip matches recorded policy`, p.configChips.Memory === (cfg.optional_worker_memory_enabled ? "● On" : "○ Off"));
+      check(`${tag}: communication chip matches recorded policy`, p.configChips.Communication === (cfg.communication_enabled ? "● On" : "○ Off"));
+      check(`${tag}: shared infrastructure shows actual bus state`, p.communication === (cfg.communication_enabled
+        ? "Message bus: on" : "Message bus: off · direct result handoff"));
+    }
     check(`${tag}: technical details collapsed by default`, !p.technicalOpen && !p.teamVisible);
     check(`${tag}: one card per agent, none overlapping`, p.cards.length === Object.keys(p.recordedTools).length || p.cards.length >= 2, `${p.cards.length} cards, overlaps ${p.overlaps.join(",") || "none"}`);
     check(`${tag}: no overlaps and no horizontal page scroll`, !p.overlaps.length && p.overflow <= 0, `overflow ${p.overflow}`);
@@ -603,10 +831,23 @@ await shot("10-final-answer");
 // Select the revision in the story and verify linked evidence and ROI.
 await evaluate(`window.scrollTo(0, 0); [...document.querySelectorAll('.story-step')].find((n) => n.textContent.includes('revised its estimate')).querySelector('.story-title').click(); true`);
 await frames(); await sleep(400); await frames();
-const sync = await evaluate(`({linked: document.querySelectorAll('.story-step.linked').length, roi: document.querySelectorAll('#image-stage .overlay rect').length,
-  crop: Boolean(document.querySelector('#derived-stage img')), shown: [...document.querySelectorAll('#evidence-facts .fact')].map((f) => f.textContent).join(' | ')})`);
+await waitFor(`!document.querySelector('#tool-action').classList.contains('hidden')
+  && document.querySelector('#tool-action').textContent.includes('Shown for:')
+  && [...document.querySelectorAll('#tool-action img')].some((i) => i.complete && i.naturalWidth > 0)`, 10000);
+const sync = await evaluate(`(() => {
+  const action = document.querySelector('#tool-action');
+  const output = [...action.querySelectorAll('.ta-panel')].find((p) => p.querySelector('figcaption strong')?.textContent === 'Actual zoomed image');
+  const img = output?.querySelector('img');
+  return {linked: document.querySelectorAll('.story-step.linked').length,
+    crop: img?.complete ? [img.naturalWidth, img.naturalHeight] : null,
+    shown: action.textContent, geometry: output?.querySelector('.ta-note')?.textContent || '',
+    inputOverlays: action.querySelectorAll('.ta-shape').length};
+})()`);
 check("estimate revision links recorded evidence steps", sync.linked >= 1, `${sync.linked} linked steps`);
-check("estimate revision shows the cited tool's ROI and crop", sync.roi >= 1 && sync.crop && sync.shown.includes("Shown for"), JSON.stringify(sync));
+check("estimate revision shows its cited Zoom crop and honestly marks missing geometry",
+  JSON.stringify(sync.crop) === '[150,150]' && sync.shown.includes('Shown for: Coordinator revised its estimate')
+  && sync.shown.includes('input image not recorded') && sync.geometry.includes('unverified') && sync.inputOverlays === 0,
+  JSON.stringify(sync));
 await evaluate(`document.querySelector('.workspace').scrollIntoView({block: 'start'}); window.scrollBy(0, -170); true`);
 await shot("14-roi-synchronized-with-estimate-revision");
 

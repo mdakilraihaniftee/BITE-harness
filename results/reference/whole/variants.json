@@ -1,0 +1,507 @@
+{
+  "label": "FIXTURE (coordinator + workers; scripted model; 0.2s injected tool latency; plan 'fallback')",
+  "rows": [
+    {
+      "workers": 1,
+      "variant": "OFF (original)",
+      "policy": "OFF",
+      "trials": 5,
+      "wall_mean": 0.9715154647827149,
+      "wall_sd": 0.00827942676608412,
+      "wall_first": 0.9657299518585205,
+      "wall_rest_mean": 0.9729618430137634,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E0 sequential FIFO",
+      "policy": "E0",
+      "trials": 5,
+      "wall_mean": 1.0436445713043212,
+      "wall_sd": 0.005987041923391424,
+      "wall_first": 1.0494718551635742,
+      "wall_rest_mean": 1.042187750339508,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E1 parallel FIFO",
+      "policy": "E1",
+      "trials": 5,
+      "wall_mean": 1.0477170467376709,
+      "wall_sd": 0.007481168176461602,
+      "wall_first": 1.0415141582489014,
+      "wall_rest_mean": 1.0492677688598633,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E2 critical path",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 1.049941396713257,
+      "wall_sd": 0.009812424471777107,
+      "wall_first": 1.0648341178894043,
+      "wall_rest_mean": 1.04621821641922,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E3 plans + plan selection",
+      "policy": "E3",
+      "trials": 5,
+      "wall_mean": 1.053886842727661,
+      "wall_sd": 0.006412404683070287,
+      "wall_first": 1.0516490936279297,
+      "wall_rest_mean": 1.054446280002594,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.02016173517331481,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 5
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E4 plans + fixed speculation",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 0.8340337753295899,
+      "wall_sd": 0.010983319574000663,
+      "wall_first": 0.8416488170623779,
+      "wall_rest_mean": 0.8321300148963928,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 1.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 1,
+      "variant": "E5 plans + selective speculation",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.0759332180023193,
+      "wall_sd": 0.010513863116808695,
+      "wall_first": 1.0937950611114502,
+      "wall_rest_mean": 1.0714677572250366,
+      "tool_calls_mean": 4.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.035234051290899515,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 10
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "OFF (original)",
+      "policy": "OFF",
+      "trials": 5,
+      "wall_mean": 1.2803403854370117,
+      "wall_sd": 0.044873848198753244,
+      "wall_first": 1.2260169982910156,
+      "wall_rest_mean": 1.2939212322235107,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E0 sequential FIFO",
+      "policy": "E0",
+      "trials": 5,
+      "wall_mean": 2.0028728008270265,
+      "wall_sd": 0.021838393368763365,
+      "wall_first": 2.0046639442443848,
+      "wall_rest_mean": 2.0024250149726868,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E1 parallel FIFO",
+      "policy": "E1",
+      "trials": 5,
+      "wall_mean": 1.341033411026001,
+      "wall_sd": 0.05480964679534257,
+      "wall_first": 1.3352417945861816,
+      "wall_rest_mean": 1.3424813151359558,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E2 critical path",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 1.3209637641906737,
+      "wall_sd": 0.021284200279992543,
+      "wall_first": 1.2875900268554688,
+      "wall_rest_mean": 1.329307198524475,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E3 plans + plan selection",
+      "policy": "E3",
+      "trials": 5,
+      "wall_mean": 1.348046636581421,
+      "wall_sd": 0.02753790367767049,
+      "wall_first": 1.36582612991333,
+      "wall_rest_mean": 1.3436017632484436,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.04771542558446527,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 10
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E4 plans + fixed speculation",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 1.0840514183044434,
+      "wall_sd": 0.0425413475484604,
+      "wall_first": 1.0656840801239014,
+      "wall_rest_mean": 1.0886432528495789,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 2.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 2,
+      "variant": "E5 plans + selective speculation",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 1.3955540180206298,
+      "wall_sd": 0.04639989672250707,
+      "wall_first": 1.380620002746582,
+      "wall_rest_mean": 1.3992875218391418,
+      "tool_calls_mean": 8.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.11743184234946966,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 20
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "OFF (original)",
+      "policy": "OFF",
+      "trials": 5,
+      "wall_mean": 1.777013349533081,
+      "wall_sd": 0.026717971118091877,
+      "wall_first": 1.7754898071289062,
+      "wall_rest_mean": 1.7773942351341248,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E0 sequential FIFO",
+      "policy": "E0",
+      "trials": 5,
+      "wall_mean": 4.047892141342163,
+      "wall_sd": 0.027739999850317745,
+      "wall_first": 4.088128089904785,
+      "wall_rest_mean": 4.037833154201508,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E1 parallel FIFO",
+      "policy": "E1",
+      "trials": 5,
+      "wall_mean": 1.8617703914642334,
+      "wall_sd": 0.03827920560085957,
+      "wall_first": 1.9225070476531982,
+      "wall_rest_mean": 1.8465862274169922,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E2 critical path",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 1.852192211151123,
+      "wall_sd": 0.024599876395363377,
+      "wall_first": 1.8776609897613525,
+      "wall_rest_mean": 1.8458250164985657,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E3 plans + plan selection",
+      "policy": "E3",
+      "trials": 5,
+      "wall_mean": 1.8554443836212158,
+      "wall_sd": 0.09518667755472704,
+      "wall_first": 1.8404250144958496,
+      "wall_rest_mean": 1.8591992259025574,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.1502788245677948,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 20
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E4 plans + fixed speculation",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 1.7372925281524658,
+      "wall_sd": 0.02362374575252345,
+      "wall_first": 1.7306787967681885,
+      "wall_rest_mean": 1.7389459609985352,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 4.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E5 plans + selective speculation",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 2.0081387996673583,
+      "wall_sd": 0.15300532433669722,
+      "wall_first": 2.2776029109954834,
+      "wall_rest_mean": 1.9407727718353271,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.8600223761983216,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 40
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    }
+  ],
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:13:42.614073+00:00"
+  },
+  "variant_set": "whole"
+}

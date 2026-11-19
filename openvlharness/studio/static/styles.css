@@ -204,6 +204,8 @@ main { padding-bottom: 68px; }
 
 .graph-notice { padding: 9px 14px; font-size: 12px; line-height: 1.45; border-bottom: 1px solid var(--border-soft); color: var(--text-primary); border-left: 3px solid var(--accent); background: var(--accent-soft); }
 .graph-notice.hidden { display: none; }
+.app-notice { font-size: 13px; padding: 10px 18px; border-bottom: 1px solid var(--border-color); }
+.app-notice code { font-family: var(--font-mono, monospace); background: var(--panel-background); padding: 1px 5px; border-radius: 4px; user-select: all; }
 .graph-notice.warning { border-left-color: var(--warning-color); background: color-mix(in srgb, var(--warning-color) 11%, var(--panel-background)); }
 .graph-notice.error { border-left-color: var(--error-color); background: color-mix(in srgb, var(--error-color) 10%, var(--panel-background)); }
 .agent-graph { height: min(72vh, 780px); min-height: 400px; background: var(--graph-background); position: relative; }
@@ -825,3 +827,118 @@ marker path { stroke: none; }
   .simple-team .st-stage { gap: 12px; } .simple-team .st-routes { display: none; } .simple-team .st-workers { margin-bottom: 0; }
   .simple-legend { display: none; }
 }
+
+/* ---- PARSEC-VL: timeline, plan DAG, budget/resources, comparison ------------- */
+.parsec-panel { margin: 12px 12px 0; }
+.parsec-panel > summary { cursor: pointer; list-style: none; }
+.parsec-panel > summary::-webkit-details-marker { display: none; }
+.parsec-view { padding: 8px 12px 12px; }
+.pv-empty { padding: 18px 4px; color: var(--text-secondary); font-size: 12.5px; }
+.pv-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-soft); margin-bottom: 8px; flex-wrap: wrap; }
+.pv-tab { background: transparent; border: 0; border-bottom: 2px solid transparent; border-radius: 0; padding: 6px 10px; font-size: 12.5px; color: var(--text-secondary); cursor: pointer; }
+.pv-tab.active { color: var(--text-primary); border-bottom-color: var(--accent); font-weight: 650; }
+.pv-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 11.5px; }
+.pv-controls .active { border-color: var(--accent); color: var(--text-primary); background: var(--accent-soft); }
+.pv-legend { color: var(--text-secondary); font-size: 11px; margin-left: auto; white-space: pre; }
+.pv-check { display: inline-flex; align-items: center; gap: 4px; color: var(--text-secondary); }
+.pv-gantt-wrap { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--graph-background, var(--panel-background)); }
+.pv-gantt { display: block; touch-action: none; user-select: none; }
+.pv-grid { stroke: var(--border-soft); stroke-width: 1; }
+.pv-sep { stroke: var(--border-soft); stroke-width: 1; }
+.pv-tick { font-size: 10px; fill: var(--text-secondary); }
+.pv-lane { font-size: 11px; fill: var(--text-primary); font-weight: 600; }
+.pv-lane.planning { fill: var(--coordinator-color); }
+.pv-now { stroke: var(--warning-color); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.pv-task { cursor: pointer; }
+.pv-task:focus-visible { outline: none; }
+.pv-task .pv-exec { fill: color-mix(in srgb, var(--worker-color) 70%, var(--panel-background)); stroke: var(--worker-color); stroke-width: 1; }
+.pv-task.st-completed .pv-exec { fill: color-mix(in srgb, var(--success-color) 55%, var(--panel-background)); stroke: var(--success-color); }
+.pv-task.st-running .pv-exec { fill: color-mix(in srgb, var(--warning-color) 45%, var(--panel-background)); stroke: var(--warning-color); stroke-dasharray: 4 2; }
+.pv-task.st-failed .pv-exec { fill: color-mix(in srgb, var(--error-color) 50%, var(--panel-background)); stroke: var(--error-color); }
+.pv-task[class*="unused"] .pv-exec, .pv-task[class*="cancel-requested"] .pv-exec, .pv-task.st-pruned .pv-exec, .pv-task.st-cancelled .pv-exec,
+.pv-task.st-skipped .pv-exec { opacity: 0.38; }
+.pv-task.spec .pv-exec { stroke-dasharray: 3 2; }
+.pv-spec-overlay { pointer-events: none; opacity: 0.55; }
+.pv-hatch-bg { fill: transparent; }
+.pv-hatch-line { stroke: var(--text-secondary); stroke-width: 1.5; }
+.pv-task.adopted .pv-exec { stroke: var(--accent); stroke-width: 2.5; stroke-dasharray: none; }
+.pv-task.critical .pv-exec { stroke: var(--coordinator-color); stroke-width: 2.5; }
+.pv-task.related .pv-exec { stroke: var(--flow-request, var(--accent)); stroke-width: 2.5; }
+.pv-task.selected .pv-exec { stroke: var(--text-primary); stroke-width: 3; }
+.pv-queue { fill: var(--text-secondary); opacity: 0.45; }
+.pv-bar-label { font-size: 10.5px; fill: var(--text-primary); pointer-events: none; }
+.pv-plan-bar rect { fill: color-mix(in srgb, var(--coordinator-color) 35%, var(--panel-background)); stroke: var(--coordinator-color); }
+.pv-plan-bar.open rect { stroke-dasharray: 4 2; }
+.pv-plan-bar.model rect { fill: color-mix(in srgb, var(--model-color) 30%, var(--panel-background)); stroke: var(--model-color); }
+.pv-detail { margin-top: 8px; padding: 8px 10px; border: 1px solid var(--border-soft); border-radius: 8px; font-size: 12px; }
+.pv-detail dl { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 3px 12px; margin: 0; }
+.pv-detail dt { color: var(--text-secondary); font-weight: 650; }
+.pv-detail dd { margin: 0; overflow-wrap: anywhere; }
+.pv-evidence { margin-top: 6px; }
+.pv-plan-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(280px, 1fr); gap: 12px; align-items: start; }
+.pv-dag-wrap { overflow-x: auto; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--graph-background, var(--panel-background)); }
+.pv-dag { display: block; }
+.pv-edge { fill: none; stroke: var(--text-secondary); stroke-width: 1.4; opacity: 0.7; }
+.pv-edge.input { stroke-dasharray: 3 3; opacity: 0.45; }
+.pv-edge.critical { stroke: var(--coordinator-color); stroke-width: 2.4; opacity: 1; }
+.pv-node rect { fill: var(--panel-background); stroke: var(--border-color); stroke-width: 1.2; }
+.pv-node { cursor: pointer; }
+.pv-node.input rect { fill: var(--surface-elevated); }
+.pv-node text { font-size: 10.5px; fill: var(--text-primary); }
+.pv-node .pv-node-state { fill: var(--text-secondary); font-size: 9.5px; }
+.pv-node.st-completed rect { stroke: var(--success-color); }
+.pv-node.st-running rect { stroke: var(--warning-color); stroke-dasharray: 4 2; }
+.pv-node.st-failed rect { stroke: var(--error-color); }
+.pv-node[class*="not-started"] rect, .pv-node[class*="never-started"] rect, .pv-node.st-pruned rect, .pv-node[class*="unused"] rect { opacity: 0.45; stroke-dasharray: 3 3; }
+.pv-node.spec rect { stroke-dasharray: 3 2; }
+.pv-node.goal rect { stroke-width: 2.2; }
+.pv-node.critical rect { stroke: var(--coordinator-color); stroke-width: 2.4; }
+.pv-node.selected rect { stroke: var(--text-primary); stroke-width: 3; }
+.pv-branch-label { font-size: 10.5px; fill: var(--text-secondary); }
+.pv-plan-info h3 { margin: 0 0 6px; font-size: 13px; }
+.pv-badges { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 6px; }
+.pv-badge { font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border-color); }
+.pv-badge.branch-satisfied, .pv-badge.branch-adopted { border-color: var(--success-color); color: var(--success-color); }
+.pv-badge.branch-pruned, .pv-badge.branch-unsatisfied { color: var(--text-secondary); }
+.pv-origin { font-size: 12px; font-weight: 600; margin: 4px 0; }
+.pv-decision { margin: 6px 0; padding-left: 18px; font-size: 12px; line-height: 1.45; }
+.pv-table { border-collapse: collapse; font-size: 11.5px; width: 100%; margin-top: 6px; }
+.pv-table th, .pv-table td { border-bottom: 1px solid var(--border-soft); padding: 4px 6px; text-align: left; }
+.pv-table th { color: var(--text-secondary); font-weight: 650; }
+.pv-table tr.baseline td { font-weight: 650; }
+.pv-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.pv-card { border: 1px solid var(--border-soft); border-radius: 8px; padding: 7px 9px; display: grid; gap: 2px; }
+.pv-card-label { font-size: 10.5px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: .04em; }
+.pv-card strong { font-size: 18px; }
+.pv-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
+.pv-chart { margin: 0; border: 1px solid var(--border-soft); border-radius: 8px; padding: 6px 8px; }
+.pv-chart figcaption { font-size: 11.5px; color: var(--text-secondary); margin-bottom: 2px; }
+.pv-axis { stroke: var(--border-color); }
+.pv-ceiling { stroke: var(--error-color); stroke-dasharray: 4 3; opacity: 0.7; }
+.pv-series { fill: none; stroke-width: 1.8; }
+.pv-series.c0, .pv-series-label.c0 { stroke: var(--worker-color); fill: var(--worker-color); }
+.pv-series.c1, .pv-series-label.c1 { stroke: var(--tool-color); fill: var(--tool-color); }
+.pv-series.c2, .pv-series-label.c2 { stroke: var(--memory-color); fill: var(--memory-color); }
+.pv-series.c3, .pv-series-label.c3 { stroke: var(--coordinator-color); fill: var(--coordinator-color); }
+.pv-series.c4, .pv-series-label.c4 { stroke: var(--model-color); fill: var(--model-color); }
+.pv-series.c5, .pv-series-label.c5 { stroke: var(--accent); fill: var(--accent); }
+.pv-series { fill: none !important; }
+.pv-series-label { font-size: 10px; stroke: none !important; }
+.pv-select { font-size: 12px; padding: 4px 6px; max-width: 100%; }
+.pv-evidence-tag { font-size: 10.5px; font-weight: 750; letter-spacing: .06em; padding: 2px 7px; border-radius: 4px; border: 1px solid currentColor; }
+.pv-evidence-tag.ev-real { color: var(--success-color); }
+.pv-evidence-tag.ev-fixture { color: var(--coordinator-color); }
+.pv-evidence-tag.ev-synthetic { color: var(--model-color); }
+.pv-metric-title { font-size: 12px; font-weight: 650; margin: 8px 0 4px; }
+.pv-bars { display: grid; gap: 4px; }
+.pv-bar-row { display: grid; grid-template-columns: minmax(140px, 260px) 1fr max-content; align-items: center; gap: 8px; font-size: 11.5px; }
+.pv-bar-fill { height: 12px; border-radius: 3px; background: color-mix(in srgb, var(--accent) 55%, var(--panel-background)); }
+.pv-bar-row.baseline .pv-bar-fill { background: color-mix(in srgb, var(--text-secondary) 45%, var(--panel-background)); }
+.pv-bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-notes { font-size: 11.5px; color: var(--text-secondary); padding-left: 18px; }
+@media (max-width: 900px) {
+  .pv-plan-grid { grid-template-columns: 1fr; }
+  .pv-detail dl { grid-template-columns: max-content 1fr; }
+  .pv-legend { margin-left: 0; white-space: normal; }
+}
+@media (max-width: 560px) { .parsec-panel { margin: 8px 8px 0; } .pv-bar-row { grid-template-columns: 1fr; } }

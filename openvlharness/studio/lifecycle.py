@@ -9,9 +9,8 @@ so every tool applies the same rules:
   sufficient.
 * Older Studio backends (``/health`` without ``/api/info``) are reported as
   outdated and never reused. Unrelated listeners are left alone.
-* Viewer tokens live only in ``<runs>/.studio/studio-<port>.json`` (mode 0600)
-  and in process environments, never on command lines. Browser links carry a
-  single-use, short-lived launch ticket instead of the token.
+* Browser links sign in automatically using launch tickets. Tokens stay in
+  owner-only session files and process environments, never on command lines.
 """
 
 from __future__ import annotations
@@ -20,6 +19,8 @@ import hashlib
 import json
 import os
 import secrets
+import shlex
+import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -27,14 +28,20 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Terminal browsers cannot run the Studio (it is a JavaScript application). Python's
+# webbrowser module falls back to them on a headless SSH session (www-browser -> lynx),
+# which shows an empty, disconnected page and consumes the single-use link.
+TEXT_BROWSERS = frozenset({"www-browser", "lynx", "links", "links2", "elinks", "w3m", "browsh"})
+
 APPLICATION = "OpenVLHarness Investigation Studio"
-API_VERSION = "studio.api.v3"
+API_VERSION = "studio.api.v4"
 UI_COMPATIBILITY = "studio.ui.v3"
 FEATURES = (
     "topology",
     "configured_architecture",
     "stream",
     "launch_tickets",
+    "browser_sessions",
     "replay",
     "reference_release",
     "coordinator_estimates",
@@ -220,7 +227,7 @@ def launch_link(
     ttl_seconds: int = 600,
     evaluator: bool | None = None,
 ) -> tuple[str, int]:
-    """Mint a single-use launch ticket and return a browser link carrying it.
+    """Mint a launch ticket that signs the browser in automatically.
 
     The local owner (who can read the 0600 session record) gets evaluator scope
     by default so post-run ground truth can be shown; pass ``evaluator=False``
@@ -315,3 +322,52 @@ def describe_listener(host: str, port: int) -> str:
 
 def new_token() -> str:
     return secrets.token_urlsafe(24)
+
+
+def graphical_browser_available(env: dict[str, str] | None = None, platform: str | None = None) -> bool:
+    """True when a link can open in a JavaScript-capable browser the user can see.
+
+    ``$BROWSER`` wins (VS Code Remote sets it to a helper that opens the link on the
+    user's own computer); terminal browsers never count. Otherwise a desktop OS, or an
+    X11/Wayland display on Linux, is required.
+    """
+    env = os.environ if env is None else env
+    platform = sys.platform if platform is None else platform
+    if env.get("BROWSER"):
+        commands = [c for c in env["BROWSER"].split(os.pathsep) if c.strip()]
+        names = {os.path.basename(shlex.split(c)[0]) for c in commands if shlex.split(c)}
+        return bool(names - TEXT_BROWSERS)
+    if platform == "darwin" or platform.startswith("win"):
+        return True
+    return bool(env.get("DISPLAY") or env.get("WAYLAND_DISPLAY"))
+
+
+def open_in_browser(url: str) -> bool:
+    """Open ``url`` only in a graphical browser; never start a terminal browser."""
+    if not graphical_browser_available():
+        return False
+    import webbrowser
+
+    try:
+        browser = webbrowser.get()
+    except webbrowser.Error:
+        return False
+    if os.path.basename(str(getattr(browser, "name", ""))) in TEXT_BROWSERS:
+        return False
+    try:
+        return bool(browser.open(url, new=2, autoraise=True))
+    except OSError:
+        return False
+
+
+def remote_access_hint(port: int, env: dict[str, str] | None = None) -> str | None:
+    """How to reach a Studio on this machine from the user's own browser over SSH."""
+    env = os.environ if env is None else env
+    if not (env.get("SSH_CONNECTION") or env.get("SSH_CLIENT")):
+        return None
+    return (
+        "This is a remote (SSH) session and no graphical browser is available here.\n"
+        f"  On your own computer run:  ssh -N -L {port}:127.0.0.1:{port} <user>@<this-server>\n"
+        "  then open the link above in Chrome/Firefox on your computer.\n"
+        "  (In VS Code Remote-SSH the port is forwarded for you: Ports tab -> open the link.)"
+    )

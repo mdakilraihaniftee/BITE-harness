@@ -1,0 +1,112 @@
+[
+  {
+    "run": 0,
+    "label": "REAL model + REAL tool services (explicitly asked to plan)",
+    "answer": "EXIT 42",
+    "wall_seconds": 2.84,
+    "plan_stats": {
+      "plans": 1,
+      "valid": 1,
+      "invalid": 0,
+      "empty": 0,
+      "no_independent_work": 1,
+      "with_alternatives": 0,
+      "heuristic_alternatives_added": 0,
+      "rejection_reasons": {}
+    },
+    "plan_reports": [
+      {
+        "plan_id": "real_exec_0.worker_01.plan0001",
+        "satisfied": true,
+        "winning_branch": "primary",
+        "decision_latency_s": 0.2965172026306391
+      }
+    ],
+    "tool_intervals": [
+      [
+        "Visual_Grounding_Tool",
+        2.182,
+        2.334,
+        "service:127.0.0.1:8086",
+        "g1"
+      ],
+      [
+        "Zoom_In_Tool",
+        2.336,
+        2.346,
+        "cpu",
+        "g2"
+      ],
+      [
+        "OCR_Tool",
+        2.348,
+        2.477,
+        "service:127.0.0.1:8085",
+        "g3"
+      ]
+    ],
+    "overlapping_pairs": 0,
+    "tool_calls": [
+      "Execute_Action_Plan",
+      "Visual_Grounding_Tool",
+      "Zoom_In_Tool",
+      "OCR_Tool"
+    ],
+    "model_requests": 2
+  },
+  {
+    "run": 1,
+    "label": "REAL model + REAL tool services (explicitly asked to plan)",
+    "answer": "EXIT 42",
+    "wall_seconds": 2.474,
+    "plan_stats": {
+      "plans": 1,
+      "valid": 1,
+      "invalid": 0,
+      "empty": 0,
+      "no_independent_work": 1,
+      "with_alternatives": 0,
+      "heuristic_alternatives_added": 0,
+      "rejection_reasons": {}
+    },
+    "plan_reports": [
+      {
+        "plan_id": "real_exec_1.worker_01.plan0002",
+        "satisfied": true,
+        "winning_branch": "primary",
+        "decision_latency_s": 0.2769334018230438
+      }
+    ],
+    "tool_intervals": [
+      [
+        "Visual_Grounding_Tool",
+        1.854,
+        1.989,
+        "service:127.0.0.1:8086",
+        "g1"
+      ],
+      [
+        "Zoom_In_Tool",
+        1.991,
+        2.003,
+        "cpu",
+        "g2"
+      ],
+      [
+        "OCR_Tool",
+        2.004,
+        2.129,
+        "service:127.0.0.1:8085",
+        "g3"
+      ]
+    ],
+    "overlapping_pairs": 0,
+    "tool_calls": [
+      "Execute_Action_Plan",
+      "Visual_Grounding_Tool",
+      "Zoom_In_Tool",
+      "OCR_Tool"
+    ],
+    "model_requests": 2
+  }
+]

@@ -57,6 +57,28 @@ function plan(r, workers) {
 const main = (steps) => Story.mainSteps(steps);
 const byKind = (steps, kind) => steps.filter((s) => s.kind === kind);
 
+test("scheduler bookkeeping never becomes a fabricated empty action plan", () => {
+  const r = recorder();
+  for (const type of ["SCHEDULER_CONFIGURED", "SCHEDULER_TASK_STARTED", "SCHEDULER_TASK_FINISHED"]) {
+    r.add(type, "worker_01", {task_id: "tool1", operation: "OCR_Tool"});
+  }
+  assert.equal(main(Story.buildStory(r.events)).length, 0);
+  r.add("PLAN_CANDIDATES_GENERATED", "worker_01", {plan: {plan_id: "p1", origin_type: "model",
+    branches: [{name: "primary", actions: [{id: "ocr", tool: "OCR_Tool", depends_on: []}]}]}});
+  const steps = main(Story.buildStory(r.events));
+  assert.equal(steps.length, 1);
+  assert.equal(steps[0].semantic_kind, "ACTION_PLAN");
+  assert.match(steps[0].text, /1 action.*the model/);
+});
+
+test("an actually recorded empty action plan remains visible", () => {
+  const r = recorder();
+  r.add("PLAN_CANDIDATES_GENERATED", "worker_01", {plan: {plan_id: "empty", origin_type: "model", branches: []}});
+  const steps = main(Story.buildStory(r.events));
+  assert.equal(steps.length, 1);
+  assert.match(steps[0].text, /0 actions/);
+});
+
 test("1-3: requested/started/completed/evidence become one card updated in place", () => {
   const r = recorder(); plan(r, ["worker_01"]);
   toolCall(r, "worker_01", "Zoom_In_Tool", "inv1", {result: {crop_bounds: [0, 0, 50, 40]}});

@@ -77,6 +77,14 @@ class MainAgent:
         # Optional structured observer installed by the multi-agent Studio. It is
         # deliberately separate from model history and never changes model input.
         self.event_sink = event_sink
+        # Optional PARSEC-VL tool scheduler (parsec_vl.harness.ToolScheduling).
+        # When unset, tool calls run sequentially in this thread, as before.
+        self.tool_scheduler = None
+        # Decision protocol. "legacy_single_call" (default): one tool per model message.
+        # "declared_multi_action_plan" (PARSEC-VL E3-E5, explicit opt-in): the model may
+        # also call Execute_Action_Plan, whose actions run on the scheduler as one plan.
+        self.decision_protocol = "legacy_single_call"
+        self.plan_controller = None
         self.model = model_adapter.model
         self.json_schema = [c.public_schema() for c in self.capabilities.values()]
         self.adapter.json_schema = self.json_schema
@@ -305,176 +313,21 @@ class MainAgent:
             if calls:
                 adapter.append_assistant_calls(history, text, calls, original)
                 deferred = []
-                for call in calls:
-                    # Stable per-invocation identity for Studio correlation. The
-                    # model-supplied call ID is not guaranteed unique across actors.
-                    invocation_id = f"inv_{uuid4().hex}"
-                    decision_event = self._emit(
-                        "DECISION_SUMMARY_RECORDED",
-                        {
-                            "current_goal": "Continue the assigned visual investigation.",
-                            "action_intent": f"Invoke {call['name']} with the recorded arguments.",
-                            "rationale_recorded": False,
-                            "public_note": "Action rationale was not explicitly recorded by the model.",
-                            "tool_call_id": call["id"],
-                            "invocation_id": invocation_id,
-                        },
-                        summary=f"Selected {call['name']}; no explicit public rationale was recorded.",
-                        tool_name=call["name"],
-                    )
-                    request_event = self._emit(
-                        "TOOL_CALL_REQUESTED",
-                        {
-                            "tool_call_id": call["id"],
-                            "invocation_id": invocation_id,
-                            "arguments": call.get("args", {}),
-                            "parse_error": call.get("parse_error"),
-                            **self._visual_request(call.get("args"), memory),
-                        },
-                        summary=f"Requested {call['name']}.",
-                        status="planned",
-                        parent_event_id=(decision_event or {}).get("event_id"),
-                        tool_name=call["name"],
-                    )
-                    started_event = None
-                    tool_latency = None
-                    images_before = None
-                    if observer is not None:
-                        observer.proposal(call, self.capabilities.get(call["name"]))
-                    virtual = VirtualCall(call["id"], call["name"], call["args"])
-                    if call.get("parse_error"):
-                        result = failure(
-                            virtual,
-                            call["parse_error"]["code"],
-                            call["parse_error"]["message"],
-                            details=call["parse_error"].get("details"),
-                        )
-                    elif call["name"] not in self.capabilities:
-                        result = failure(
-                            virtual, "tool_not_found", f"Tool not found: {call['name']}"
-                        )
-                    else:
-                        if (
-                            self.budget_guard is not None
-                            and not self.budget_guard.reserve("tool_calls")
-                        ):
-                            result = failure(
-                                virtual,
-                                "budget_denied",
-                                "The actor or global multi-agent tool-call budget is exhausted.",
-                            )
-                        else:
-                            if observer is not None and not isinstance(
-                                self.capabilities[call["name"]], BaseCapability
-                            ):
-                                observer.dispatch(
-                                    virtual, self.capabilities[call["name"]], memory
-                                )
-                            capability = self.capabilities[call["name"]]
-                            # Emitted only once the call is actually dispatched to
-                            # its capability, after parsing and budget checks pass.
-                            started_event = self._emit(
-                                "TOOL_CALL_STARTED",
-                                {
-                                    "tool_call_id": call["id"],
-                                    "invocation_id": invocation_id,
-                                    "backend": getattr(capability, "backend", None),
-                                },
-                                summary=f"Started {call['name']}.",
-                                status="running",
-                                parent_event_id=(request_event or {}).get("event_id"),
-                                tool_name=call["name"],
-                            )
-                            images_before = self._registry_ids(memory)
-                            tool_started = time.monotonic()
-                            result = (
-                                observer.invoke(capability, virtual, memory)
-                                if observer is not None
-                                else capability.invoke(virtual, memory)
-                            )
-                            tool_latency = time.monotonic() - tool_started
-                    if observer is not None:
-                        observer.result(
-                            virtual, result, memory, len(turn["tool_responses"])
-                        )
-                    result_event = self._emit(
-                        "TOOL_CALL_COMPLETED" if result.ok else "TOOL_CALL_FAILED",
-                        {
-                            "tool_call_id": call["id"],
-                            "invocation_id": invocation_id,
-                            "latency_seconds": tool_latency,
-                            "ok": result.ok,
-                            "result": result.payload.get("result"),
-                            "canonical_result": result.data,
-                            "error": result.error,
-                            "meta": result.payload.get("meta", {}),
-                            **self._visual_result(
-                                call, self.capabilities.get(call["name"]), result, memory, images_before
-                            ),
-                        },
-                        summary=(
-                            f"{call['name']} returned evidence."
-                            if result.ok
-                            else f"{call['name']} failed; no usable evidence was recorded."
+                if self.tool_scheduler is not None:
+                    # PARSEC-VL: backend execution runs on the shared scheduler;
+                    # results are published here, in call order.
+                    self.tool_scheduler.run_turn(
+                        self, calls, memory, observer,
+                        lambda slot, result: self._publish_tool_result(
+                            slot, result, memory, observer, turn, detections, history, adapter, deferred
                         ),
-                        status="completed" if result.ok else "failed",
-                        parent_event_id=(started_event or request_event or {}).get(
-                            "event_id"
-                        ),
-                        tool_name=call["name"],
                     )
-                    if result.ok:
-                        self._emit(
-                            "EVIDENCE_OBSERVED",
-                            {
-                                "tool_call_id": call["id"],
-                                "invocation_id": invocation_id,
-                                "evidence_refs": [
-                                    ref.id for ref in result.artifact_refs
-                                ],
-                            },
-                            summary=f"Evidence from {call['name']} entered the agent context.",
-                            parent_event_id=(result_event or {}).get("event_id"),
-                            tool_name=call["name"],
-                        )
-                    if result.detection:
-                        detection = copy.deepcopy(result.detection)
-                        detection["tool_call_idx"] = len(detections)
-                        detection["boxes_xyxy_pixels"] = [
-                            list(map(float, box[:4]))
-                            for box in detection["boxes_xyxy_pixels"]
-                        ]
-                        detection["scores"] = [float(s) for s in detection["scores"]]
-                        detections.append(detection)
-                    turn["tool_responses"].append(result.payload)
-                    immediate, later = adapter.result_messages(call, result)
-                    start = len(history)
-                    history.extend(immediate)
-                    record = {
-                        "tool_call_id": call["id"],
-                        "tool_name": call["name"],
-                        "immediate_message_indices": list(range(start, len(history))),
-                        "deferred_message_indices": [],
-                        "image_refs": result.prepared.get("image_refs", []),
-                        "tool_output_processor": result.processor_info,
-                        "canonical_result": result.data,
-                    }
-                    turn["memory_outputs"].append(record)
-                    self._emit(
-                        "MEMORY_WRITTEN",
-                        {
-                            "tool_call_id": call["id"],
-                            "invocation_id": invocation_id,
-                            "tool_name": call["name"],
-                            "image_refs": record["image_refs"],
-                            "memory_scope": "private",
-                    "memory_kind": "working_context",
-                        },
-                        summary=f"Stored {call['name']} references in private agent memory.",
-                        parent_event_id=(result_event or {}).get("event_id"),
-                        tool_name=call["name"],
+                for call in calls if self.tool_scheduler is None else ():
+                    slot = self._announce_tool_call(call, memory, observer)
+                    result = self._execute_tool_call(slot, memory, observer)
+                    self._publish_tool_result(
+                        slot, result, memory, observer, turn, detections, history, adapter, deferred
                     )
-                    deferred.append((record, later))
                 for record, messages in deferred:
                     start = len(history)
                     history.extend(messages)
@@ -632,6 +485,197 @@ class MainAgent:
             parent_event_id=(started or {}).get("event_id"),
         )
         return response
+
+
+    # ---- one tool call: announce -> execute -> publish ---------------------------------
+    def _announce_tool_call(self, call, memory, observer):
+        """Emit the decision and request events for one call; returns its slot."""
+        # Stable per-invocation identity for Studio correlation. The
+        # model-supplied call ID is not guaranteed unique across actors.
+        invocation_id = f"inv_{uuid4().hex}"
+        decision_event = self._emit(
+            "DECISION_SUMMARY_RECORDED",
+            {
+                "current_goal": "Continue the assigned visual investigation.",
+                "action_intent": f"Invoke {call['name']} with the recorded arguments.",
+                "rationale_recorded": False,
+                "public_note": "Action rationale was not explicitly recorded by the model.",
+                "tool_call_id": call["id"],
+                "invocation_id": invocation_id,
+            },
+            summary=f"Selected {call['name']}; no explicit public rationale was recorded.",
+            tool_name=call["name"],
+        )
+        request_event = self._emit(
+            "TOOL_CALL_REQUESTED",
+            {
+                "tool_call_id": call["id"],
+                "invocation_id": invocation_id,
+                "arguments": call.get("args", {}),
+                "parse_error": call.get("parse_error"),
+                **self._visual_request(call.get("args"), memory),
+            },
+            summary=f"Requested {call['name']}.",
+            status="planned",
+            parent_event_id=(decision_event or {}).get("event_id"),
+            tool_name=call["name"],
+        )
+        if observer is not None:
+            observer.proposal(call, self.capabilities.get(call["name"]))
+        return {"call": call, "invocation_id": invocation_id, "request_event": request_event,
+                "virtual": VirtualCall(call["id"], call["name"], call["args"]),
+                "started_event": None, "tool_latency": None, "images_before": None}
+
+    def _execute_tool_call(self, slot, memory, observer):
+        """Run one call in this thread (the default, sequential path)."""
+        call, invocation_id, request_event = slot["call"], slot["invocation_id"], slot["request_event"]
+        virtual = slot["virtual"]
+        started_event = None
+        tool_latency = None
+        images_before = None
+        if call.get("parse_error"):
+            result = failure(
+                virtual,
+                call["parse_error"]["code"],
+                call["parse_error"]["message"],
+                details=call["parse_error"].get("details"),
+            )
+        elif call["name"] == "Execute_Action_Plan" and self.plan_controller is not None:
+            result = self.plan_controller.execute_call(self, slot, memory)
+        elif call["name"] not in self.capabilities:
+            result = failure(
+                virtual, "tool_not_found", f"Tool not found: {call['name']}"
+            )
+        else:
+            if (
+                self.budget_guard is not None
+                and not self.budget_guard.reserve("tool_calls")
+            ):
+                result = failure(
+                    virtual,
+                    "budget_denied",
+                    "The actor or global multi-agent tool-call budget is exhausted.",
+                )
+            else:
+                if observer is not None and not isinstance(
+                    self.capabilities[call["name"]], BaseCapability
+                ):
+                    observer.dispatch(
+                        virtual, self.capabilities[call["name"]], memory
+                    )
+                capability = self.capabilities[call["name"]]
+                # Emitted only once the call is actually dispatched to
+                # its capability, after parsing and budget checks pass.
+                started_event = self._emit(
+                    "TOOL_CALL_STARTED",
+                    {
+                        "tool_call_id": call["id"],
+                        "invocation_id": invocation_id,
+                        "backend": getattr(capability, "backend", None),
+                    },
+                    summary=f"Started {call['name']}.",
+                    status="running",
+                    parent_event_id=(request_event or {}).get("event_id"),
+                    tool_name=call["name"],
+                )
+                images_before = self._registry_ids(memory)
+                tool_started = time.monotonic()
+                result = (
+                    observer.invoke(capability, virtual, memory)
+                    if observer is not None
+                    else capability.invoke(virtual, memory)
+                )
+                tool_latency = time.monotonic() - tool_started
+        slot.update(started_event=started_event, tool_latency=tool_latency, images_before=images_before)
+        return result
+
+    def _publish_tool_result(self, slot, result, memory, observer, turn, detections, history, adapter, deferred):
+        """Record a call's result: events, detections, model history, and memory."""
+        call, invocation_id, virtual = slot["call"], slot["invocation_id"], slot["virtual"]
+        request_event, started_event = slot["request_event"], slot["started_event"]
+        tool_latency, images_before = slot["tool_latency"], slot["images_before"]
+        if observer is not None:
+            observer.result(
+                virtual, result, memory, len(turn["tool_responses"])
+            )
+        result_event = self._emit(
+            "TOOL_CALL_COMPLETED" if result.ok else "TOOL_CALL_FAILED",
+            {
+                "tool_call_id": call["id"],
+                "invocation_id": invocation_id,
+                "latency_seconds": tool_latency,
+                "ok": result.ok,
+                "result": result.payload.get("result"),
+                "canonical_result": result.data,
+                "error": result.error,
+                "meta": result.payload.get("meta", {}),
+                **self._visual_result(
+                    call, self.capabilities.get(call["name"]), result, memory, images_before
+                ),
+            },
+            summary=(
+                f"{call['name']} returned evidence."
+                if result.ok
+                else f"{call['name']} failed; no usable evidence was recorded."
+            ),
+            status="completed" if result.ok else "failed",
+            parent_event_id=(started_event or request_event or {}).get(
+                "event_id"
+            ),
+            tool_name=call["name"],
+        )
+        if result.ok:
+            self._emit(
+                "EVIDENCE_OBSERVED",
+                {
+                    "tool_call_id": call["id"],
+                    "invocation_id": invocation_id,
+                    "evidence_refs": [
+                        ref.id for ref in result.artifact_refs
+                    ],
+                },
+                summary=f"Evidence from {call['name']} entered the agent context.",
+                parent_event_id=(result_event or {}).get("event_id"),
+                tool_name=call["name"],
+            )
+        if result.detection:
+            detection = copy.deepcopy(result.detection)
+            detection["tool_call_idx"] = len(detections)
+            detection["boxes_xyxy_pixels"] = [
+                list(map(float, box[:4]))
+                for box in detection["boxes_xyxy_pixels"]
+            ]
+            detection["scores"] = [float(s) for s in detection["scores"]]
+            detections.append(detection)
+        turn["tool_responses"].append(result.payload)
+        immediate, later = adapter.result_messages(call, result)
+        start = len(history)
+        history.extend(immediate)
+        record = {
+            "tool_call_id": call["id"],
+            "tool_name": call["name"],
+            "immediate_message_indices": list(range(start, len(history))),
+            "deferred_message_indices": [],
+            "image_refs": result.prepared.get("image_refs", []),
+            "tool_output_processor": result.processor_info,
+            "canonical_result": result.data,
+        }
+        turn["memory_outputs"].append(record)
+        self._emit(
+            "MEMORY_WRITTEN",
+            {
+                "tool_call_id": call["id"],
+                "invocation_id": invocation_id,
+                "tool_name": call["name"],
+                "image_refs": record["image_refs"],
+                "memory_scope": "private",
+        "memory_kind": "working_context",
+            },
+            summary=f"Stored {call['name']} references in private agent memory.",
+            parent_event_id=(result_event or {}).get("event_id"),
+            tool_name=call["name"],
+        )
+        deferred.append((record, later))
 
     def _emit(self, event_type, payload, **metadata):
         """Emit optional public observability without affecting agent execution."""

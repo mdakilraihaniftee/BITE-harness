@@ -48,6 +48,16 @@ def store_selected_binding(memory, call, result, *, prefix, fields, descriptions
         source_tool=call.name, source_args=call.arguments, descriptions=descriptions)]
 
 
+class Prepared:
+    """Arguments and memory-reference resolution produced by BaseCapability.prepare."""
+
+    __slots__ = ("args", "resolution")
+
+    def __init__(self, args, resolution):
+        self.args = args
+        self.resolution = resolution
+
+
 class BaseCapability:
     """Validate task calls, resolve artifacts, execute tools and render model evidence.
 
@@ -57,6 +67,9 @@ class BaseCapability:
     """
     rewrite_urls = False
     resolve_urls = False
+    # run_backend reads no memory state, so calls may execute concurrently and be
+    # published afterwards. Capabilities whose backend reads memory set False.
+    parallel_safe = True
 
     def __init__(self, *, backend, client_config, service_config=None, client=None):
         """Select a supported backend and prepare schema validation and transport.
@@ -124,6 +137,23 @@ class BaseCapability:
         Image and URL references are resolved in a copy of the task arguments before
         translation. Image resolution can download lazy references.
         """
+        prepared = self.prepare(call, memory)
+        if isinstance(prepared, CapabilityResult):
+            return prepared
+        payload = self.run_backend(call, memory, prepared)
+        if isinstance(payload, CapabilityResult):
+            return payload
+        return self.finish(call, payload, memory, prepared)
+
+    # The three phases of invoke. A scheduler may run run_backend on another
+    # thread (it does not touch memory unless parallel_safe is False) and then
+    # call finish, which writes to memory, back on the agent's own thread.
+
+    def prepare(self, call, memory):
+        """Validate arguments and resolve memory references (reads memory only).
+
+        Returns a Prepared record, or a failed CapabilityResult.
+        """
         allowed = self.schema["function"]["parameters"].get("properties", {})
         hidden = set(call.arguments) - set(allowed)
         errors = sorted(self.validator.iter_errors(call.arguments), key=lambda e: str(e.path))
@@ -144,17 +174,25 @@ class BaseCapability:
             return failure(call, "unresolved_image_reference",
                 "Failed to map one or more image_id arguments to runtime images.",
                 details=resolution["errors"], meta={"image_resolution": resolution})
+        return Prepared(args, resolution)
+
+    def run_backend(self, call, memory, prepared):
+        """Translate arguments and execute the backend; returns the raw payload or a failure."""
         try:
-            args = self.translate_args(args, memory)
+            args = self.translate_args(prepared.args, memory)
             observer = getattr(memory, "_bite_observer", None)
             if observer is not None:
-                observer.dispatch(call, self, memory, resolution, args)
-            payload = self.execute(call, args, memory)
+                observer.dispatch(call, self, memory, prepared.resolution, args)
+            return self.execute(call, args, memory)
         except Exception as exc:
             observer = getattr(memory, "_bite_observer", None)
             if observer is not None:
                 observer.transport_error(call, exc)
             return failure(call, "tool_execution_error", str(exc))
+
+    def finish(self, call, payload, memory, prepared):
+        """Validate the backend payload and publish it into memory (writes memory)."""
+        resolution = prepared.resolution
         payload = dict(payload)
         payload["tool_name"] = self.name
         payload["tool_call_id"] = call.call_id

@@ -46,6 +46,14 @@ def test_static_javascript_parses() -> None:
         assert result.returncode == 0, f"{path.name}: {result.stderr}"
 
 
+def test_stream_status_labels() -> None:
+    result = subprocess.run(
+        [NODE, "--test", str(ROOT / "tests/studio/js/stream_status.test.cjs")],
+        capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
 def test_frontend_modules(tmp_path: Path) -> None:
     for script, run in (
         ("scripts/studio_protocol_fixture.py", "fixture"),
@@ -151,5 +159,28 @@ def test_simple_team() -> None:
         timeout=120,
         check=False,
         env={"PATH": str(Path(NODE).parent)},
+    )
+    assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]
+
+
+def test_parsec_view_model(tmp_path) -> None:
+    """PARSEC-VL view model over real fixture event streams (legacy, parallel plan, speculation)."""
+    from openvlharness.parsec_vl.fixture import run_plan_fixture
+
+    runs = {}
+    for name, policy, extra in (("legacy", "off", {"plan": "parallel"}), ("parallel", "e3", {"plan": "parallel"}),
+                                ("speculative", "e4", {"plan": "fallback"})):
+        _, _, _, events = run_plan_fixture(tmp_path / name, policy=policy, workers=1, tool_delay=0.05,
+                                           planning_processes=0, **extra)
+        runs[name] = events
+    data = tmp_path / "parsec_runs.json"
+    data.write_text(json.dumps(runs))
+    result = subprocess.run(
+        [NODE, "--test", str(ROOT / "tests/studio/js/parsec_view.test.cjs")],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+        env={"PARSEC_RUNS": str(data), "PATH": str(Path(NODE).parent)},
     )
     assert result.returncode == 0, result.stdout[-4000:] + result.stderr[-2000:]

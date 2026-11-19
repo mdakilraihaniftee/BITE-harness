@@ -6,8 +6,8 @@ Studio only when ``/api/info`` reports the current API version, the same runs
 directory, and the recorded token is accepted; otherwise start a new Studio on
 the first free port at or after ``--port``. Outdated Studios and unrelated
 listeners are reported and never killed. The browser opens the exact chosen
-instance with a single-use link that selects the run, before or after the run
-directory exists.
+instance with a launch link that signs in and selects the run automatically,
+before or after the run directory exists. Browser sessions survive reloads.
 """
 
 from __future__ import annotations
@@ -18,7 +18,6 @@ import socket
 import subprocess
 import sys
 import time
-import webbrowser
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -178,33 +177,27 @@ def ensure_studio(
 
 
 def open_browser(url: str) -> bool:
-    try:
-        return bool(webbrowser.open(url, new=2, autoraise=True))
-    except (OSError, webbrowser.Error):
-        return False
+    return lifecycle.open_in_browser(url)
 
 
-def show_run(session: lifecycle.Session, run_id: str, *, no_browser: bool) -> None:
-    """Open the exact Studio instance with a single-use link that selects the run.
+def show_run(session: lifecycle.Session, run_id: str, *, no_browser: bool, runs_dir: Path | None = None) -> None:
+    """Open the exact Studio instance with a URL that selects the run.
 
     The viewer waits for the run to appear, so the browser may open before the
-    run's manifest exists. Only the expiring ticket appears in this output.
+    run's manifest exists. The browser signs in automatically from the launch link.
     """
     try:
-        link, ttl = lifecycle.launch_link(session, run_id)
+        link, _ttl = lifecycle.launch_link(session, run_id)
     except OSError as exc:
         print(f"Could not create a Studio link: {exc}", file=sys.stderr)
         return
     opened = False if no_browser else open_browser(link)
     state = "opened in your browser" if opened else "open this link"
-    print(
-        f"Live visualization ({state}; single-use, valid {ttl // 60} min):", flush=True
-    )
+    print(f"Live visualization ({state}):", flush=True)
     print(f"  {link}", flush=True)
-    print(
-        f"  New link any time: python scripts/studio_ctl.py url --port {session.port} --run {run_id}",
-        flush=True,
-    )
+    hint = None if opened else lifecycle.remote_access_hint(session.port)
+    if hint:
+        print(hint, flush=True)
 
 
 def run(argv: list[str] | None = None) -> int:
@@ -230,7 +223,7 @@ def run(argv: list[str] | None = None) -> int:
 
     task = subprocess.Popen(args.command, cwd=ROOT)
     # Open immediately: the viewer waits for the requested run to appear.
-    show_run(session, args.run_id, no_browser=args.no_browser)
+    show_run(session, args.run_id, no_browser=args.no_browser, runs_dir=args.runs_dir)
     try:
         return task.wait()
     except KeyboardInterrupt:

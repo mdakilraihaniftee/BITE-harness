@@ -1,0 +1,144 @@
+{
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:10:39.448771+00:00"
+  },
+  "image": "data/images/FSC147/234.jpg",
+  "measurement": "REAL services",
+  "results": {
+    "grounding": {
+      "tool": "Visual_Grounding_Tool",
+      "pool": "service:127.0.0.1:8086",
+      "levels": {
+        "1": {
+          "requests": 8,
+          "wall_seconds": 9.0314,
+          "throughput_per_s": 0.8858,
+          "latency_median": 1.1777,
+          "latency_max": 1.2689,
+          "failures": [],
+          "throughput_vs_1": 1.0
+        },
+        "2": {
+          "requests": 8,
+          "wall_seconds": 7.1274,
+          "throughput_per_s": 1.1224,
+          "latency_median": 1.7743,
+          "latency_max": 1.8003,
+          "failures": [],
+          "throughput_vs_1": 1.267
+        },
+        "4": {
+          "requests": 8,
+          "wall_seconds": 9.9784,
+          "throughput_per_s": 0.8017,
+          "latency_median": 4.9594,
+          "latency_max": 5.1129,
+          "failures": [],
+          "throughput_vs_1": 0.905
+        }
+      }
+    },
+    "ocr": {
+      "tool": "OCR_Tool",
+      "pool": "service:127.0.0.1:8085",
+      "levels": {
+        "1": {
+          "requests": 8,
+          "wall_seconds": 1.9335,
+          "throughput_per_s": 4.1376,
+          "latency_median": 0.241,
+          "latency_max": 0.2516,
+          "failures": [],
+          "throughput_vs_1": 1.0
+        },
+        "2": {
+          "requests": 8,
+          "wall_seconds": 1.0472,
+          "throughput_per_s": 7.6397,
+          "latency_median": 0.2529,
+          "latency_max": 0.2878,
+          "failures": [],
+          "throughput_vs_1": 1.846
+        },
+        "4": {
+          "requests": 8,
+          "wall_seconds": 0.619,
+          "throughput_per_s": 12.9249,
+          "latency_median": 0.2877,
+          "latency_max": 0.3397,
+          "failures": [],
+          "throughput_vs_1": 3.124
+        }
+      }
+    },
+    "depth": {
+      "tool": "Depth_Estimation_Tool",
+      "pool": "service:127.0.0.1:8087",
+      "levels": {
+        "1": {
+          "requests": 8,
+          "wall_seconds": 2.6401,
+          "throughput_per_s": 3.0302,
+          "latency_median": 0.3344,
+          "latency_max": 0.3408,
+          "failures": [],
+          "throughput_vs_1": 1.0
+        },
+        "2": {
+          "requests": 8,
+          "wall_seconds": 2.2142,
+          "throughput_per_s": 3.613,
+          "latency_median": 0.537,
+          "latency_max": 0.6063,
+          "failures": [],
+          "throughput_vs_1": 1.192
+        },
+        "4": {
+          "requests": 8,
+          "wall_seconds": 2.2807,
+          "throughput_per_s": 3.5078,
+          "latency_median": 1.0923,
+          "latency_max": 1.1576,
+          "failures": [],
+          "throughput_vs_1": 1.158
+        }
+      }
+    },
+    "zoom": {
+      "tool": "Zoom_In_Tool",
+      "pool": "cpu",
+      "levels": {
+        "1": {
+          "requests": 8,
+          "wall_seconds": 0.5136,
+          "throughput_per_s": 15.5771,
+          "latency_median": 0.0638,
+          "latency_max": 0.0674,
+          "failures": [],
+          "throughput_vs_1": 1.0
+        },
+        "2": {
+          "requests": 8,
+          "wall_seconds": 0.2765,
+          "throughput_per_s": 28.9338,
+          "latency_median": 0.068,
+          "latency_max": 0.0732,
+          "failures": [],
+          "throughput_vs_1": 1.857
+        },
+        "4": {
+          "requests": 8,
+          "wall_seconds": 0.2006,
+          "throughput_per_s": 39.8838,
+          "latency_median": 0.0862,
+          "latency_max": 0.1189,
+          "failures": [],
+          "throughput_vs_1": 2.56
+        }
+      }
+    }
+  }
+}

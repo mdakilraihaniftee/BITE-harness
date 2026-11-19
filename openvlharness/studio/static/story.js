@@ -99,6 +99,7 @@
     const reportStepByEvent = new Map(); // actual hypothesis event ID -> owning step
     const pendingNotebook = new Map(); // agent -> notebook-write events awaiting the report of that phase
     const roundStep = new Map();       // round -> divider
+    const planStep = new Map();        // PARSEC-VL plan id -> plan step
     const verificationKey = {round: 0};
     let pendingConfig = null; let taskStep = null; let finalStep = null; let mainCount = 0;
     const technical = [];
@@ -500,6 +501,58 @@
           break;
         case "RUN_CANCELLED":
           failure(event, "The run was cancelled", short(p.reason, 220), "inconclusive");
+          break;
+        case "SCHEDULER_CONFIGURED":
+        case "SCHEDULER_TASK_STARTED":
+        case "SCHEDULER_TASK_FINISHED":
+          technical.push(event.event_id);
+          break;
+        case "PLAN_CANDIDATES_GENERATED": {
+          // A worker's declared action plan is one major step; its tool actions appear as normal tool steps.
+          const plan = p.plan || {};
+          const branches = plan.branches || [];
+          const primary = branches[0]?.actions || [];
+          const independent = primary.filter((a) => !(a.depends_on || []).length).length;
+          const proposer = plan.estimates?.proposer === "scripted fixture policy" ? "a scripted test policy" : plan.origin_type === "model" ? "the model" : String(plan.origin_type || "unknown").replace("_", " ");
+          const step = create(event, {kind: "plan", semantic_kind: "ACTION_PLAN",
+            title: `${who} proposed an action plan`,
+            text: `${primary.length} action${primary.length === 1 ? "" : "s"}${independent > 1 ? `, ${independent} independent (run at the same time)` : ""}` +
+              `${branches.length > 1 ? `; ${branches.length - 1} alternative${branches.length > 2 ? "s" : ""} if the goal is not reached` : ""}. Proposed by ${proposer}.`,
+            list: branches.map((b) => `${b.name}${b.origin_type === "controller_heuristic" ? " (controller heuristic)" : ""}: ` +
+              (b.actions || []).map((a) => String(a.tool).replace(/_Tool$/, "").replace(/_/g, " ")).join(" → "))});
+          planStep.set(plan.plan_id, step);
+          break;
+        }
+        case "PLAN_SELECTED": case "REPLAN_COMPLETED": case "PLAN_EXECUTION_COMPLETED": {
+          const step = planStep.get(p.plan_id);
+          if (!step) { technical.push(event.event_id); break; }
+          attach(step, event);
+          if (event.event_type === "PLAN_SELECTED" && p.decision?.speculation?.chosen?.length) step.facts.push(["Speculation", `started ${p.decision.speculation.chosen.join(", ")} early`]);
+          if (event.event_type === "REPLAN_COMPLETED") step.facts.push(["Replanned", `switched to ${p.next_branch}${p.was_speculative ? " (already running)" : ""}`]);
+          if (event.event_type === "PLAN_EXECUTION_COMPLETED") step.facts.push(["Outcome", p.satisfied ? `goal reached (${p.winning_branch})` : "goal not reached"]);
+          break;
+        }
+        case "SPECULATIVE_RESULT_ADOPTED": {
+          const branch = String(p.branch_id || "").split(".").at(-1);
+          create(event, {kind: "plan", semantic_kind: "SPECULATION_ADOPTED", title: `${who} adopted the speculative ${branch} result`,
+            text: `This branch started early while the first approach ran; its ${(p.adopted_actions || []).length} finished result(s) now enter the agent's evidence. No tool ran twice.`});
+          break;
+        }
+        case "PLANNING_CONFIGURED":
+        case "PLANNING_POOL_STARTED":
+        case "PLAN_EVALUATION_STARTED":
+        case "PLAN_EVALUATION_COMPLETED":
+        case "PLAN_EVALUATION_SKIPPED":
+        case "PLAN_TASK_PRUNED":
+        case "SPECULATIVE_TASK_ADMITTED":
+        case "SPECULATIVE_TASK_STARTED":
+        case "SPECULATIVE_TASK_COMPLETED":
+        case "SPECULATIVE_TASK_CANCEL_REQUESTED":
+        case "SPECULATIVE_TASK_PRUNED":
+        case "REPLAN_TRIGGERED":
+          // PARSEC-VL queue bookkeeping: Technical Trace only. A failed tool call
+          // is already told by its TOOL_CALL_FAILED step.
+          technical.push(event.event_id);
           break;
         default:
           // Unknown or technical types stay in the trace unless they report a failure.

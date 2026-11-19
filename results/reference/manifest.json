@@ -1,0 +1,80 @@
+{
+  "description": "Recorded reference measurements underlying docs/REPORT.md and figures. Files retain their original content; not new measurements.",
+  "files": [
+    {
+      "path": "bench/bench_summary.json",
+      "sha256": "de569159f8b385d5310687422b61b0a8b529a8d49c33fe127147793111669ed5",
+      "source": "outputs/parsec_vl/phase3/bench/bench_summary.json"
+    },
+    {
+      "path": "bench/bench_raw.json",
+      "sha256": "5746cf3eb8580e73a19bb6bc9e87886053981524748a50864501cc3f23ef68b3",
+      "source": "outputs/parsec_vl/phase3/bench/bench_raw.json"
+    },
+    {
+      "path": "scaling/bench_summary.json",
+      "sha256": "64559876c72f55d8efff375fa312fccc1e4076b5704e1c886f63d95d68b963a0",
+      "source": "outputs/parsec_vl/phase3/scaling/bench_summary.json"
+    },
+    {
+      "path": "scaling/bench_raw.json",
+      "sha256": "3f43b93cb403280976110bbfe268b46c3e89461eea50f54ce5b9d858adc986de",
+      "source": "outputs/parsec_vl/phase3/scaling/bench_raw.json"
+    },
+    {
+      "path": "actions/actions.json",
+      "sha256": "07469dd84197b052c639052c5bd4c7a88c58fc599c56143b517a0eed269b887c",
+      "source": "outputs/parsec_vl/phase3/actions/actions.json"
+    },
+    {
+      "path": "planning/multicore.json",
+      "sha256": "d71206d949c5296f850f921cb603968a7ae3cf8e8c235f83bcd73b04d53d8c78",
+      "source": "outputs/parsec_vl/phase3/planning/multicore.json"
+    },
+    {
+      "path": "planning/decision_quality.json",
+      "sha256": "e3e160996c2bf25fef8983c1edeb4771ad3a522f85d6dc90d16b8de602c4de00",
+      "source": "outputs/parsec_vl/phase3/planning/decision_quality.json"
+    },
+    {
+      "path": "speculation/speculation.json",
+      "sha256": "7672d37e36d39a20a153ab7c94a1ed3e3030991c8c35d46776757be11f8d64a0",
+      "source": "outputs/parsec_vl/phase3/speculation/speculation.json"
+    },
+    {
+      "path": "budget/speculation.json",
+      "sha256": "cc73b0b29a427cb40f9b7e89551afb1488f11cb0a47c9d6ef30eb17c38db346b",
+      "source": "outputs/parsec_vl/phase3/budget/speculation.json"
+    },
+    {
+      "path": "whole/variants.json",
+      "sha256": "ed9cac256efdb6b81d13b29eb0271360d8b0cff3c5a4472372f8295db83d386f",
+      "source": "outputs/parsec_vl/phase3/whole/variants.json"
+    },
+    {
+      "path": "overhead/variants.json",
+      "sha256": "d05f5bbe755224bd945f162d6efbb806ef607811023c11fef5be94335a012f8e",
+      "source": "outputs/parsec_vl/phase3/overhead/variants.json"
+    },
+    {
+      "path": "contention/variants.json",
+      "sha256": "7bbc370003ef9a1613f1964767b0116e24c3c85957843af243e69395dc397879",
+      "source": "outputs/parsec_vl/phase3/contention/variants.json"
+    },
+    {
+      "path": "probe/probe.json",
+      "sha256": "13b09038a5fc394d6c9d3976c33efb14955e08f46487cc3a1aaa16f249d8f0e7",
+      "source": "outputs/parsec_vl/phase3/probe/probe.json"
+    },
+    {
+      "path": "plan_probe/plan_probe.json",
+      "sha256": "aed42f9c87cbe8c708426c572025112fac97760d80fe486416c0f19b8d394172",
+      "source": "outputs/parsec_vl/phase3/plan_probe/plan_probe.json"
+    },
+    {
+      "path": "plan_probe/execute_summary.json",
+      "sha256": "7b01ada556d4f0bc533d5d931a0e965547463a392ba240716a063fafd5e673e2",
+      "source": "outputs/parsec_vl/phase3/plan_probe/execute_summary.json"
+    }
+  ]
+}

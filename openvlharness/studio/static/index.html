@@ -16,8 +16,6 @@
       <div><strong>Investigation Studio</strong><small>OpenVLHarness</small></div>
     </div>
     <div class="connection-controls">
-      <label class="token-field"><span>Viewer token</span><input id="token" type="password" autocomplete="off" placeholder="Required"></label>
-      <button id="connect" class="primary">Connect</button>
       <label><span class="sr-only">Select run</span><select id="run-select" disabled><option>Select a run</option></select></label>
       <span id="connection-state" class="status-chip idle">Disconnected</span>
       <div class="segmented theme-switch" role="radiogroup" aria-label="Color theme">
@@ -29,6 +27,8 @@
   </header>
 
   <main>
+    <!-- Connection and link problems are shown here, never only inside a collapsed section. -->
+    <div id="app-notice" class="graph-notice app-notice hidden" role="status" aria-live="polite"></div>
 
     <!-- Persistent answer status: ground truth, coordinator estimate, and final answer are separate fields. -->
     <section id="answer-strip" class="answer-strip" aria-label="Answer status">
@@ -42,8 +42,6 @@
           <div class="as-pop-body">
             <div id="gt-provenance" class="prov-list"></div>
             <p class="muted" id="gt-policy">References are released only after the run reaches a terminal state, and only to an authorized evaluator. They are never shown to agents.</p>
-            <label class="evaluator-field"><span>Evaluator token</span><input id="evaluator-token" type="password" autocomplete="off" placeholder="Optional"></label>
-            <button type="button" id="evaluator-unlock">Unlock evaluator view</button>
           </div>
         </details>
       </div>
@@ -72,6 +70,12 @@
     </section>
 
 
+
+    <!-- PARSEC-VL: parallel execution timeline, plan/DAG, budget/resources, recorded comparisons. -->
+    <details class="panel parsec-panel" id="parsec-panel" open>
+      <summary class="panel-heading"><div><p class="eyebrow">PARSEC-VL</p><h2 id="parsec-title">Parallel execution</h2></div><span id="parsec-meta" class="muted"></span></summary>
+      <div id="parsec-view" class="parsec-view"><p class="pv-empty">Select a run.</p></div>
+    </details>
 
     <section class="workspace">
       <section class="panel story-panel">
@@ -294,6 +298,7 @@
   <script src="/static/story.js" defer></script>
   <script src="/static/team-view.js" defer></script>
   <script src="/static/simple-team.js" defer></script>
+  <script src="/static/parsec-view.js" defer></script>
   <script src="/static/architecture-graph.js" defer></script>
   <script src="/static/app.js" defer></script>
 </body>

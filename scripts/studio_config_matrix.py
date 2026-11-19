@@ -54,6 +54,7 @@ def run_fixture(
     step_delay: float = 0.0,
     reference: bool = True,
     scenario: str = "standard",
+    tool_scheduler: str = "off",
 ) -> tuple[Path, ScriptedAgentBuilder, dict[str, Any]]:
     output_dir.mkdir(parents=True, exist_ok=True)
     image = create_scene(output_dir / "fixture_scene.png")
@@ -63,6 +64,7 @@ def run_fixture(
         output_dir, workers=workers, memory=memory, peer=peer, mode=mode,
         estimate_updates=estimates,
     )
+    config["execution"]["scheduler"]["policy"] = tool_scheduler
     run_id = run_id or (
         f"fixture_w{workers}_mem{'on' if memory else 'off'}_peer{'on' if peer else 'off'}_"
         f"{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}"
@@ -89,7 +91,8 @@ def run_fixture(
 
 
 def run_visual(output_dir: Path, *, workers: int = 2, mode: str = "concurrent", run_id: str | None = None,
-               step_delay: float = 0.0, reference: bool = True, tool_delay: float = 0.0):
+               step_delay: float = 0.0, reference: bool = True, tool_delay: float = 0.0,
+               tool_scheduler: str = "off"):
     """Original -> ROI -> Zoom -> detection on the crop -> nested crop, with real capabilities."""
     from openvlharness.multi_agent.visual_fixture import (
         VISUAL_TASK, VisualAgentBuilder, create_visual_scene, write_visual_reference,
@@ -102,6 +105,7 @@ def run_visual(output_dir: Path, *, workers: int = 2, mode: str = "concurrent", 
                             estimate_updates=True, follow_up_rounds=0)
     config["workers"]["overrides"] = {}
     config["workers"]["default"]["tool_calls"] = 8
+    config["execution"]["scheduler"]["policy"] = tool_scheduler
     run_id = run_id or f"visual_chain_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S_%f')}"
     orchestrator = MultiAgentOrchestrator(config, factory=builder.factory(), run_id=run_id)
     if reference:
@@ -292,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
     one.add_argument("--step-delay", type=float, default=0.0, help="Seconds per scripted model request (live demos).")
     one.add_argument("--tool-delay", type=float, default=0.0, help="Seconds per fixture tool call (visual scenario; live demos).")
     one.add_argument("--no-reference", action="store_true", help="Do not write an evaluator reference (NOT_AVAILABLE case).")
+    one.add_argument("--tool-scheduler", choices=("off", "e0", "e1", "e2"), default="off",
+                     help="Route tool calls through the PARSEC-VL scheduler (fixture transports only).")
     full = sub.add_parser("matrix", help="All 16 worker/memory/peer configurations")
     full.add_argument("--output-dir", type=Path, default=Path("outputs/studio_matrix"))
     full.add_argument("--report", type=Path, default=Path("outputs/studio_matrix_report/matrix_report.json"))
@@ -301,14 +307,14 @@ def main(argv: list[str] | None = None) -> int:
     if args.scenario == "visual":
         run_dir, result = run_visual(args.output_dir, workers=min(args.workers, 2), mode=args.mode,
                                      run_id=args.run_id, step_delay=args.step_delay, reference=not args.no_reference,
-                                     tool_delay=args.tool_delay)
+                                     tool_delay=args.tool_delay, tool_scheduler=args.tool_scheduler)
         print(f"Deterministic visual-chain fixture run (test only): {run_dir}")
         print(f"Status: {result['extra_records']['status']}  Final answer: {result['prediction']}")
         return 0 if result["extra_records"]["status"] == "COMPLETED" else 1
     run_dir, builder, result = run_fixture(
         args.output_dir, workers=args.workers, memory=args.memory == "on", peer=args.peer == "on",
         mode=args.mode, estimates=args.estimates == "on", run_id=args.run_id, step_delay=args.step_delay,
-        reference=not args.no_reference, scenario=args.scenario,
+        reference=not args.no_reference, scenario=args.scenario, tool_scheduler=args.tool_scheduler,
     )
     print(f"Deterministic fixture run (test only): {run_dir}")
     print(f"Status: {result['extra_records']['status']}  Final answer: {result['prediction']}")

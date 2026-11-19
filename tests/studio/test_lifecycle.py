@@ -285,6 +285,10 @@ def test_launcher_starts_then_reuses_a_compatible_studio(
     first, process, _notes = launcher.ensure_studio(tmp_path, "127.0.0.1", port)
     started.append(process)
     assert process is not None and first.port == port
+    assert lifecycle.probe(first.base_url).info["auth_required"] is True
+    link, ttl = lifecycle.launch_link(first, "new_run")
+    assert link.startswith(f"{first.base_url}/#ticket=") and "run=new_run" in link and ttl > 0
+    assert lifecycle._get(f"{first.base_url}/api/runs")[0] == 401
     assert first.token not in Path(f"/proc/{process.pid}/cmdline").read_bytes().decode(
         errors="replace"
     )
@@ -380,3 +384,46 @@ def test_studio_ctl_refuses_to_stop_non_studio_processes(tmp_path: Path) -> None
         )
         assert result.returncode == 1 and "Refusing" in result.stderr
         assert lifecycle.probe(f"http://127.0.0.1:{port}").kind == "unrelated"
+
+
+# ---- browser opening: never a terminal browser (it cannot run the Studio) ----------------
+
+def test_headless_ssh_session_has_no_graphical_browser():
+    ssh = {"SSH_CONNECTION": "1.2.3.4 5 6.7.8.9 22", "TERM": "xterm-256color"}
+    assert not lifecycle.graphical_browser_available(ssh, "linux")
+    assert not lifecycle.graphical_browser_available({**ssh, "BROWSER": "lynx"}, "linux")
+    assert not lifecycle.graphical_browser_available({**ssh, "BROWSER": "/usr/bin/w3m -dump"}, "linux")
+    assert "ssh -N -L 8794:127.0.0.1:8794" in lifecycle.remote_access_hint(8794, ssh)
+
+
+def test_graphical_browsers_are_detected():
+    assert lifecycle.graphical_browser_available({"DISPLAY": ":0"}, "linux")
+    assert lifecycle.graphical_browser_available({"WAYLAND_DISPLAY": "wayland-0"}, "linux")
+    assert lifecycle.graphical_browser_available({"BROWSER": "/home/u/.vscode-server/bin/helpers/browser.sh"}, "linux")
+    assert lifecycle.graphical_browser_available({}, "darwin")
+    assert lifecycle.remote_access_hint(8787, {}) is None
+
+
+def test_open_in_browser_refuses_without_a_display(monkeypatch):
+    import webbrowser
+
+    for name in ("BROWSER", "DISPLAY", "WAYLAND_DISPLAY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(lifecycle.sys, "platform", "linux")
+    monkeypatch.setattr(webbrowser, "get", lambda *a: (_ for _ in ()).throw(AssertionError("must not look up a browser")))
+    assert lifecycle.open_in_browser("http://127.0.0.1:1/#ticket=x") is False
+
+
+def test_open_in_browser_skips_a_text_browser_even_with_a_display(monkeypatch):
+    import webbrowser
+
+    class Lynx:
+        name = "www-browser"
+
+        def open(self, *a, **k):
+            raise AssertionError("terminal browser must not be started")
+
+    monkeypatch.delenv("BROWSER", raising=False)
+    monkeypatch.setenv("DISPLAY", ":0")
+    monkeypatch.setattr(webbrowser, "get", lambda *a: Lynx())
+    assert lifecycle.open_in_browser("http://127.0.0.1:1/") is False

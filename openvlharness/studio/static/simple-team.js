@@ -84,7 +84,10 @@
       infra.append(h("span", "st-infra-label", "Shared behind the scenes"));
       for (const m of models) infra.append(h("span", "st-chip", `Model: ${m.metadata?.kind === "fixture" ? "scripted test policy" : m.label} · used by ${m.metadata?.clients?.length || 0} agents`));
       if (tools.length) infra.append(h("span", "st-chip", `Tool services: ${tools.join(", ")}`));
-      infra.append(h("span", "st-chip", "Message bus"));
+      const communication = (topology?.nodes || []).find((n) => n.id === "comm_bus")?.metadata || {};
+      const busLabel = communication.enabled === true ? "Message bus: on"
+        : communication.enabled === false ? "Message bus: off · direct result handoff" : "Message bus: not recorded";
+      infra.append(h("span", "st-chip st-communication", busLabel));
       this.budget = h("span", "st-chip", "Budget —"); infra.append(this.budget);
       stage.append(infra);
       this.stage = stage;

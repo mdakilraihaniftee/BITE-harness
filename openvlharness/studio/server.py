@@ -1,4 +1,4 @@
-"""Serve the authenticated OpenVLHarness Investigation Studio."""
+"""Serve the Investigation Studio with automatic browser sign-in."""
 
 from __future__ import annotations
 
@@ -44,8 +44,12 @@ def create_app(
     evaluator_token: str | None = None,
     reference_dir: str | Path | None = None,
     dataset_loader=None,
+    experiments_dir: str | Path | None = None,
 ) -> FastAPI:
     root = Path(runs_directory).resolve()
+    # Recorded PARSEC-VL benchmark summaries (read-only; never executed from the UI).
+    experiments_root = Path(experiments_dir or os.getenv("STUDIO_EXPERIMENTS_DIR")
+                            or Path(__file__).resolve().parents[2] / "results/reference").resolve()
     root.mkdir(parents=True, exist_ok=True)
     if not viewer_token:
         raise ValueError("A nonempty Studio viewer token is required")
@@ -71,13 +75,16 @@ def create_app(
 
     def authorize(
         x_studio_token: Annotated[str | None, Header()] = None,
+        request: Request = None,
     ) -> None:
-        if x_studio_token is None or not secrets.compare_digest(
-            x_studio_token, viewer_token
+        credential = x_studio_token or (request.cookies.get(f"studio_viewer_{instance}") if request else None)
+        if credential is None or not secrets.compare_digest(
+            credential, viewer_token
         ):
             raise HTTPException(status_code=401, detail="Invalid Studio viewer token")
 
-    def is_evaluator(value: str | None) -> bool:
+    def is_evaluator(value: str | None, request: Request = None) -> bool:
+        value = value or (request.cookies.get(f"studio_evaluator_{instance}") if request else None)
         return bool(
             evaluator_token
             and value is not None
@@ -121,6 +128,7 @@ def create_app(
     async def mint_ticket(
         payload: Annotated[dict[str, Any] | None, Body()] = None,
         x_studio_evaluator_token: Annotated[str | None, Header()] = None,
+        request: Request = None,
     ):
         ttl = 600
         if isinstance(payload, dict) and isinstance(payload.get("ttl_seconds"), int):
@@ -128,7 +136,7 @@ def create_app(
         scopes: tuple[str, ...] = ()
         if isinstance(payload, dict) and "evaluator" in (payload.get("scopes") or []):
             # Only an evaluator can delegate evaluator access to a browser.
-            if not is_evaluator(x_studio_evaluator_token):
+            if not is_evaluator(x_studio_evaluator_token, request):
                 raise HTTPException(status_code=403, detail="Evaluator scope requires the evaluator token")
             scopes = ("evaluator",)
         ticket = secrets.token_urlsafe(24)
@@ -142,8 +150,12 @@ def create_app(
         return {"ticket": ticket, "expires_in": ttl, "scopes": list(scopes)}
 
     @app.post("/api/launch-tickets/redeem")
-    async def redeem_ticket(payload: Annotated[dict[str, Any], Body()]):
-        """Exchange a single-use launch ticket for the viewer token (kept in page memory)."""
+    async def redeem_ticket(
+        payload: Annotated[dict[str, Any], Body()],
+        response: Response = None,
+        request: Request = None,
+    ):
+        """Sign in automatically when a script's launch link opens in a browser."""
         ticket = payload.get("ticket") if isinstance(payload, dict) else None
         with tickets_lock:
             entry = tickets.pop(ticket, None) if isinstance(ticket, str) else None
@@ -154,7 +166,25 @@ def create_app(
         result: dict[str, Any] = {"token": viewer_token}
         if "evaluator" in entry[1] and evaluator_token:
             result["evaluator_token"] = evaluator_token
+        if response is not None:
+            options = {
+                "httponly": True,
+                "samesite": "strict",
+                "secure": bool(request and request.url.scheme == "https"),
+            }
+            response.set_cookie(f"studio_viewer_{instance}", viewer_token, **options)
+            if "evaluator_token" in result:
+                response.set_cookie(f"studio_evaluator_{instance}", evaluator_token, **options)
+            else:
+                response.delete_cookie(f"studio_evaluator_{instance}", **options)
         return result
+
+    @app.get("/api/session", dependencies=[Depends(authorize)])
+    async def browser_session(
+        x_studio_evaluator_token: Annotated[str | None, Header()] = None,
+        request: Request = None,
+    ):
+        return {"authenticated": True, "evaluator": is_evaluator(x_studio_evaluator_token, request)}
 
     @app.get("/api/architecture", dependencies=[Depends(authorize)])
     async def architecture():
@@ -178,6 +208,12 @@ def create_app(
                 "reason": f"Configuration could not be read: {type(exc).__name__}",
             }
         return {"available": True, "topology": topology}
+
+    @app.get("/api/parsec/experiments", dependencies=[Depends(authorize)])
+    async def parsec_experiments():
+        from ..parsec_vl.report import load_comparisons
+
+        return {"experiments": load_comparisons(experiments_root), "directory": experiments_root.name}
 
     @app.get("/api/runs", dependencies=[Depends(authorize)])
     async def runs():
@@ -275,6 +311,7 @@ def create_app(
     async def reference(
         run_id: str,
         x_studio_evaluator_token: Annotated[str | None, Header()] = None,
+        request: Request = None,
     ):
         """Ground-truth status; the value is released only post-run to evaluators."""
         try:
@@ -282,7 +319,7 @@ def create_app(
                 references.status,
                 root,
                 run_id,
-                evaluator=is_evaluator(x_studio_evaluator_token),
+                evaluator=is_evaluator(x_studio_evaluator_token, request),
             )
         except KeyError as exc:
             raise HTTPException(status_code=404, detail="Run not found") from exc
@@ -290,8 +327,9 @@ def create_app(
     @app.get("/api/evaluator/check", dependencies=[Depends(authorize)])
     async def evaluator_check(
         x_studio_evaluator_token: Annotated[str | None, Header()] = None,
+        request: Request = None,
     ):
-        if not is_evaluator(x_studio_evaluator_token):
+        if not is_evaluator(x_studio_evaluator_token, request):
             raise HTTPException(status_code=403, detail="Evaluator token not accepted")
         return {"evaluator": True}
 
@@ -362,6 +400,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Evaluator-only reference artifacts (default: <runs-dir>/.references).",
     )
     parser.add_argument(
+        "--experiments-dir",
+        default=os.getenv("STUDIO_EXPERIMENTS_DIR"),
+        help="Recorded PARSEC-VL benchmark results for the comparison view (default: outputs/parsec_vl).",
+    )
+    parser.add_argument(
         "--multi-agent-config",
         default=os.getenv("STUDIO_MULTI_AGENT_CONFIG", "configs/multi_agent.yaml"),
         help="Configuration drawn as the configured architecture when no run is selected.",
@@ -429,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
         instance_id=instance,
         evaluator_token=evaluator,
         reference_dir=args.reference_dir,
+        experiments_dir=args.experiments_dir,
     )
     server = uvicorn.Server(uvicorn.Config(app, access_log=False, log_level="warning"))
     session = lifecycle.Session(
@@ -460,10 +504,8 @@ def main(argv: list[str] | None = None) -> int:
                     f"Studio ready: {session.base_url}  (pid {os.getpid()}, {lifecycle.API_VERSION})",
                     flush=True,
                 )
-                print(
-                    f"Open (single-use link, valid {ttl // 60} min): {link}", flush=True
-                )
-                print("New link later: python scripts/studio_ctl.py url", flush=True)
+                label = f"Open (single-use link, valid {ttl // 60} min)" if ttl else "Open visualization"
+                print(f"{label}: {link}", flush=True)
                 if args.print_token:
                     print(f"Viewer token: {token}", flush=True)
                 return

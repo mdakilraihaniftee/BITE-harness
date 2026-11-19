@@ -1,0 +1,168 @@
+{
+  "label": "FIXTURE (coordinator + workers; scripted model; 0.2s injected tool latency; plan 'fallback')",
+  "rows": [
+    {
+      "workers": 4,
+      "variant": "E2, 1 scheduler slot",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 3.9770648002624513,
+      "wall_sd": 0.023199292695565848,
+      "wall_first": 3.988440990447998,
+      "wall_rest_mean": 3.9742207527160645,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "scheduler_workers": 1
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E2, 4 scheduler slots",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 1.8200615882873534,
+      "wall_sd": 0.04637045525329548,
+      "wall_first": 1.8570599555969238,
+      "wall_rest_mean": 1.810811996459961,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "scheduler_workers": 4
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E2, tool pool capacity 1",
+      "policy": "E2",
+      "trials": 5,
+      "wall_mean": 3.966423749923706,
+      "wall_sd": 0.05995019079726478,
+      "wall_first": 3.9575259685516357,
+      "wall_rest_mean": 3.9686481952667236,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "capacities": {
+          "cpu": 1
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E4, 4 slots, capacity 4",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 1.682050848007202,
+      "wall_sd": 0.045429487565037015,
+      "wall_first": 1.6984870433807373,
+      "wall_rest_mean": 1.6779417991638184,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 4.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {}
+    },
+    {
+      "workers": 4,
+      "variant": "E4, tool pool capacity 1",
+      "policy": "E4",
+      "trials": 5,
+      "wall_mean": 3.9257438659667967,
+      "wall_sd": 0.029305594188692073,
+      "wall_first": 3.9487099647521973,
+      "wall_rest_mean": 3.9200023412704468,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 4.0,
+      "planning_seconds_mean": 0.0,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": null,
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "capacities": {
+          "cpu": 1
+        }
+      }
+    },
+    {
+      "workers": 4,
+      "variant": "E5, tool pool capacity 1",
+      "policy": "E5",
+      "trials": 5,
+      "wall_mean": 4.2222676277160645,
+      "wall_sd": 0.09705945318104055,
+      "wall_first": 4.193479061126709,
+      "wall_rest_mean": 4.229464769363403,
+      "tool_calls_mean": 16.0,
+      "speculative_calls_mean": 0.0,
+      "planning_seconds_mean": 0.7268257982097566,
+      "pool_startup_seconds_mean": 0.0,
+      "runs_with_pool_start": 0,
+      "gate_backends": {
+        "sequential": 40
+      },
+      "answers": [
+        "EXIT 42"
+      ],
+      "statuses": [
+        "COMPLETED"
+      ],
+      "settings": {
+        "capacities": {
+          "cpu": 1
+        }
+      }
+    }
+  ],
+  "environment": {
+    "python": "3.11.2",
+    "cpus": 64,
+    "platform": "Linux-6.1.0-54-amd64-x86_64-with-glibc2.36",
+    "recorded_at": "2026-11-19T00:17:45.018345+00:00"
+  },
+  "variant_set": "contention"
+}
